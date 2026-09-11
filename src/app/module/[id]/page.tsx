@@ -63,14 +63,28 @@ function AreaSpark({ data }: { data: number[] }) {
   );
 }
 
-function Shell({ code, symbol, onTicker, status, children }: {
-  code: string; symbol: string; onTicker: (t: string) => void; status: string; children: React.ReactNode;
+function Shell({ code, symbol, onTicker, status, children, task }: {
+  code: string; symbol: string; onTicker: (t: string) => void; status: string; children: React.ReactNode; task?: string | null;
 }) {
   return (
     <>
       <CommandBar ticker={symbol} funcId={code} onTicker={onTicker} />
-      <main className="container grid">{children}</main>
-      <StatusBar ticker={symbol} extra={status} />
+      <main className="container grid">
+        {task ? (
+          <div className="panel">
+            <div className="task-banner" style={{ marginTop: 0 }}>
+              <span className="badge fnc">{code}</span>
+              <span>
+                TASK: <strong>{task}</strong>
+                <span className="faint"> · {symbol} · SCROLL TO THIS SECTION BELOW</span>
+              </span>
+              <a href="/" style={{ marginLeft: "auto", fontSize: 11 }}>MENU ›</a>
+            </div>
+          </div>
+        ) : null}
+        {children}
+      </main>
+      <StatusBar ticker={symbol} extra={task ? `${status} · ${task}` : status} />
     </>
   );
 }
@@ -79,6 +93,12 @@ function useSymParam(): string {
   const sp = useSearchParams();
   const q = sp.get("symbol");
   return normalizeTicker(q || store.getTicker());
+}
+
+function useTaskParam(): string | null {
+  const sp = useSearchParams();
+  const t = sp.get("task");
+  return t ? t.toUpperCase().slice(0, 40) : null;
 }
 
 export default function ModulePage({ params }: { params: { id: string } }) {
@@ -93,6 +113,7 @@ function Inner({ id }: { id: string }) {
   const mod = MODULE_MAP[id];
   const code = funcCode(id);
   const symParam = useSymParam();
+  const task = useTaskParam();
   const router = useRouter();
   const [symbol, setSymbol] = useState(symParam);
 
@@ -100,17 +121,22 @@ function Inner({ id }: { id: string }) {
   useEffect(() => { setSymbol(symParam); }, [symParam, id]);
   useEffect(() => { store.setTicker(symbol); }, [symbol]);
 
-  // Terminal-native desks live on their own routes — bounce there.
+  // Terminal-native desks live on their own routes — bounce there (keep symbol+task).
   useEffect(() => {
-    if (mod && mod.route !== `/module/${id}`) router.replace(mod.route);
-  }, [mod, id, router]);
+    if (mod && mod.route !== `/module/${id}`) {
+      const qs = new URLSearchParams();
+      if (symbol) qs.set("symbol", symbol);
+      if (task) qs.set("task", task);
+      router.replace(qs.toString() ? `${mod.route}?${qs.toString()}` : mod.route);
+    }
+  }, [mod, id, router, symbol, task]);
 
   if (!mod) return <main className="container"><p>UNKNOWN FUNCTION.</p><a href="/">← DIRECTORY</a></main>;
   const status = `${code} ${mod.label.toUpperCase()}`;
 
   if (NEWS_FEED[id]) {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -124,7 +150,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "35") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <p className="p-head">{mod.label} — {code} &lt;GO&gt;</p>
           <div className="muted" style={{ fontSize: 12 }}>{mod.pyFn} · PEER MOMENTUM / BREADTH / ROTATION · AUTO-SECTOR FOR {symbol} · CLICK A SECURITY TO OPEN ITS DESK</div>
@@ -136,7 +162,7 @@ function Inner({ id }: { id: string }) {
 
   if (MARKET_IDS.has(id)) {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <p className="p-head">{mod.label} — {code} &lt;GO&gt;</p>
           <div className="muted" style={{ fontSize: 12 }}>{mod.pyFn} · LIVE INDICES / COMMODITIES / FX</div>
@@ -149,7 +175,7 @@ function Inner({ id }: { id: string }) {
   if (SCREENER_KIND[id]) {
     const isWorkflow = SCREENER_KIND[id] === "all";
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <p className="p-head">{mod.label} — {code} &lt;GO&gt;</p>
           <div className="muted" style={{ fontSize: 12 }}>{mod.pyFn} · LIVE NIFTY-50 SCAN{isWorkflow ? " · 3 BOARDS: MOM 20D% / RSI14 / SWING" : ""} · CLICK A SECURITY TO OPEN ITS DESK</div>
@@ -161,7 +187,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "40") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <DVDesk symbol={symbol} />
       </Shell>
     );
@@ -169,7 +195,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "39") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <OwnDesk symbol={symbol} />
       </Shell>
     );
@@ -178,7 +204,7 @@ function Inner({ id }: { id: string }) {
   if (BACKTEST_CFG[id]) {
     const cfg = BACKTEST_CFG[id];
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <BacktestDesk symbol={symbol} strat={cfg.strat} title={`${cfg.title} — ${code}`} />
       </Shell>
     );
@@ -186,7 +212,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "73") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <p className="p-head">{mod.label} — {code} &lt;GO&gt;</p>
           <div className="muted" style={{ fontSize: 12 }}>{mod.pyFn} · LIVE POLYMARKET BOOK · SORTED BY VOLUME</div>
@@ -198,7 +224,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "17") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <CompanyDesk symbol={symbol} />
       </Shell>
     );
@@ -206,7 +232,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "18") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <DCFDesk symbol={symbol} />
       </Shell>
     );
@@ -214,7 +240,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "19") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <LBODesk symbol={symbol} />
       </Shell>
     );
@@ -222,7 +248,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "6") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <MertonDesk symbol={symbol} />
       </Shell>
     );
@@ -230,7 +256,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "8") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <DayDesk symbol={symbol} />
       </Shell>
     );
@@ -238,7 +264,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "27" || id === "48") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <PairDesk symbol={symbol} />
       </Shell>
     );
@@ -246,7 +272,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "28") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <FactorDesk symbol={symbol} />
       </Shell>
     );
@@ -254,7 +280,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "51") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <WikiDesk />
       </Shell>
     );
@@ -262,7 +288,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "49") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <BibleDesk />
       </Shell>
     );
@@ -270,7 +296,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "50") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <ReaderDesk />
       </Shell>
     );
@@ -278,7 +304,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "42" || id === "43") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <LinkDesk symbol={symbol} mode={id === "42" ? "charts" : "filings"} />
       </Shell>
     );
@@ -286,7 +312,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "66" || id === "71") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <AIDesk symbol={symbol} mode={id === "71" ? "tasks" : "chat"} />
       </Shell>
     );
@@ -294,7 +320,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "2" || id === "4" || id === "5") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <ChartDesk symbol={symbol} id={id} mode={id === "2" ? "suite" : id === "4" ? "compare" : "score"} title={mod.label.toUpperCase()} />
       </Shell>
     );
@@ -302,7 +328,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "29" || id === "57") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <FrontierPanel
           symbols={id === "29" ? [symbol, "^NSEI"] : [symbol, "^NSEI", "GC=F"]}
           title={`${mod.label.toUpperCase()} — ${id === "29" ? "2-ASSET" : "3-ASSET"}`}
@@ -313,7 +339,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "60") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <NetPanel symbol={symbol} />
       </Shell>
     );
@@ -321,7 +347,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "11") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -336,7 +362,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "13") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -351,7 +377,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "14") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -365,7 +391,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "15") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -379,7 +405,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "16") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -393,7 +419,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "20") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -407,7 +433,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "12") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -421,7 +447,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "23") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -435,7 +461,7 @@ function Inner({ id }: { id: string }) {
 
   if (id === "22") {
     return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
         <div className="panel panel-glow">
           <div className="sec-head">
             <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
@@ -447,11 +473,11 @@ function Inner({ id }: { id: string }) {
     );
   }
 
-  return <GenericDesk id={id} code={code} symbol={symbol} setSymbol={setSymbol} status={status} />;
+  return <GenericDesk id={id} code={code} symbol={symbol} setSymbol={setSymbol} status={status} task={task} />;
 }
 
-function GenericDesk({ id, code, symbol, setSymbol, status }: {
-  id: string; code: string; symbol: string; setSymbol: (t: string) => void; status: string;
+function GenericDesk({ id, code, symbol, setSymbol, status, task }: {
+  id: string; code: string; symbol: string; setSymbol: (t: string) => void; status: string; task?: string | null;
 }) {
   const mod = MODULE_MAP[id];
   const cat = mod.category;
@@ -522,7 +548,7 @@ function GenericDesk({ id, code, symbol, setSymbol, status }: {
   }
 
   return (
-    <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status}>
+    <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task}>
       <div className="panel panel-glow">
         <div className="sec-head">
           <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>

@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { MODULES, CATEGORIES } from "@/lib/modules";
 import { WATCHLIST, DEFAULT_TICKER } from "@/lib/watchlist";
 import { normalizeTicker } from "@/lib/utils";
 import { funcCode } from "@/lib/terminal";
 import { store } from "@/lib/store";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
+import FunctionDirectory from "@/components/FunctionDirectory";
 import { LineChart, BarChart, useHoverIndex, HoverTip } from "@/components/charts";
 import { sma, ema, rsi, macd, bollinger, stochastic } from "@/lib/indicators";
 
@@ -369,7 +369,6 @@ function HeroChart({ symbol }: { symbol: string }) {
 }
 
 export default function Home() {
-  const router = useRouter();
   const [ticker, setTicker] = useState(DEFAULT_TICKER);
   const [q, setQ] = useState<QuoteResp | null>(null);
   const [cat, setCat] = useState("All");
@@ -461,7 +460,6 @@ export default function Home() {
         <MacroStrip />
 
         <div className="panel">
-          <p className="p-head">Function directory — {filtered.length}/{MODULES.filter((m) => !m.hidden).length}</p>
           <div className="toolbar">
             <input className="box" value={search} onChange={(e) => setSearch(e.target.value.toUpperCase())} placeholder="FILTER: NAME, FNC (GP/FA/DCF) OR TICKER…" />
           </div>
@@ -478,19 +476,12 @@ export default function Home() {
               ))}
             </div>
           )}
-          <table className="fntbl" style={{ marginTop: 10 }}>
-            <thead><tr><th style={{ width: 70 }}>FNC</th><th style={{ width: 220 }}>Desk</th><th>Description</th></tr></thead>
-            <tbody>
-              {filtered.map((m) => (
-                <tr key={m.id} onClick={() => router.push(`${m.route}?symbol=${encodeURIComponent(ticker)}`)}>
-                  <td className="fnc">{funcCode(m.id)}</td>
-                  <td className="desk">{m.label}</td>
-                  <td className="desc">{m.description}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
+        <FunctionDirectory
+          ticker={ticker}
+          modules={filtered}
+          total={MODULES.filter((m) => !m.hidden).length}
+        />
       </main>
       <StatusBar ticker={ticker} extra={`${filtered.length} FNC SHOWN`} />
     </>
