@@ -6,6 +6,7 @@ out/
 # production
 *.log
 .DS_Store
+tsconfig.tsbuildinfo
 
 # env
 .env

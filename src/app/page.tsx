@@ -8,7 +8,7 @@ import { normalizeTicker } from "@/lib/utils";
 import { funcCode } from "@/lib/terminal";
 import { store } from "@/lib/store";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
-import { LineChart, BarChart } from "@/components/charts";
+import { LineChart, BarChart, useHoverIndex, HoverTip } from "@/components/charts";
 import { sma, ema, rsi, macd, bollinger, stochastic } from "@/lib/indicators";
 
 interface QuoteResp {
@@ -112,9 +112,122 @@ function MacroStrip() {  const [rows, setRows] = useState<any[]>([]);
   );
 }
 
+const CW = 640;
+
+function CandleChart({ bars, overlays, dates, height = 190, showVol }: {
+  bars: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }>;
+  overlays: Array<{ label: string; color: string; values: (number | null)[]; dashed?: boolean }>;
+  dates: string[];
+  height?: number;
+  showVol?: boolean;
+}) {
+  const n = bars.length;
+  const { hover, bind } = useHoverIndex(n);
+  if (!n) return <p className="muted">NO BARS.</p>;
+  const volH = showVol ? 36 : 0;
+  const priceH = height;
+  const H = priceH + volH;
+  const lows = bars.map((b) => b.low), highs = bars.map((b) => b.high);
+  const ov = overlays.flatMap((o) => o.values).filter((v): v is number => v !== null && isFinite(v));
+  let mn = Math.min(...lows, ...(ov.length ? [Math.min(...ov)] : [Infinity]));
+  let mx = Math.max(...highs, ...(ov.length ? [Math.max(...ov)] : [-Infinity]));
+  if (!isFinite(mn) || !isFinite(mx) || mx - mn < 1e-9) { mn -= 1; mx += 1; }
+  const pad = (mx - mn) * 0.06;
+  mn -= pad; mx += pad;
+  const bw = CW / n;
+  const bodyW = Math.max(1.5, Math.min(14, bw * 0.62));
+  const yOf = (v: number) => 6 + (1 - (v - mn) / (mx - mn)) * (priceH - 12);
+  const xOf = (i: number) => (i + 0.5) * bw;
+  const f1 = (v: number) => v.toLocaleString("en-IN", { maximumFractionDigits: v < 100 ? 2 : 0 });
+  const segs = (vals: (number | null)[]) => {
+    const out: string[] = [];
+    let cur: string[] = [];
+    vals.forEach((v, i) => {
+      if (v === null || !isFinite(v)) { if (cur.length > 1) out.push(cur.join(" ")); cur = []; return; }
+      cur.push(`${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`);
+    });
+    if (cur.length > 1) out.push(cur.join(" "));
+    return out;
+  };
+  const last = bars[n - 1];
+  const lastY = yOf(last.close);
+  const maxVol = Math.max(...bars.map((b) => b.volume || 0), 1);
+  const hb = hover !== null ? bars[hover] : null;
+  const prev = hover !== null ? bars[Math.max(hover - 1, 0)] : null;
+  const chg = hb && prev && prev.close ? ((hb.close - prev.close) / prev.close) * 100 : 0;
+  return (
+    <div>
+      <div className="chart-wrap">
+        <svg viewBox={`0 0 ${CW} ${H}`} style={{ width: "100%", height: H }} preserveAspectRatio="none" {...bind}>
+          {[0.25, 0.5, 0.75].map((f) => <line key={f} x1="0" x2={CW} y1={priceH * f} y2={priceH * f} stroke="#1e1e24" strokeWidth="1" />)}
+          {showVol && bars.map((b, i) => {
+            const h = Math.max(1.5, ((b.volume || 0) / maxVol) * (volH - 4));
+            return <rect key={i} x={i * bw + 0.5} y={priceH + volH - h} width={Math.max(1, bw - 1)} height={h} fill={b.close >= b.open ? "#00d664" : "#ff453a"} opacity={hover === null || hover === i ? 0.45 : 0.15} />;
+          })}
+          {bars.map((b, i) => {
+            const up = b.close >= b.open;
+            const c = up ? "#00d664" : "#ff453a";
+            const yO = yOf(b.open), yC = yOf(b.close);
+            const top = Math.min(yO, yC);
+            const h = Math.max(1.2, Math.abs(yC - yO));
+            const dim = hover !== null && hover !== i;
+            return (
+              <g key={i} opacity={dim ? 0.35 : 1}>
+                <line x1={xOf(i)} x2={xOf(i)} y1={yOf(b.high)} y2={yOf(b.low)} stroke={c} strokeWidth={Math.max(1, bodyW * 0.22)} />
+                <rect x={xOf(i) - bodyW / 2} y={top} width={bodyW} height={h} rx="1" fill={c} />
+              </g>
+            );
+          })}
+          {overlays.map((o) => segs(o.values).map((d, k) => (
+            <polyline key={`${o.label}${k}`} points={d} fill="none" stroke={o.color} strokeWidth="1.8" strokeDasharray={o.dashed ? "5 3" : undefined} strokeLinejoin="round" strokeLinecap="round" />
+          )))}
+          <line x1="0" x2={CW} y1={lastY} y2={lastY} stroke="#f5f5f4" strokeWidth="1" strokeDasharray="4 3" opacity="0.55" />
+          {hover !== null && (
+            <g>
+              <line x1={xOf(hover)} x2={xOf(hover)} y1="0" y2={H} stroke="#ffa028" strokeWidth="1" strokeDasharray="3 3" opacity="0.9" />
+              <circle cx={xOf(hover)} cy={yOf(bars[hover].close)} r="4.5" fill="#ffb000" stroke="#000" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+            </g>
+          )}
+        </svg>
+        {hover !== null && hb && (
+          <HoverTip
+            idx={hover} count={n} date={dates[hover]}
+            rows={[
+              { label: "OPEN", color: "#a1a1aa", text: f1(hb.open) },
+              { label: "HIGH", color: "#00d664", text: f1(hb.high) },
+              { label: "LOW", color: "#ff453a", text: f1(hb.low) },
+              { label: "CLOSE", color: "#ffb000", text: f1(hb.close) },
+              { label: "CHG", color: chg >= 0 ? "#00d664" : "#ff453a", text: `${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` },
+              ...overlays.map((o) => {
+                const v = o.values[hover];
+                return { label: o.label, color: o.color, text: v === null || !isFinite(v) ? "—" : f1(v) };
+              }),
+            ]}
+          />
+        )}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, marginTop: 4 }} className="faint">
+        <span>▲ {f1(mx - pad)}</span>
+        <span>LAST {f1(last.close)}</span>
+        <span>▼ {f1(mn + pad)}</span>
+      </div>
+      <div className="pills" style={{ marginTop: 8, gap: 8 }}>
+        <span className="badge" style={{ color: last.close >= last.open ? "#00d664" : "#ff453a" }}>■ {n} CANDLES</span>
+        {overlays.map((o) => {
+          let lv: number | null = null;
+          for (let i = o.values.length - 1; i >= 0; i--) { const v = o.values[i]; if (v !== null && isFinite(v)) { lv = v; break; } }
+          return <span key={o.label} className="badge" style={{ color: o.color }}>■ {o.label} {lv === null ? "—" : f1(lv)}</span>;
+        })}
+      </div>
+    </div>
+  );
+}
+
 function HeroChart({ symbol }: { symbol: string }) {
   const [bars, setBars] = useState<Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }>>([]);
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"CANDLES" | "LINES">("CANDLES");
+  const [range, setRange] = useState<"3mo" | "6mo" | "1y">("6mo");
   const [showPrice, setShowPrice] = useState(true);
   const [showSMA20, setShowSMA20] = useState(true);
   const [showSMA50, setShowSMA50] = useState(true);
@@ -128,7 +241,7 @@ function HeroChart({ symbol }: { symbol: string }) {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    fetch(`/api/history?symbol=${encodeURIComponent(symbol)}&range=6mo&interval=1d`)
+    fetch(`/api/history?symbol=${encodeURIComponent(symbol)}&range=${range}&interval=1d`)
       .then((r) => r.json())
       .then((j) => {
         if (alive) setBars(((j.bars ?? []) as any[]).map((b) => ({ date: b.date, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume || 0 })));
@@ -136,7 +249,7 @@ function HeroChart({ symbol }: { symbol: string }) {
       .catch(() => { if (alive) setBars([]); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [symbol]);
+  }, [symbol, range]);
 
   const closes = bars.map((b) => b.close);
   const dates = bars.map((b) => b.date);
@@ -170,25 +283,50 @@ function HeroChart({ symbol }: { symbol: string }) {
   ];
   const x3: [string, string, string] = [dates[0] ?? "", dates[Math.floor(dates.length / 2)] ?? "", dates[dates.length - 1] ?? ""];
 
+  const candleOverlays = [
+    ...(showSMA20 ? [{ label: "SMA20", color: "#00d664", values: s20 }] : []),
+    ...(showSMA50 ? [{ label: "SMA50", color: "#8f7bff", values: s50 }] : []),
+    ...(showEMA20 ? [{ label: "EMA20", color: "#00c8ff", values: e20 }] : []),
+    ...(showBB ? [
+      { label: "BB-UP", color: "#5b5b62", values: bb.upper, dashed: true },
+      { label: "BB-LO", color: "#5b5b62", values: bb.lower, dashed: true },
+    ] : []),
+  ];
+  const rangeLabel = range === "3mo" ? "3M" : range === "1y" ? "1Y" : "6M";
+
   return (
     <div className="panel">
       <p className="p-head">
-        Trend — 6M {dates.length > 1 ? <span className="faint">— {dates[0]} → {dates[dates.length - 1]}</span> : null}
+        Trend — {rangeLabel} {dates.length > 1 ? <span className="faint">— {dates[0]} → {dates[dates.length - 1]}</span> : null}
       </p>
       <div className="pills" style={{ marginBottom: 8 }}>
+        {(["CANDLES", "LINES"] as const).map((m) => (
+          <button key={m} className={`pill${mode === m ? " active" : ""}`} onClick={() => setMode(m)}>{m === "CANDLES" ? "🕯 CANDLES" : "LINE"}</button>
+        ))}
+        <span className="faint" style={{ alignSelf: "center" }}>|</span>
+        {(["3mo", "6mo", "1y"] as const).map((r) => (
+          <button key={r} className={`pill${range === r ? " active" : ""}`} onClick={() => setRange(r)}>{r === "3mo" ? "3M" : r === "1y" ? "1Y" : "6M"}</button>
+        ))}
+        <span className="faint" style={{ alignSelf: "center" }}>|</span>
         {pills.map(([label, on, set]) => (
-          <button key={label} className={`pill${on ? " active" : ""}`} onClick={() => set(!on)}>{label}</button>
+          <button key={label} className={`pill${on ? " active" : ""}`} onClick={() => set(!on)}>{mode === "CANDLES" && label === "PRICE" ? "🕯 OHLC" : label}</button>
         ))}
       </div>
       {loading && <p className="muted">PLOTTING {symbol}…</p>}
-      {!loading && priceSeries.length > 0 && (
+      {!loading && mode === "CANDLES" && (showPrice || candleOverlays.length > 0) && bars.length > 1 && (
+        <CandleChart
+          bars={showPrice ? bars : bars.map((b) => ({ ...b, open: b.close, high: b.close, low: b.close }))}
+          overlays={candleOverlays} dates={dates} height={190} showVol={showVol}
+        />
+      )}
+      {!loading && mode === "LINES" && priceSeries.length > 0 && (
         <LineChart
           series={priceSeries} height={150}
           yFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
           dates={dates}
         />
       )}
-      {!loading && priceSeries.length === 0 && (
+      {!loading && priceSeries.length === 0 && (mode === "LINES" || (!showPrice && candleOverlays.length === 0)) && (
         <p className="muted">ALL PRICE LAYERS OFF — TOGGLE ONE BACK ON.</p>
       )}
       {showRSI && !loading && (
