@@ -1,0 +1,18 @@
+# dependencies
+node_modules/
+.next/
+out/
+
+# production
+*.log
+.DS_Store
+
+# env
+.env
+.env*.local
+
+# python original (kept for reference, not deployed)
+# special.py is kept but ignored by Vercel build via .vercelignore if needed
+my_*.json
+*.xlsx
+*.png
