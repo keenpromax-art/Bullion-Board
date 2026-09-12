@@ -5,6 +5,33 @@ import { NextRequest, NextResponse } from "next/server";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent": UA,
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  Referer: "https://www.google.com/",
+  "Upgrade-Insecure-Requests": "1",
+};
+
+function proxyParagraphs(text: string): string[] {
+  const out: string[] = [];
+  for (const line of text.split("\n")) {
+    const t = line.replace(/\s+/g, " ").trim();
+    if (t.length < 60) continue;
+    if (/^(image|images|video|advertisement|subscribe|sign up|follow us|also read|read more|published|updated)\b/i.test(t)) continue;
+    if (/^https?:\/\//.test(t)) continue;
+    out.push(t.slice(0, 1200));
+    if (out.length >= 40 || out.join(" ").length > 12000) break;
+  }
+  // Dedupe repeated blocks.
+  const seen = new Set<string>();
+  return out.filter((p) => {
+    const k = p.slice(0, 60).toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
 function blockedHost(host: string): boolean {
   const h = host.toLowerCase().split(":")[0];
   if (h === "localhost" || h.endsWith(".localhost")) return true;
@@ -112,7 +139,7 @@ export async function GET(req: NextRequest) {
   }
   try {
     const r = await fetch(u.toString(), {
-      headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml" },
+      headers: BROWSER_HEADERS,
       signal: AbortSignal.timeout(15000),
       cache: "no-store",
     });
@@ -136,7 +163,23 @@ export async function GET(req: NextRequest) {
     const paragraphs = extractBody(html);
     if (!paragraphs.length) throw new Error("no readable text found");
     return NextResponse.json({ url: u.toString(), title, count: paragraphs.length, paragraphs });
-  } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "article failed", url }, { status: 502 });
+  } catch (directErr: unknown) {
+    // Fallback: public text-extraction proxy for publishers that block
+    // datacenter fetches (403/bot walls). Same shape + proxied flag.
+    try {
+      const pr = await fetch(`https://r.jina.ai/${u.toString()}`, {
+        headers: { "User-Agent": UA, Accept: "text/plain" },
+        signal: AbortSignal.timeout(20000),
+        cache: "no-store",
+      });
+      if (!pr.ok) throw new Error(`fetch ${pr.status}`);
+      const text = await pr.text();
+      const paragraphs = proxyParagraphs(text);
+      if (!paragraphs.length) throw new Error("no readable text found");
+      return NextResponse.json({ url: u.toString(), title: "", count: paragraphs.length, paragraphs, proxied: true });
+    } catch {
+      const msg = directErr instanceof Error ? directErr.message : "article failed";
+      return NextResponse.json({ error: msg, url }, { status: 502 });
+    }
   }
 }

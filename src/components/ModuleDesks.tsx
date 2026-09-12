@@ -68,7 +68,7 @@ function MiniSpark({ data, w = 120, h = 28 }: { data: number[]; w?: number; h?: 
 
 interface NewsPayload {
   symbol: string; feed: string; count: number; bull: number; bear: number; neut: number;
-  sources: string[]; items: Array<{ id: string; title: string; link: string; source: string; published: string; ago: string; score: number; label: string }>;
+  sources: string[]; items: Array<{ id: string; title: string; link: string; source: string; published: string; ago: string; score: number; label: string; desc?: string }>;
 }
 
 function hhmm(iso: string, fallback: string): string {
@@ -82,7 +82,7 @@ function hhmm(iso: string, fallback: string): string {
 
 function ReaderPane({ item, art, loading, err, onClose, onRetry }: {
   item: { title: string; link: string; source: string; published: string; ago: string } | null;
-  art: { title: string; paragraphs: string[] } | null;
+  art: { title: string; paragraphs: string[]; fallback?: boolean } | null;
   loading: boolean; err: string;
   onClose: () => void; onRetry: () => void;
 }) {
@@ -138,6 +138,7 @@ function ReaderPane({ item, art, loading, err, onClose, onRetry }: {
             <div className="dlg-body">
               {loading && <p className="muted">PULLING FULL TEXT…</p>}
               {err && <p className="neg">READER ERR: {err} <button className="ghost" style={{ marginLeft: 6 }} onClick={onRetry}>RETRY</button></p>}
+              {art?.fallback && <p className="muted" style={{ fontSize: 12 }}>FULL TEXT BLOCKED BY PUBLISHER — FEED SUMMARY SHOWN · SUMMARIZE STILL WORKS</p>}
               {art && art.paragraphs.map((p, i) => (
                 <p key={i} style={{ fontSize: 14, lineHeight: 1.75, color: "var(--text)", margin: "0 0 12px 0" }}>{p}</p>
               ))}
@@ -171,7 +172,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
   const [aiOut, setAiOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [art, setArt] = useState<{ title: string; paragraphs: string[] } | null>(null);
+  const [art, setArt] = useState<{ title: string; paragraphs: string[]; fallback?: boolean } | null>(null);
   const [artLoading, setArtLoading] = useState(false);
   const [artErr, setArtErr] = useState("");
 
@@ -199,7 +200,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
   }
 
   const openSeq = useState(() => ({ n: 0 }))[0];
-  function openArticle(n: { id: string; title: string; link: string; source: string }) {
+  function openArticle(n: { id: string; title: string; link: string; source: string; desc?: string }) {
     if (!n.link) return;
     markRead(n.id);
     const my = ++openSeq.n;
@@ -210,7 +211,14 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
         if (!r.ok) throw new Error(j.error || "article failed");
         if (openSeq.n === my) setArt({ title: j.title || n.title, paragraphs: j.paragraphs ?? [] });
       })
-      .catch((e) => { if (openSeq.n === my) setArtErr(e.message); })
+      .catch((e) => {
+        // Publisher blocked the fetch — fall back to the feed summary so
+        // the reader + SUMMARIZE still have something to work with.
+        if (openSeq.n === my) {
+          if (n.desc) setArt({ title: n.title, paragraphs: [n.desc], fallback: true });
+          else setArtErr(e.message);
+        }
+      })
       .finally(() => { if (openSeq.n === my) setArtLoading(false); });
   }
 

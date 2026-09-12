@@ -13,6 +13,7 @@ export interface NewsItem {
   ago: string;
   score: number;
   label: "BULL" | "BEAR" | "NEUT";
+  desc?: string; // RSS <description> summary — reader fallback when the page blocks fetch
 }
 
 const POS = new Set(
@@ -163,6 +164,10 @@ async function fetchRSS(url: string, sourceOverride: string | null, limit: numbe
       const pub = pick("pubDate");
       const ts = pub ? Date.parse(pub) : NaN;
       const s = scoreSentiment(title);
+      // Feed summary doubles as the reader fallback when the publisher
+      // page blocks server fetch (403/paywall). Plain text, capped.
+      const rawDesc = pick("description").replace(/<[^>]*>/g, " ");
+      const desc = decodeEntities(rawDesc).replace(/\s+/g, " ").trim().slice(0, 600) || undefined;
       // Google News wraps links as news.google.com/rss/articles/... (JS wall
       // for server fetch), but the item's <source> tag carries the real
       // publisher URL — prefer it so the reader + OPEN ORIGINAL land direct.
@@ -183,6 +188,7 @@ async function fetchRSS(url: string, sourceOverride: string | null, limit: numbe
         ago: isFinite(ts) ? ago(ts) : "—",
         score: s.score,
         label: s.label,
+        ...(desc ? { desc } : {}),
       });
     }
     return items;
