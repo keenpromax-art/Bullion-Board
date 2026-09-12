@@ -20,6 +20,15 @@ export interface SavedWorkspace {
 
 export type TilingPreset = "1-up" | "2-up-h" | "2-up-v" | "4-up";
 
+// Auto-reshuffle: closing a panel reflows survivors into the tightest
+// preset that fits them — the workspace itself never empties (the last
+// panel requires confirm and is kept on cancel).
+export function fitLayout(n: number): TilingPreset {
+  if (n <= 1) return "1-up";
+  if (n === 2) return "2-up-v";
+  return "4-up";
+}
+
 const ACTIVE_KEY = "bb.workspace.active.v2";
 const NAMES_KEY = "bb.workspace.saved";
 const LEGACY_NOTE = "bb.workspace.legacyWarned";

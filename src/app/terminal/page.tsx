@@ -13,7 +13,7 @@ import StatusBar from "@/components/terminal/StatusBar";
 import WorkspaceSwitcher from "@/components/terminal/WorkspaceSwitcher";
 import { panelCode, panelTitle } from "@/components/terminal/Panel";
 import {
-  loadActive, saveActive, uid, defaultPanels,
+  loadActive, saveActive, uid, defaultPanels, fitLayout,
   type ActiveState, type PanelSpec, type TilingPreset,
 } from "@/lib/terminal/workspaceStore";
 import { installShortcuts } from "@/lib/terminal/keyboardShortcuts";
@@ -174,7 +174,7 @@ function Inner() {
         const next = prev.panels.filter((p) => p.id !== prev.focusedId);
         const nf = next[Math.max(0, Math.min(idx, next.length - 1))];
         if (maxId && prev.focusedId === maxId) setMaxId(null);
-        return { ...prev, panels: next, focusedId: nf.id, dirty: true };
+        return { ...prev, panels: next, focusedId: nf.id, layout: fitLayout(next.length), dirty: true };
       }),
       maximizeFocused: () => setState((prev) => {
         if (!prev?.focusedId) return prev;
@@ -266,7 +266,7 @@ function Inner() {
             const next = prev.panels.filter((p) => p.id !== id);
             const nf = next[Math.max(0, Math.min(idx, next.length - 1))];
             if (maxId === id) setMaxId(null);
-            return { ...prev, panels: next, focusedId: prev.focusedId === id ? nf.id : prev.focusedId, dirty: true };
+            return { ...prev, panels: next, focusedId: prev.focusedId === id ? nf.id : prev.focusedId, layout: fitLayout(next.length), dirty: true };
           })}
           onMaximize={(id) => setMaxId((m) => (m === id ? null : id))}
           onChange={(id, next) => {
