@@ -163,10 +163,21 @@ async function fetchRSS(url: string, sourceOverride: string | null, limit: numbe
       const pub = pick("pubDate");
       const ts = pub ? Date.parse(pub) : NaN;
       const s = scoreSentiment(title);
+      // Google News wraps links as news.google.com/rss/articles/... (JS wall
+      // for server fetch), but the item's <source> tag carries the real
+      // publisher URL — prefer it so the reader + OPEN ORIGINAL land direct.
+      let link = pick("link");
+      const srcUrlM = block.match(/<source[^>]*\surl="([^"]+)"/i);
+      if (srcUrlM) {
+        const cand = decodeEntities(srcUrlM[1]).replace(/&amp;/g, "&").trim();
+        try {
+          if (/^https?:\/\//i.test(cand) && /news\.google\.com/i.test(new URL(link).hostname)) link = cand;
+        } catch { /* keep wrapper */ }
+      }
       items.push({
         id: `rss-${sourceOverride ? "fin" : "g"}-${i++}`,
         title,
-        link: pick("link"),
+        link,
         source: (source || "NEWS").toUpperCase().slice(0, 24),
         published: isFinite(ts) ? new Date(ts).toISOString() : "",
         ago: isFinite(ts) ? ago(ts) : "—",
