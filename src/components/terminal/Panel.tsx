@@ -71,6 +71,7 @@ export default function Panel({
   const [editing, setEditing] = useState(false);
   const [mini, setMini] = useState(`${spec.symbol ? spec.symbol.replace(".NS", "") : ""} ${panelCode(spec)}`.trim());
   const [miniErr, setMiniErr] = useState("");
+  const [zoomPct, setZoomPct] = useState(1);
   const menuRef = useRef<HTMLDivElement>(null);
   const miniRef = useRef<HTMLInputElement>(null);
 
@@ -104,6 +105,11 @@ export default function Panel({
   }
 
   const title = panelTitle(spec);
+  const zoomMode = spec.zoomMode ?? "fit";
+
+  function toggleZoom() {
+    onChange({ ...spec, zoomMode: zoomMode === "fit" ? "full" : "fit" });
+  }
 
   return (
     <section
@@ -133,6 +139,14 @@ export default function Panel({
           </>
         ) : null}
         <span className="term-panel-sp" />
+        <button
+          className="term-icon zoom-toggle"
+          title={zoomMode === "fit" ? `FIT ${Math.round(zoomPct * 100)}% — CLICK FOR 1:1 + SCROLL` : "1:1 — CLICK TO FIT PANEL"}
+          aria-label="Toggle fit to panel"
+          onClick={(e) => { e.stopPropagation(); toggleZoom(); }}
+        >
+          {zoomMode === "fit" ? `${Math.round(zoomPct * 100)}%` : "1:1"}
+        </button>
         <button className="term-icon" title={maximized ? "Restore (Ctrl+M)" : "Maximize (Ctrl+M)"} aria-label="Maximize panel" onClick={(e) => { e.stopPropagation(); onMaximize(); }}>▢</button>
         <button className="term-icon danger" title="Close panel (Ctrl+W)" aria-label="Close panel" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
         {menu && (
@@ -170,7 +184,7 @@ export default function Panel({
       <div className="term-panel-body">
         <div className="desk-fill">
           <PanelErrorBoundary key={`${spec.funcId}|${spec.symbol}|${spec.task ?? ""}`} label={title}>
-            <FitBody>
+            <FitBody mode={zoomMode} onZoom={setZoomPct}>
               <DeskRenderer
                 funcId={spec.funcId} symbol={spec.symbol} task={spec.task}
                 onOpen={(f, s) => onChange({ ...spec, funcId: f, symbol: s, task: null })}

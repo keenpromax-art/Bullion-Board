@@ -7,6 +7,7 @@ export interface PanelSpec {
   funcId: string; // module id ("70","12","110",...) or pseudo ("DIR","NOTE")
   symbol: string; // ticker or "" for symbol-less desks
   task?: string | null;
+  zoomMode?: "fit" | "full"; // fit = scale-to-fit, no scroll (default); full = 1:1 with scroll
 }
 
 export interface SavedWorkspace {

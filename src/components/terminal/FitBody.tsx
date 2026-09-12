@@ -1,18 +1,31 @@
 "use client";
 
-// Scale-to-fit wrapper: the whole desk zooms down just enough to fit the
-// panel height exactly — everything visible, never any scrolling.
-// zoom <= 1 only (never upscale). Recomputes on panel resize and on
-// content changes (data loads). Converges: measured height scales linearly
-// with zoom, so one or two passes settle within 0.02 and stop.
+// Scale-to-fit wrapper with an escape hatch: `fit` mode zooms the whole
+// desk down just enough to fit the panel height exactly (no scrolling);
+// `full` mode renders 1:1 with internal scrolling for close reading.
+// zoom <= 1 only in fit mode (never upscale). Recomputes on panel resize
+// and on content changes (data loads). Converges: measured height scales
+// linearly with zoom, so one or two passes settle within 0.02 and stop.
 
 import { useEffect, useRef, useState } from "react";
 
-export default function FitBody({ children }: { children: React.ReactNode }) {
+export default function FitBody({
+  mode,
+  onZoom,
+  children,
+}: {
+  mode: "fit" | "full";
+  onZoom?: (z: number) => void;
+  children: React.ReactNode;
+}) {
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const cbRef = useRef(onZoom);
+  cbRef.current = onZoom;
 
   useEffect(() => {
     const o = outer.current;
@@ -22,6 +35,14 @@ export default function FitBody({ children }: { children: React.ReactNode }) {
     const fit = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
+        if (modeRef.current !== "fit") {
+          if (zoomRef.current !== 1) {
+            zoomRef.current = 1;
+            setZoom(1);
+            cbRef.current?.(1);
+          }
+          return;
+        }
         const avail = o.clientHeight;
         if (!avail) return;
         const full = s.scrollHeight / (zoomRef.current || 1);
@@ -30,6 +51,7 @@ export default function FitBody({ children }: { children: React.ReactNode }) {
         if (Math.abs(z - zoomRef.current) > 0.02) {
           zoomRef.current = z;
           setZoom(z);
+          cbRef.current?.(z);
         }
       });
     };
@@ -44,8 +66,8 @@ export default function FitBody({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div ref={outer} className="fit-outer">
-      <div ref={inner} className="fit-inner" style={{ zoom }}>
+    <div ref={outer} className="fit-outer" data-mode={mode}>
+      <div ref={inner} className="fit-inner" style={mode === "fit" ? { zoom } : undefined}>
         {children}
       </div>
     </div>
