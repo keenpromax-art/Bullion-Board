@@ -7,6 +7,7 @@ import { funcCode } from "@/lib/terminal";
 import type { PanelSpec } from "@/lib/terminal/workspaceStore";
 import { parseTerminalCommand } from "@/lib/terminal/commandParser";
 import DeskRenderer from "./DeskRenderer";
+import FitBody from "./FitBody";
 
 export function panelTitle(p: PanelSpec): string {
   if (PSEUDO_DESKS[p.funcId]) return PSEUDO_DESKS[p.funcId].label;
@@ -169,11 +170,13 @@ export default function Panel({
       <div className="term-panel-body">
         <div className="desk-fill">
           <PanelErrorBoundary key={`${spec.funcId}|${spec.symbol}|${spec.task ?? ""}`} label={title}>
-            <DeskRenderer
-              funcId={spec.funcId} symbol={spec.symbol} task={spec.task}
-              onOpen={(f, s) => onChange({ ...spec, funcId: f, symbol: s, task: null })}
-              onExpand={() => onChange({ ...spec, task: null })}
-            />
+            <FitBody>
+              <DeskRenderer
+                funcId={spec.funcId} symbol={spec.symbol} task={spec.task}
+                onOpen={(f, s) => onChange({ ...spec, funcId: f, symbol: s, task: null })}
+                onExpand={() => onChange({ ...spec, task: null })}
+              />
+            </FitBody>
           </PanelErrorBoundary>
         </div>
       </div>

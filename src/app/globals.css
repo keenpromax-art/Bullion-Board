@@ -430,7 +430,9 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-menu button.danger:hover { color: var(--red); }
 .term-menu button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .term-expose { position: absolute; top: 34px; left: 10px; z-index: 5; font-size: 34px; font-weight: 700; color: rgba(255,160,40,0.9); background: rgba(0,0,0,0.6); border: 1px solid var(--amber); border-radius: 3px; padding: 0 12px; pointer-events: none; }
-.term-panel-body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; }
+.term-panel-body { flex: 1; min-height: 0; overflow: hidden; padding: 10px 12px; display: flex; flex-direction: column; }
+.fit-outer { flex: 1; min-height: 0; overflow: hidden; }
+.fit-inner { transform-origin: top left; }
 .desk-fill { min-height: 0; }
 .desk-fill .grid { gap: 8px; }
 .desk-head { margin-bottom: 4px; }
