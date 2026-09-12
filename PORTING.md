@@ -5,8 +5,10 @@ This document records the deliberate, complete mapping so reviewers can verify n
 
 ## 1. Entry points
 
-- `cli_main / build_cli_parser / main / __main__` → Next.js routing: `/` (dashboard),
-  `/module/[id]?symbol=X`, `/notes`, `/settings`. CLI flags map to query params:
+- `cli_main / build_cli_parser / main / __main__` → Next.js routing: `/`
+  (terminal workspace; the classic dashboard lives on as its DIR panel),
+  `/terminal` (same shell alias), `/module/[id]?symbol=X`, `/notes`,
+  `/settings`. CLI flags map to query params:
   `--ticker X` → `?symbol=X`, `--module N` → `/module/N`, `--snapshot/--dashboard` → module page header stats.
 - `show_startup_splash / prompt_direct_ticker / pick_ticker_enhanced / display_market_dashboard` → `/` hero + quote strip.
 - `run_in_session_settings / run_settings_standalone / _settings_manage_list*` → `/settings` + watchlist panel on `/`.

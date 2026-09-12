@@ -6,9 +6,11 @@ Built with Next.js 14 + React 18 + TypeScript. Vercel-ready.
 
 ## Highlights
 
-- **Function directory** (`/`) — searchable desk index with category filter,
-  watchlist, market overview (indices, breadth, risk read) and command bar
-  (`TICKER FNC + <GO>`, e.g. `RELIANCE STRAT`).
+- **Terminal workspace** (`/`, alias `/terminal`) — multi-panel BBG-style shell:
+  persistent command line (`TICKER FNC + <GO>`, e.g. `RELIANCE STRAT`),
+  ticker tape, F1–F12 key bar, saveable workspace layouts, full keyboard
+  operation. Ships an Equity Overview preset (strat mini + watchlist +
+  funda mini + AI mini, no scrolling); every desk opens in a panel.
 - **Options Strategy Recommender** (`/module/70`) — regime engine (trend bias,
   HV term-structure, IV regime, expected move) driving a **15-strategy payoff
   engine**: outrights, vertical/credit spreads, straddles/strangles, butterfly,
