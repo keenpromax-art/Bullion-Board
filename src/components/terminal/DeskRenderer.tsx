@@ -42,9 +42,31 @@ const BACKTEST_CFG: Record<string, { strat: string; title: string }> = {
 };
 const MARKET_IDS = new Set(["38", "53"]);
 
+// Desks where a ticker is meaningless: news wires, market/macro boards,
+// screeners, readers, portfolio-style tools. Panels and headers hide the
+// symbol chrome for these (data flow untouched — symbol stays in spec).
+export const SYMBOL_LESS = new Set([
+  "21", "38", "41", "44", "45", "46", "47", "49", "51", "53",
+  "65", "67", "72", "73", "74", "75",
+  "101", "102", "104", "107", "108", "109", "110", "111",
+]);
+
 function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
   const mod = MODULE_MAP[funcId];
   if (!mod) return null;
+  if (!symbol || SYMBOL_LESS.has(funcId)) {
+    return (
+      <div className="desk-head">
+        <span className="sec-name" style={{ fontSize: 20 }}>
+          {mod.label.toUpperCase()}
+          <span className="suffix"> {funcCode(funcId)} &lt;GO&gt;</span>
+        </span>
+        <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+          {mod.pyFn} · {mod.category.toUpperCase()}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="desk-head">
       <span className="sec-name" style={{ fontSize: 20 }}>

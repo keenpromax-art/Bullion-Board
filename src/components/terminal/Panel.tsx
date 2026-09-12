@@ -6,7 +6,7 @@ import { MODULE_MAP } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
 import type { PanelSpec } from "@/lib/terminal/workspaceStore";
 import { parseTerminalCommand } from "@/lib/terminal/commandParser";
-import DeskRenderer from "./DeskRenderer";
+import DeskRenderer, { SYMBOL_LESS } from "./DeskRenderer";
 
 export function panelTitle(p: PanelSpec): string {
   if (PSEUDO_DESKS[p.funcId]) return PSEUDO_DESKS[p.funcId].label;
@@ -125,7 +125,7 @@ export default function Panel({
       >
         <span className="cmd-mark" aria-hidden>▮</span>
         <span className="term-panel-title">{title}</span>
-        {spec.symbol ? (
+        {spec.symbol && !SYMBOL_LESS.has(spec.funcId) ? (
           <>
             <span className="term-panel-sep">|</span>
             <span className="term-panel-sym">{spec.symbol}</span>
