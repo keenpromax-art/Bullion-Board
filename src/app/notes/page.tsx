@@ -5,6 +5,7 @@ import { store } from "@/lib/store";
 import type { Note } from "@/lib/types";
 import { formatTimestamp, truncate } from "@/lib/utils";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
+import OpenInWorkspace from "@/components/terminal/OpenInWorkspace";
 
 export default function NotesPage() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -38,6 +39,12 @@ export default function NotesPage() {
     <>
       <CommandBar ticker={store.getTicker()} onTicker={(t) => setTicker(t)} />
       <main className="container grid">
+        <div className="panel">
+          <div className="toolbar">
+            <OpenInWorkspace funcId="NOTE" symbol={ticker} />
+            <a href="/terminal" className="ghost" style={{ padding: "9px 16px", textDecoration: "none" }}>TERMINAL ▦</a>
+          </div>
+        </div>
         <div className="panel">
           <p className="p-head">Notes — research log · {notes.length} records</p>
           <div className="grid grid-3">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
+import OpenInWorkspace from "@/components/terminal/OpenInWorkspace";
 import { store } from "@/lib/store";
 
 interface MRow {
@@ -477,6 +478,12 @@ export default function MacroPage() {  const [rows, setRows] = useState<MRow[]>(
     <>
       <CommandBar ticker={store.getTicker()} onTicker={() => {}} />
       <main className="container grid">
+        <div className="panel">
+          <div className="toolbar">
+            <OpenInWorkspace funcId="111" symbol={store.getTicker()} />
+            <a href="/terminal" className="ghost" style={{ padding: "9px 16px", textDecoration: "none" }}>TERMINAL ▦</a>
+          </div>
+        </div>
         <div className="panel panel-glow">
           <p className="p-head">Macro indicators — FRED feed · {rows.filter((r) => r.ok).length}/{total} live{keyed ? " · KEYED META" : ""}</p>
           <p className="muted" style={{ fontSize: 12.5, margin: "0 0 4px 0" }}>

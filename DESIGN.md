@@ -76,6 +76,22 @@ as instant. Uppercase micro-headers, square panels, tabular numerals everywhere.
 ## 7. Responsive
 - <1024px: stat strips 2-col; function table keeps FNC+DESK, hides description
 - Command bar collapses to prompt + input; clock hidden <640px
+- Terminal workspace <1024px: force single-column stack (tiling presets collapse to 1-up); panels lose native resize; workbar hint hidden
+- Terminal workspace <640px: command line shows prompt + input + GO only (clock/feed/focus-tag hidden); ticker tape shortens to 40s loop; function-key bar becomes horizontal scroll strip; panel close/max icons keep 40px hit areas
 
 ## 8. Agent Prompt Guide
 - "Bloomberg terminal: bg #030304, panel #0c0c0e, amber #ffa028 functions, yellow #ffb000 securities, IBM Plex Mono, 3px radius, dense uppercase grids."
+
+## 9. Terminal Shell (multi-panel workspace — `/terminal`)
+- Chrome mounts once: `CommandLine` + `TickerTape` + `PanelWorkspace` + `FunctionKeyBar` + `StatusBar`. Never nest chrome inside a panel.
+- Command line: sticky top, black `#030304`, amber-at-40% bottom border, `>` amber prompt, transparent uppercase input, amber caret. Syntax `<SYMBOL> <FNC> <GO>`; `FNC<GO>` reuses focused panel symbol; `SYMBOL<GO>` reopens last FNC for symbol else `DIR`. Plain Enter = replace focused panel; Shift+Enter or trailing `NEW` = new panel. `?` overlay documents this. History: Up/Down, 50 kept in localStorage. `` ` `` or Ctrl/Cmd+K focuses from anywhere; Esc clears + blurs.
+- Autocomplete: fuzzy over watchlist symbols + every `modules.ts` function code; rows show CODE + DESK + CATEGORY; Arrow keys + Enter/Tab to complete; mouse via onMouseDown (no blur race).
+- Ticker tape: directly under command line, black bg, amber-at-40% top/bottom rules. Right-to-left marquee (80s loop, 40s <640px), symbol in security-yellow, price tabular mono, change green ▲ / red ▼. Hover pauses. Click dispatches `SYMBOL<GO>` to focused panel. Polls `/api/quote` batched at 60s (respects `QUOTE_TTL=60s`) — no separate push feed.
+- Panels: `#0c0c0e` bg, `1px solid #26262b`, 3px radius. Header: `▮` amber + panel number + uppercase 12px amber title + security-yellow ticker + `FNC` badge; mini command (`SYM FNC` + GO) hidden until ✎; close ✕ / maximize ▢ 40px targets right. Right-click header = Duplicate / Change function / Detach to new panel / Close. Focused panel: amber border + `0 0 24px rgba(255,160,40,0.12)` glow + amber number chip. Body: 12px padding, internal scroll, `.desk-fill` min-height 0 — desks never assume viewport (no `100vh`, no fixed elements).
+- Tiling: grid presets `1-up | 2-up-v | 2-up-h | 4-up` (hand-rolled CSS grid, no dock lib — see `PanelWorkspace.tsx` rationale). Native `resize: both` corner handle per panel = free resize beyond presets; header drag = reorder; double-click header = maximize. Maximize hides siblings, keeps all chrome visible. `Ctrl+1..9` flashes big index badges (expose numbering).
+- Function-key bar: fixed above status bar (bottom 28px), horizontal scroll on small screens. `F1 DIR · F2 CH CHART · F3 TI TECH · F4 FS FUND · F5 STRAT · F6 OC OPTIONS · F7 SWING · F8 IND MACRO · F9 WIRE NEWS · F10 RSK RISK · F11 AI CHAT · F12 NOTES`. Amber top-rule = core equity/options; green = screener/risk; yellow = macro/news/AI. Click or physical F-key (ignored while command line focused; browser-reserved keys fall back gracefully).
+- Status bar: extends §4 28px bar — `YAHOO FEED ● | N FUNC | M PANELS | WORKSPACE[*] | FOCUS ▸ FNC | SEC | CLOCK`. 11px mono gray. Body bottom padding accounts for status (28px) + fkey bar (~48px).
+- Workspace switcher: `▤ NAME ▾` dropdown — save-as named layout, load/rename/delete, export/import JSON. Active layout autosaves to localStorage on every change; dirty `*` until saved. Default preset `EQUITY OVERVIEW` (DIR + CH chart + FS fundamentals + STRAT) so first run is populated.
+- Keyboard: single app-level listener; never hijacks typing inside inputs/textareas except command-line keys. Every control (panels, fkeys, autocomplete, menus) keyboard-operable with visible amber focus rings.
+- Deep links (`/module/[id]`, `/ochain`, `/macro`, `/notes`, `/settings`) keep resolving; each shows `OPEN IN WORKSPACE ▸` + `TERMINAL ▦` and shares the same `DeskRenderer` used by `Panel` — no forked desk logic.
+- Homage framing: independent visual/functional homage; no Bloomberg trademarks, logo, or wordmark anywhere; footer/about copy states non-affiliation.

@@ -1,0 +1,155 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { MODULE_MAP } from "@/lib/modules";
+import { funcCode } from "@/lib/terminal";
+import { PSEUDO_DESKS } from "@/lib/terminal/functionKeyMap";
+import type { PanelSpec } from "@/lib/terminal/workspaceStore";
+import { parseTerminalCommand } from "@/lib/terminal/commandParser";
+import DeskRenderer from "./DeskRenderer";
+
+export function panelTitle(p: PanelSpec): string {
+  if (PSEUDO_DESKS[p.funcId]) return PSEUDO_DESKS[p.funcId].label.toUpperCase();
+  const m = MODULE_MAP[p.funcId];
+  return m ? m.label.toUpperCase() : p.funcId;
+}
+
+export function panelCode(p: PanelSpec): string {
+  if (PSEUDO_DESKS[p.funcId]) return p.funcId;
+  return funcCode(p.funcId);
+}
+
+export default function Panel({
+  spec,
+  index,
+  focused,
+  maximized,
+  showNumber,
+  onFocus,
+  onClose,
+  onMaximize,
+  onChange,
+  onDuplicate,
+  onDetach,
+}: {
+  spec: PanelSpec;
+  index: number;
+  focused: boolean;
+  maximized: boolean;
+  showNumber: boolean;
+  onFocus: () => void;
+  onClose: () => void;
+  onMaximize: () => void;
+  onChange: (next: PanelSpec) => void;
+  onDuplicate: () => void;
+  onDetach: () => void;
+}) {
+  const [menu, setMenu] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [mini, setMini] = useState(`${spec.symbol ? spec.symbol.replace(".NS", "") : ""} ${panelCode(spec)}`.trim());
+  const [miniErr, setMiniErr] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+  const miniRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setMini(`${spec.symbol ? spec.symbol.replace(".NS", "") : ""} ${panelCode(spec)}`.trim()); }, [spec.symbol, spec.funcId]);
+  useEffect(() => {
+    if (!menu) return;
+    function onDoc(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false);
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setMenu(false); }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [menu]);
+  useEffect(() => { if (editing) miniRef.current?.focus(); }, [editing]);
+
+  function applyMini() {
+    const p = parseTerminalCommand(mini);
+    if (!p.funcId && !p.ticker && p.unknown) {
+      setMiniErr(`UNKNOWN “${p.unknown}” — TRY: TICKER FNC`);
+      return;
+    }
+    setMiniErr("");
+    setEditing(false);
+    onChange({
+      ...spec,
+      funcId: p.funcId ?? spec.funcId,
+      symbol: p.ticker ?? spec.symbol,
+      task: null,
+    });
+  }
+
+  const code = panelCode(spec);
+  const title = panelTitle(spec);
+
+  return (
+    <section
+      className={`term-panel${focused ? " focused" : ""}${maximized ? " maximized" : ""}`}
+      onMouseDown={onFocus}
+      onFocus={onFocus}
+      aria-label={`Panel ${index + 1}: ${title} ${spec.symbol}`}
+      data-panel-id={spec.id}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.target as HTMLElement).tagName === "SECTION") onFocus();
+      }}
+    >
+      <header
+        className="term-panel-head"
+        onDoubleClick={onMaximize}
+        onContextMenu={(e) => { e.preventDefault(); onFocus(); setMenu(true); }}
+        draggable={false}
+      >
+        <span className="cmd-mark" aria-hidden>▮</span>
+        <span className="term-panel-num" title={`Panel ${index + 1} (Ctrl+${index + 1})`}>{index + 1}</span>
+        <span className="term-panel-title">{title}</span>
+        {spec.symbol ? <span className="sec term-panel-sym">{spec.symbol}</span> : <span className="faint term-panel-sym">NO SYMBOL</span>}
+        <span className="badge fnc term-panel-code">{code}</span>
+        {editing ? (
+          <span className="term-mini">
+            <input
+              ref={miniRef}
+              data-cmdline="false"
+              value={mini}
+              onChange={(e) => setMini(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") applyMini();
+                if (e.key === "Escape") { setEditing(false); setMiniErr(""); }
+              }}
+              onBlur={() => { setEditing(false); setMiniErr(""); }}
+              placeholder="SYM FNC"
+              aria-label="Change panel symbol and function"
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <button className="ghost term-mini-go" onClick={applyMini} aria-label="Apply panel command">GO</button>
+          </span>
+        ) : (
+          <span className="term-panel-actions">
+            <button className="term-icon" title="Change function (opens mini command)" aria-label="Change function" onClick={(e) => { e.stopPropagation(); onFocus(); setEditing(true); }}>✎</button>
+            <button className="term-icon" title={maximized ? "Restore (Ctrl+M)" : "Maximize (Ctrl+M)"} aria-label="Maximize panel" onClick={(e) => { e.stopPropagation(); onMaximize(); }}>▢</button>
+            <button className="term-icon danger" title="Close panel (Ctrl+W)" aria-label="Close panel" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
+          </span>
+        )}
+        {menu && (
+          <div ref={menuRef} className="term-menu" role="menu" aria-label="Panel actions">
+            <button role="menuitem" onClick={() => { setMenu(false); onDuplicate(); }}>⧉ DUPLICATE PANEL</button>
+            <button role="menuitem" onClick={() => { setMenu(false); setEditing(true); }}>✎ CHANGE FUNCTION…</button>
+            <button role="menuitem" onClick={() => { setMenu(false); onDetach(); }}>⇪ DETACH TO NEW PANEL</button>
+            <button role="menuitem" onClick={() => { setMenu(false); onMaximize(); }}>{maximized ? "⧉ RESTORE" : "▢ MAXIMIZE"}</button>
+            <button role="menuitem" className="danger" onClick={() => { setMenu(false); onClose(); }}>✕ CLOSE</button>
+          </div>
+        )}
+      </header>
+      {miniErr && <div className="term-mini-err" role="alert">{miniErr}</div>}
+      {showNumber && <div className="term-expose" aria-hidden>{index + 1}</div>}
+      <div className="term-panel-body">
+        <div className="desk-fill">
+          <DeskRenderer funcId={spec.funcId} symbol={spec.symbol} task={spec.task} />
+        </div>
+      </div>
+    </section>
+  );
+}

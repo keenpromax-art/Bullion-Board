@@ -27,6 +27,12 @@ export default function SettingsPage() {
       <CommandBar ticker={store.getTicker()} onTicker={() => {}} />
       <main className="container grid">
         <div className="panel">
+          <div className="toolbar">
+            <a href="/terminal" className="ghost" style={{ padding: "9px 16px", textDecoration: "none" }}>TERMINAL ▦</a>
+            <span className="muted" style={{ fontSize: 12 }}>SETTINGS STAYS A FULL PAGE — KEY NEVER LEAVES THIS BROWSER</span>
+          </div>
+        </div>
+        <div className="panel">
           <p className="p-head">Config — model access</p>
           <div className="cells" style={{ marginBottom: 12 }}>
             <div className="cell">

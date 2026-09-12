@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
+import OpenInWorkspace from "@/components/terminal/OpenInWorkspace";
 import { LineChart, BarChart, HBars } from "@/components/charts";
 import { store } from "@/lib/store";
 import { blackScholes } from "@/lib/options";
@@ -185,6 +186,12 @@ export default function OChainPage() {
     <>
       <CommandBar ticker={(() => { try { return store.getTicker(); } catch { return "NIFTY"; } })()} onTicker={() => {}} />
       <main className="container grid">
+        <div className="panel">
+          <div className="toolbar">
+            <OpenInWorkspace funcId="110" symbol={symbol} />
+            <a href="/terminal" className="ghost" style={{ padding: "9px 16px", textDecoration: "none" }}>TERMINAL ▦</a>
+          </div>
+        </div>
         <div className="panel panel-glow">
           <p className="p-head">NSE option chain — {symbol} · {expiry || "NO EXPIRY"} · {mode.toUpperCase()}</p>
           <div className="toolbar">
