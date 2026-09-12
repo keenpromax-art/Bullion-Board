@@ -54,19 +54,9 @@ export const SYMBOL_LESS = new Set([
 function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
   const mod = MODULE_MAP[funcId];
   if (!mod) return null;
-  if (!symbol || SYMBOL_LESS.has(funcId)) {
-    return (
-      <div className="desk-head">
-        <span className="sec-name" style={{ fontSize: 20 }}>
-          {mod.label.toUpperCase()}
-          <span className="suffix"> {funcCode(funcId)} &lt;GO&gt;</span>
-        </span>
-        <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-          {mod.pyFn} · {mod.category.toUpperCase()}
-        </div>
-      </div>
-    );
-  }
+  // Symbol-less desks show no header block at all — the panel chrome
+  // already names the function.
+  if (!symbol || SYMBOL_LESS.has(funcId)) return null;
   return (
     <div className="desk-head">
       <span className="sec-name" style={{ fontSize: 20 }}>
