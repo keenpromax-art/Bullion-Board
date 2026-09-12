@@ -48,7 +48,22 @@ export default function TickerTape({ onPick, onFeed }: { onPick: (sym: string) =
   }, [onFeed]);
 
   const seq = items.length > 0 ? items : FALLBACK.map((s) => ({ symbol: s, price: null, chgPct: null, ok: false }));
+  const loaded = items.length > 0;
+  const allDown = loaded && seq.every((r) => !r.ok);
   const doubled = [...seq, ...seq];
+
+  if (allDown) {
+    return (
+      <div className="term-tape" role="marquee" aria-label="Watchlist ticker tape">
+        <div className="tape-track tape-static">
+          <span className="tape-item">
+            <span className="sym">YAHOO FEED DOWN</span>
+            <span className="faint">RETRYING EVERY 60S — TAPE RESUMES WHEN QUOTES LAND</span>
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -61,18 +76,23 @@ export default function TickerTape({ onPick, onFeed }: { onPick: (sym: string) =
       <div className="tape-track" style={paused ? { animationPlayState: "paused" } : undefined}>
         {doubled.map((it, i) => {
           const up = (it.chgPct ?? 0) >= 0;
+          const down = it.price === null || it.chgPct === null;
           return (
             <button
               key={`${it.symbol}-${i}`}
               className="tape-item"
               onClick={() => onPick(it.symbol)}
-              title={`${it.symbol} — open in focused panel`}
+              title={down ? `${it.symbol} — quote offline` : `${it.symbol} — open in focused panel`}
             >
               <span className="sym">{short(it.symbol)}</span>
-              <span>{it.price !== null ? it.price.toLocaleString("en-IN", { maximumFractionDigits: it.price < 100 ? 2 : 0 }) : "—"}</span>
-              {it.chgPct !== null ? (
-                <span className={up ? "up" : "down"}>{up ? "▲" : "▼"} {Math.abs(it.chgPct).toFixed(2)}%</span>
-              ) : <span className="faint">—</span>}
+              {down ? (
+                <span className="faint">{loaded ? "OFFLINE" : "…"}</span>
+              ) : (
+                <>
+                  <span>{(it.price as number).toLocaleString("en-IN", { maximumFractionDigits: (it.price as number) < 100 ? 2 : 0 })}</span>
+                  <span className={up ? "up" : "down"}>{up ? "▲" : "▼"} {Math.abs(it.chgPct as number).toFixed(2)}%</span>
+                </>
+              )}
             </button>
           );
         })}

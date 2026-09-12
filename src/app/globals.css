@@ -408,7 +408,8 @@ table.fndir tbody tr:focus-visible { outline: 2px solid var(--amber); outline-of
 .term-tape { flex: 0 0 auto; height: 26px; display: flex; align-items: center; background: #000; border-top: none; border-bottom: 1px solid var(--grid); overflow: hidden; position: relative; }
 .term-tape .tape-track { display: flex; gap: 28px; white-space: nowrap; animation: tape-scroll 28s linear infinite; }
 .term-tape:hover .tape-track { animation-play-state: paused; }
-.tape-item { font-size: 11px; display: inline-flex; gap: 6px; align-items: center; font-family: var(--mono); }
+.tape-item { font-size: 11px; display: inline-flex; gap: 6px; align-items: center; font-family: var(--mono); white-space: nowrap; }
+.tape-track.tape-static { animation: none; padding: 0 12px; }
 button.tape-item { background: none; border: none; cursor: pointer; padding: 0; }
 button.tape-item:hover .sym { color: var(--amber); }
 button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset: 2px; }
