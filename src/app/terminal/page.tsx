@@ -208,7 +208,43 @@ function Inner() {
       <CommandLine
         focusedLabel={focusTag}
         feedOk={feedOk}
-        onSubmit={(t, f, openNew) => applyCommand(t, f, openNew)}
+        onSubmit={(t, f, openNew, _raw, special) => {
+          if (special === "MENU") {
+            // BBG MENU key: back to the function directory (in place,
+            // or a new panel with Shift+Enter / trailing NEW).
+            setState((prev) => {
+              if (!prev) return prev;
+              const sym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
+              if (openNew || !prev.focusedId) {
+                const np: PanelSpec = { id: uid(), funcId: "DIR", symbol: sym };
+                return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
+              }
+              return {
+                ...prev,
+                panels: prev.panels.map((p) => (p.id === prev.focusedId ? { ...p, funcId: "DIR", task: null } : p)),
+                dirty: true,
+              };
+            });
+            return;
+          }
+          if (special === "CANCEL") {
+            // BBG CANCEL key: exit the focused panel's function.
+            setState((prev) => {
+              if (!prev || !prev.focusedId) return prev;
+              if (prev.panels.length <= 1) {
+                if (!confirm("CLOSE THE LAST PANEL?")) return prev;
+                return prev;
+              }
+              const idx = prev.panels.findIndex((p) => p.id === prev.focusedId);
+              const next = prev.panels.filter((p) => p.id !== prev.focusedId);
+              const nf = next[Math.max(0, Math.min(idx, next.length - 1))];
+              if (maxId && prev.focusedId === maxId) setMaxId(null);
+              return { ...prev, panels: next, focusedId: nf.id, dirty: true };
+            });
+            return;
+          }
+          applyCommand(t, f, openNew);
+        }}
         inputRef={cmdRef}
       />
       <TickerTape onPick={(sym) => applyCommand(normalizeTicker(sym), null, false)} onFeed={setFeedOk} />

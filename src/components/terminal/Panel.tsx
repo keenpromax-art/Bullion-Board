@@ -151,6 +151,7 @@ export default function Panel({
         <button className="term-icon danger" title="Close panel (Ctrl+W)" aria-label="Close panel" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
         {menu && (
           <div ref={menuRef} className="term-menu" role="menu" aria-label="Panel actions">
+            <button role="menuitem" onClick={() => { setMenu(false); onChange({ ...spec, funcId: "DIR", task: null }); }}>⌂ BACK TO MENU (DIR)</button>
             <button role="menuitem" onClick={() => { setMenu(false); onDuplicate(); }}>⧉ DUPLICATE PANEL</button>
             <button role="menuitem" onClick={() => { setMenu(false); setEditing(true); }}>✎ CHANGE FUNCTION…</button>
             <button role="menuitem" onClick={() => { setMenu(false); onDetach(); }}>⇪ DETACH TO NEW PANEL</button>

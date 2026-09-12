@@ -9,9 +9,13 @@ import {
   suggestSymbols,
   loadHistory,
   pushHistory,
+  resolveFuncId,
   type FuncSuggestion,
+  type SpecialCommand,
 } from "@/lib/terminal/commandParser";
 import { useClock } from "@/components/TerminalChrome";
+
+const TICKER_RE = /^[A-Z0-9&.=\-^]+(\.(NS|BO))?$/;
 
 export default function CommandLine({
   focusedLabel,
@@ -21,7 +25,7 @@ export default function CommandLine({
 }: {
   focusedLabel: string;
   feedOk: boolean | null;
-  onSubmit: (ticker: string | null, funcId: string | null, openNew: boolean, raw: string) => void;
+  onSubmit: (ticker: string | null, funcId: string | null, openNew: boolean, raw: string, special: SpecialCommand) => void;
   inputRef: React.RefObject<HTMLInputElement>;
 }) {
   const [cmd, setCmd] = useState("");
@@ -29,11 +33,20 @@ export default function CommandLine({
   const [histIdx, setHistIdx] = useState(-1);
   const [hi, setHi] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
+  const [flash, setFlash] = useState<"ok" | "err" | null>(null);
   const clock = useClock();
   const localRef = useRef<HTMLInputElement>(null);
   const effectiveRef = inputRef ?? localRef;
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setHist(loadHistory()); }, []);
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+
+  function bump(kind: "ok" | "err") {
+    setFlash(kind);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(null), 450);
+  }
 
   const parts = useMemo(() => cmd.toUpperCase().split(/[\s,;]+/).filter(Boolean), [cmd]);
   const universe = useMemo(() => {
@@ -42,6 +55,7 @@ export default function CommandLine({
       return w.length > 0 ? w : WATCHLIST.slice(0, 400);
     } catch { return WATCHLIST.slice(0, 400); }
   }, []);
+  const uniSet = useMemo(() => new Set(universe), [universe]);
   const fnQuery = useMemo(() => {
     if (parts.length === 0) return "";
     if (parts.length === 1) return parts[0];
@@ -70,13 +84,41 @@ export default function CommandLine({
 
   const open = cmd.trim().length > 0 && !showHelp;
 
+  // BBG-style segmented echo: securities yellow, functions amber, flags dim.
+  function echo(text: string): React.ReactNode {
+    const segs = text.split(/(\s+)/);
+    let first = true;
+    return segs.map((tok, i) => {
+      if (/^\s*$/.test(tok) || tok === "") return <span key={i}>{tok}</span>;
+      let cls = "echo-plain";
+      if (tok === "NEW") cls = "echo-dim";
+      else if (tok === "?" || tok === "MENU" || tok === "CANCEL" || tok === "HELP") cls = "echo-fn";
+      else if (resolveFuncId(tok)) cls = "echo-fn";
+      else if (TICKER_RE.test(tok) && /[A-Z]/.test(tok) && (first || uniSet.has(tok) || /\./.test(tok) || tok.startsWith("^"))) cls = "echo-sym";
+      first = false;
+      return <span key={i} className={cls}>{tok}</span>;
+    });
+  }
+
   function submit(shiftNew: boolean) {
     const raw = cmd.trim();
     if (!raw) return;
-    if (raw === "?" || raw.toUpperCase() === "HELP") { setShowHelp(true); return; }
+    if (raw === "?") { setShowHelp(true); return; }
     const p = parseTerminalCommand(raw, shiftNew);
+    if (p.special === "HELP") { setShowHelp(true); return; }
+    if (p.special === "MENU" || p.special === "CANCEL") {
+      const next = pushHistory(hist, raw);
+      setHist(next);
+      setHistIdx(-1);
+      setHi(0);
+      setCmd("");
+      bump("ok");
+      onSubmit(null, null, p.openNew, raw, p.special);
+      return;
+    }
     if (p.unknown && !p.ticker && !p.funcId) {
       setCmd(`? ${p.unknown} — UNKNOWN. TRY: TICKER FNC, E.G. RELIANCE STRAT`);
+      bump("err");
       return;
     }
     const next = pushHistory(hist, raw + (p.openNew && !raw.toUpperCase().endsWith(" NEW") ? " NEW" : ""));
@@ -84,7 +126,8 @@ export default function CommandLine({
     setHistIdx(-1);
     setHi(0);
     setCmd("");
-    onSubmit(p.ticker, p.funcId, p.openNew, raw);
+    bump("ok");
+    onSubmit(p.ticker, p.funcId, p.openNew, raw, null);
   }
 
   function applyRow(r: Row) {
@@ -93,7 +136,7 @@ export default function CommandLine({
       setCmd(rest ? `${r.sym} ${rest} ` : `${r.sym} `);
     } else if (r.kind === "fn" && r.fn) {
       const first = parts[0] ?? "";
-      const hasSym = symSugs.includes(first) || /^[A-Z0-9&.=\-^]+(\.(NS|BO))?$/.test(first);
+      const hasSym = symSugs.includes(first) || (TICKER_RE.test(first) && /[A-Z]/.test(first));
       const sym = parts.length > 0 && hasSym ? first : "";
       setCmd(sym ? `${sym} ${r.fn.code} ` : `${r.fn.code} `);
     }
@@ -138,21 +181,25 @@ export default function CommandLine({
   }
 
   return (
-    <div className="cmdbar term-cmdbar">
+    <div className={`cmdbar term-cmdbar${flash === "ok" ? " go-ok" : flash === "err" ? " go-err" : ""}`}>
       <span className="cmd-prompt" aria-hidden>&gt;</span>
-      <input
-        ref={effectiveRef as any}
-        data-cmdline="true"
-        className="cmd-input"
-        value={cmd}
-        onChange={(e) => { setCmd(e.target.value.toUpperCase()); setHi(0); setHistIdx(-1); }}
-        onKeyDown={onKey}
-        onBlur={() => setTimeout(() => setHi(0), 150)}
-        placeholder="TICKER FNC <GO>"
-        aria-label="Terminal command line"
-        spellCheck={false}
-        autoComplete="off"
-      />
+      <div className="cmd-field">
+        <div className="cmd-echo" aria-hidden>
+          {cmd ? echo(cmd) : <span className="cmd-ph">TICKER FNC &lt;GO&gt;</span>}
+        </div>
+        <input
+          ref={effectiveRef as any}
+          data-cmdline="true"
+          className="cmd-input cmd-live"
+          value={cmd}
+          onChange={(e) => { setCmd(e.target.value.toUpperCase()); setHi(0); setHistIdx(-1); }}
+          onKeyDown={onKey}
+          onBlur={() => setTimeout(() => setHi(0), 150)}
+          aria-label="Terminal command line"
+          spellCheck={false}
+          autoComplete="off"
+        />
+      </div>
       <div className="cmd-right">
         {focusedLabel && <span className="fn-tag" title="Focused panel function">{focusedLabel}</span>}
         <span className="cmd-feed" title={feedOk === false ? "Last fetch errored or stale" : "Data fresh"}>
@@ -164,11 +211,13 @@ export default function CommandLine({
 
       {showHelp && (
         <div className="suggest term-helpbox" role="dialog" aria-label="Command help">
-          <div className="sug-head">COMMAND SYNTAX</div>
+          <div className="sug-head">COMMAND SYNTAX{focusedLabel ? ` — FOCUSED: ${focusedLabel}` : ""}</div>
           <div className="sug-row"><span className="sug-sym">SYM FNC + ENTER</span><span className="sug-name">REPLACE FOCUSED PANEL — E.G. RELIANCE STRAT</span></div>
           <div className="sug-row"><span className="sug-sym">SYM FNC + SHIFT+ENTER</span><span className="sug-name">OPEN IN NEW PANEL (OR APPEND “ NEW”)</span></div>
-          <div className="sug-row"><span className="sug-sym">FNC + ENTER</span><span className="sug-name">REUSE FOCUSED PANEL SYMBOL — E.G. STRAT</span></div>
+          <div className="sug-row"><span className="sug-sym">FNC / ID + ENTER</span><span className="sug-name">REUSE FOCUSED SYMBOL — E.G. STRAT · 70 · OCH</span></div>
           <div className="sug-row"><span className="sug-sym">SYM + ENTER</span><span className="sug-name">REOPEN LAST FNC FOR SYM (ELSE DIRECTORY)</span></div>
+          <div className="sug-row"><span className="sug-sym fn">MENU + ENTER</span><span className="sug-name">BACK TO FUNCTION DIRECTORY (SHIFT+ENTER = NEW PANEL)</span></div>
+          <div className="sug-row"><span className="sug-sym fn">CANCEL + ENTER</span><span className="sug-name">CLOSE FOCUSED PANEL (CONFIRMS IF LAST)</span></div>
           <div className="sug-row"><span className="sug-sym">` OR CTRL+K</span><span className="sug-name">FOCUS HERE · ESC CLEARS · ↑↓ HISTORY (50 KEPT)</span></div>
           <div className="sug-row"><span className="sug-sym fn">F1–F12</span><span className="sug-name">FUNCTION-KEY BAR MAP (CLICK OR PHYSICAL KEY)</span></div>
           <button className="ghost" style={{ margin: 12 }} onClick={() => setShowHelp(false)}>CLOSE ✕ (ESC)</button>
@@ -203,7 +252,7 @@ export default function CommandLine({
               </div>
             );
           })}
-          <div className="sug-row"><span className="sug-meta">ENTER = COMPLETE · SHIFT+ENTER = NEW PANEL DIRECTLY · ↑↓ HISTORY WHEN CLOSED · ? = HELP</span></div>
+          <div className="sug-row"><span className="sug-meta">ENTER = COMPLETE · SHIFT+ENTER = NEW PANEL DIRECTLY · ↑↓ HISTORY WHEN CLOSED · HELP = THIS PANEL</span></div>
         </div>
       )}
     </div>

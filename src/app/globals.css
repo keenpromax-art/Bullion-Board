@@ -377,6 +377,28 @@ body:has(.term-root) { padding-bottom: 0; }
 /* command bar: 36px, prompt + yellow input, outlined fnc-tag right cluster */
 .term-cmdbar { flex: 0 0 auto; height: 36px; padding: 0 12px; gap: 10px; }
 .term-cmdbar .cmd-input { color: var(--sec); font-size: 13px; letter-spacing: 0.04em; }
+/* segmented BBG echo: securities yellow, functions amber, flags dim */
+.cmd-field { position: relative; flex: 1; display: flex; align-items: center; min-width: 120px; }
+.cmd-echo { position: absolute; inset: 0; display: flex; align-items: center; white-space: pre; overflow: hidden; font-family: var(--mono); font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; pointer-events: none; }
+.cmd-echo .echo-plain { color: var(--text); }
+.cmd-echo .echo-sym { color: var(--sec); font-weight: 700; }
+.cmd-echo .echo-fn { color: var(--amber); font-weight: 700; }
+.cmd-echo .echo-dim { color: var(--faint); }
+.cmd-ph { color: var(--faint); text-transform: none; letter-spacing: 0; }
+.cmd-live { position: relative; z-index: 1; width: 100%; background: transparent; color: transparent !important; caret-color: var(--amber); }
+.cmd-live::selection { background: rgba(255,160,40,0.35); }
+/* GO flash: green = action key, red = cancel/stop */
+.term-cmdbar { transition: border-bottom-color 0.15s ease; }
+.term-cmdbar.go-ok { border-bottom-color: var(--green); }
+.term-cmdbar.go-err { border-bottom-color: var(--red); }
+/* autocomplete active row: solid amber like BBG menu highlight */
+.sug-row.active { background: var(--amber); box-shadow: none; }
+.sug-row.active .sug-sym, .sug-row.active .sug-sym.fn { color: #000; }
+.sug-row.active .sug-name { color: #000; }
+.sug-row.active .sug-meta { color: rgba(0,0,0,0.65); }
+/* directory rows: white outline hover like BBG clickable areas */
+table.fndir tbody tr:hover { outline: 1px solid rgba(255,255,255,0.55); outline-offset: -1px; }
+table.fndir tbody tr:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .term-cmdbar .cmd-input::placeholder { color: var(--faint); text-transform: none; letter-spacing: 0; }
 .term-cmdbar .cmd-right { display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--sub); white-space: nowrap; }
 .term-cmdbar .fn-tag { background: transparent; border: 1px solid rgba(255,160,40,0.4); color: var(--amber); padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 400; letter-spacing: 0.08em; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

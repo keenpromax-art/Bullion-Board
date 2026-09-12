@@ -6,13 +6,7 @@ import { MODULES, MODULE_MAP } from "../modules";
 import { CODE_TO_ID, FUNC_CODES, funcCode, parseCommand as baseParse } from "../terminal";
 import { normalizeTicker } from "../utils";
 
-export interface TerminalCommand {
-  raw: string;
-  ticker: string | null;
-  funcId: string | null;
-  openNew: boolean;
-  unknown: string | null;
-}
+export type SpecialCommand = "MENU" | "CANCEL" | "HELP" | null;
 
 export interface FuncSuggestion {
   id: string;
@@ -22,8 +16,34 @@ export interface FuncSuggestion {
   description: string;
 }
 
+export interface TerminalCommand {
+  raw: string;
+  ticker: string | null;
+  funcId: string | null;
+  openNew: boolean;
+  unknown: string | null;
+  special: SpecialCommand;
+}
+
+// Pseudo codes that resolve without a registry mnemonic (like BBG's
+// <EQUITY>/<INDEX> yellow-key shorthands resolve to a sector menu).
+const PSEUDO_CODES: Record<string, string> = {
+  DIR: "DIR",
+  NOTE: "NOTE",
+  OCH: "110",
+  OC: "110",
+  IND: "111",
+  MAC: "111",
+};
+
+const SPECIAL_WORDS: Record<string, Exclude<SpecialCommand, null>> = {
+  MENU: "MENU",
+  CANCEL: "CANCEL",
+  HELP: "HELP",
+};
+
 // Plain Enter reuses focused panel. Shift+Enter OR a trailing NEW token
-// opens a new panel. Documented in the command-line "?" overlay.
+// opens a new panel. Documented in the command-line HELP overlay.
 export function parseTerminalCommand(raw: string, shiftNew = false): TerminalCommand {
   const upper = raw.toUpperCase();
   const tokens = upper.split(/[\s,;]+/).filter(Boolean);
@@ -31,8 +51,22 @@ export function parseTerminalCommand(raw: string, shiftNew = false): TerminalCom
   const stripped = openNew && tokens[tokens.length - 1] === "NEW"
     ? tokens.slice(0, -1).join(" ")
     : raw;
+  const head = (stripped.toUpperCase().split(/[\s,;]+/).filter(Boolean)[0] ?? "");
+  const special: SpecialCommand = SPECIAL_WORDS[head] ?? null;
+  if (special) {
+    return { raw, ticker: null, funcId: null, openNew, unknown: null, special };
+  }
   const p = baseParse(stripped);
-  return { raw, ticker: p.ticker, funcId: p.funcId, openNew, unknown: p.unknown };
+  let { ticker, funcId, unknown } = p;
+  // Numeric IDs (70<GO>) and pseudo codes (OCH<GO>) bypass the base parser.
+  if (!funcId && unknown) {
+    const resolved = resolveFuncId(unknown);
+    if (resolved) {
+      funcId = resolved;
+      unknown = null;
+    }
+  }
+  return { raw, ticker, funcId, openNew, unknown, special };
 }
 
 export function resolveFuncId(input: string): string | null {
@@ -40,6 +74,7 @@ export function resolveFuncId(input: string): string | null {
   if (!t) return null;
   if (MODULE_MAP[t]) return t; // numeric id directly
   if (CODE_TO_ID[t]) return CODE_TO_ID[t];
+  if (PSEUDO_CODES[t]) return PSEUDO_CODES[t];
   return null;
 }
 
