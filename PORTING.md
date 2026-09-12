@@ -41,7 +41,14 @@ plus a web page and API branch. ML-training-heavy modules (XGB/LSTM/Transformer/
 ship the feature math + backtest stats + AI critic rather than GPU training in the browser,
 which is the only sound Vercel mapping; the page states this explicitly.
 
-IDs covered: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,73,74,75.
+IDs covered: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,73,74,75.
+
+Retired per owner request (registry entry + function code + desk branches
+removed; underlying `ReaderDesks.tsx` shared file untouched):
+- 50 (`run_epub_reader`, EPUB Reader) — `/module/50` now renders UNKNOWN.
+
+Hidden from the directory/autocomplete but still reachable by direct URL/API:
+- 37 (News & Events Hub), 45 (NBFC News Scanner), 46 (Livemint Live Wire).
 
 ## 5. AI
 

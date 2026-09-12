@@ -41,7 +41,7 @@ export default function WorkspaceSwitcher({
   return (
     <div className="ws-switch">
       <button className="ghost ws-btn" onClick={() => { refresh(); setOpen((v) => !v); }} aria-expanded={open} title="Save / load workspaces">
-        ▤ {state.workspaceName ?? "UNSAVED"}{state.dirty ? "*" : ""} ▾
+        {state.workspaceName ?? "UNSAVED"}{state.dirty ? "*" : ""} ▾
       </button>
       {open && (
         <div className="ws-drop" role="dialog" aria-label="Workspaces">

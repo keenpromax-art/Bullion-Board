@@ -1,15 +1,12 @@
 "use client";
 
 import { FUNCTION_KEYS } from "@/lib/terminal/functionKeyMap";
+import { MODULE_MAP } from "@/lib/modules";
+import { funcCode } from "@/lib/terminal";
 
-// Fixed function-key bar (bottom, above status bar). Bottom-horizontal is
-// closest to BBG's keyboard-row metaphor. Color-grouped loosely with the
-// existing palette: amber = core equity/options, green = screeners/risk,
-// yellow-outline = macro/news/AI.
-function groupColor(category: string): string {
-  if (category === "Technical" || category === "Options" || category === "Fundamental") return "fk-amber";
-  if (category === "Screener" || category === "Risk") return "fk-green";
-  return "fk-yellow";
+function codeFor(funcId: string): string {
+  if (MODULE_MAP[funcId]) return funcCode(funcId);
+  return funcId;
 }
 
 export default function FunctionKeyBar({ onTrigger }: { onTrigger: (funcId: string, label: string) => void }) {
@@ -18,13 +15,14 @@ export default function FunctionKeyBar({ onTrigger }: { onTrigger: (funcId: stri
       {FUNCTION_KEYS.map((d) => (
         <button
           key={d.key}
-          className={`fk ${groupColor(d.category)}`}
+          className="fkey"
           onClick={() => onTrigger(d.funcId, d.label)}
-          title={`${d.key} — ${d.label} (${d.funcId})`}
+          title={`${d.key} — ${d.label} (${codeFor(d.funcId)})`}
           aria-label={`${d.key} ${d.label}`}
         >
-          <span className="fk-key">{d.key}</span>
-          <span className="fk-label">{d.label}</span>
+          <span className="k">{d.key}</span>
+          <span className="l">{d.label}</span>
+          <span className="c">{codeFor(d.funcId)}</span>
         </button>
       ))}
     </nav>

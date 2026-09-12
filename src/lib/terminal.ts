@@ -15,7 +15,7 @@ export const FUNC_CODES: Record<string, string> = {
   "33": "GRK", "34": "SNS", "35": "SCA", "36": "AGRK", "37": "NH",
   "38": "ECO", "39": "HDS", "40": "DVD", "41": "BD", "42": "XL",
   "43": "DOCS", "44": "FSHT", "45": "NBFC", "46": "LM", "47": "WIRE",
-  "48": "ARB", "49": "BBL", "50": "EB", "51": "WIKI", "52": "SV",
+  "48": "ARB", "49": "BBL", "51": "WIKI", "52": "SV",
   "53": "TOP", "54": "AE", "55": "HYB", "56": "TRF", "57": "PORT",
   "58": "SWARM", "59": "NOD", "60": "NET", "61": "RL", "62": "HMM",
   "63": "RRA", "64": "LINK", "65": "NEW", "66": "AI", "67": "SCR",

@@ -7,6 +7,10 @@ interface TapeItem { symbol: string; price: number | null; chgPct: number | null
 
 const FALLBACK = ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS", "^NSEI", "GC=F", "BTC-USD"];
 
+function short(sym: string): string {
+  return sym.replace(".NS", "").replace(".BO", "").replace("^", "");
+}
+
 export default function TickerTape({ onPick, onFeed }: { onPick: (sym: string) => void; onFeed: (ok: boolean | null) => void }) {
   const [items, setItems] = useState<TapeItem[]>([]);
   const [paused, setPaused] = useState(false);
@@ -54,23 +58,21 @@ export default function TickerTape({ onPick, onFeed }: { onPick: (sym: string) =
       role="marquee"
       aria-label="Watchlist ticker tape"
     >
-      <div className="tape-inner" style={paused ? { animationPlayState: "paused" } : undefined}>
+      <div className="tape-track" style={paused ? { animationPlayState: "paused" } : undefined}>
         {doubled.map((it, i) => {
           const up = (it.chgPct ?? 0) >= 0;
           return (
             <button
               key={`${it.symbol}-${i}`}
-              className="tape-bit tape-btn"
+              className="tape-item"
               onClick={() => onPick(it.symbol)}
               title={`${it.symbol} — open in focused panel`}
             >
-              <strong>{it.symbol.replace(".NS", "")}</strong>
-              {"  "}
+              <span className="sym">{short(it.symbol)}</span>
               <span>{it.price !== null ? it.price.toLocaleString("en-IN", { maximumFractionDigits: it.price < 100 ? 2 : 0 }) : "—"}</span>
-              {"  "}
               {it.chgPct !== null ? (
-                <span className={up ? "pos" : "neg"}>{up ? "▲" : "▼"} {Math.abs(it.chgPct).toFixed(2)}%</span>
-              ) : <span className="faint">NO FEED</span>}
+                <span className={up ? "up" : "down"}>{up ? "▲" : "▼"} {Math.abs(it.chgPct).toFixed(2)}%</span>
+              ) : <span className="faint">—</span>}
             </button>
           );
         })}

@@ -74,12 +74,6 @@ function Inner() {
     [state]
   );
 
-  const focusedLabel = useMemo(() => {
-    if (!focused || !state) return "";
-    const i = state.panels.findIndex((p) => p.id === focused.id);
-    return `${panelCode(focused)} ${i + 1}/${state.panels.length}`;
-  }, [focused, state]);
-
   const focusTicker = useMemo(() => {
     try { return focused?.symbol || store.getTicker(); } catch { return focused?.symbol ?? ""; }
   }, [focused]);
@@ -196,25 +190,27 @@ function Inner() {
 
   const focusLabelLong = focused ? `${panelTitle(focused)} ${focused.symbol}` : null;
 
+  const focusTag = useMemo(() => {
+    if (!focused) return "";
+    const id = MODULE_MAP[focused.funcId] ? focused.funcId : panelCode(focused);
+    return `${id} · ${panelTitle(focused)}`.toUpperCase();
+  }, [focused]);
+
+  const focusStatus = useMemo(() => {
+    if (!focused) return null;
+    return `${panelCode(focused)} · ${panelTitle(focused)}`.toUpperCase();
+  }, [focused]);
+
   return (
-    <>
+    <div className="term-root">
       <CommandLine
-        focusedLabel={focusedLabel}
+        focusedLabel={focusTag}
         feedOk={feedOk}
         onSubmit={(t, f, openNew) => applyCommand(t, f, openNew)}
         inputRef={cmdRef}
       />
       <TickerTape onPick={(sym) => applyCommand(normalizeTicker(sym), null, false)} onFeed={setFeedOk} />
-      <div className="term-shell">
-        <div className="term-toprow">
-          <WorkspaceSwitcher
-            state={state}
-            onLoad={(next) => { setState({ ...next, dirty: false }); setMaxId(null); }}
-            onSaved={(next) => setState(next)}
-          />
-          <span className="faint term-hint">` OR CTRL+K = CMD · TAB = CYCLE · CTRL+1..9 = FOCUS · CTRL+M = MAX · CTRL+W = CLOSE · F1–F12 = DESKS</span>
-          <a href="/" className="ghost" style={{ padding: "6px 10px", textDecoration: "none" }} title="Classic function directory">DIR ↗</a>
-        </div>
+      <div className="term-work">
         <PanelWorkspace
           panels={state.panels}
           layout={state.layout}
@@ -267,16 +263,6 @@ function Inner() {
             next.splice(to, 0, mv);
             return { ...prev, panels: next, dirty: true };
           })}
-          onLayout={(l: TilingPreset) => setState((prev) => (prev ? { ...prev, layout: l, dirty: true } : prev))}
-          onAdd={() => {
-            cmdRef.current?.focus();
-            setState((prev) => {
-              if (!prev) return prev;
-              const sym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
-              const np: PanelSpec = { id: uid(), funcId: DEFAULT_OVERVIEW, symbol: sym };
-              return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
-            });
-          }}
         />
       </div>
       <FunctionKeyBar onTrigger={(fid) => {
@@ -292,13 +278,32 @@ function Inner() {
       }} />
       <StatusBar
         panelCount={state.panels.length}
-        workspaceName={state.workspaceName}
-        dirty={state.dirty}
-        focusLabel={focused ? `${panelCode(focused)}` : null}
+        workspaceSlot={
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span className="hl">WORKSPACE: </span>
+            <WorkspaceSwitcher
+              state={state}
+              onLoad={(next) => { setState({ ...next, dirty: false }); setMaxId(null); }}
+              onSaved={(next) => setState(next)}
+            />
+          </span>
+        }
+        layout={state.layout}
+        onLayout={(l: TilingPreset) => setState((prev) => (prev ? { ...prev, layout: l, dirty: true } : prev))}
+        onAdd={() => {
+          cmdRef.current?.focus();
+          setState((prev) => {
+            if (!prev) return prev;
+            const sym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
+            const np: PanelSpec = { id: uid(), funcId: DEFAULT_OVERVIEW, symbol: sym };
+            return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
+          });
+        }}
+        focusLabel={focusStatus}
         ticker={focusTicker}
       />
       <span className="sr-only" aria-live="polite">{focusLabelLong ? `Focused: ${focusLabelLong}` : ""}</span>
-    </>
+    </div>
   );
 }
 

@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PSEUDO_DESKS } from "@/lib/terminal/functionKeyMap";
 import { MODULE_MAP } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
-import { PSEUDO_DESKS } from "@/lib/terminal/functionKeyMap";
 import type { PanelSpec } from "@/lib/terminal/workspaceStore";
 import { parseTerminalCommand } from "@/lib/terminal/commandParser";
 import DeskRenderer from "./DeskRenderer";
 
 export function panelTitle(p: PanelSpec): string {
-  if (PSEUDO_DESKS[p.funcId]) return PSEUDO_DESKS[p.funcId].label.toUpperCase();
+  if (PSEUDO_DESKS[p.funcId]) return PSEUDO_DESKS[p.funcId].label;
   const m = MODULE_MAP[p.funcId];
-  return m ? m.label.toUpperCase() : p.funcId;
+  return m ? m.label : p.funcId;
 }
 
 export function panelCode(p: PanelSpec): string {
@@ -80,7 +80,6 @@ export default function Panel({
     });
   }
 
-  const code = panelCode(spec);
   const title = panelTitle(spec);
 
   return (
@@ -100,39 +99,19 @@ export default function Panel({
         onDoubleClick={onMaximize}
         onContextMenu={(e) => { e.preventDefault(); onFocus(); setMenu(true); }}
         draggable={false}
+        title="Double-click to maximize · right-click for actions · drag to reorder"
       >
         <span className="cmd-mark" aria-hidden>▮</span>
-        <span className="term-panel-num" title={`Panel ${index + 1} (Ctrl+${index + 1})`}>{index + 1}</span>
         <span className="term-panel-title">{title}</span>
-        {spec.symbol ? <span className="sec term-panel-sym">{spec.symbol}</span> : <span className="faint term-panel-sym">NO SYMBOL</span>}
-        <span className="badge fnc term-panel-code">{code}</span>
-        {editing ? (
-          <span className="term-mini">
-            <input
-              ref={miniRef}
-              data-cmdline="false"
-              value={mini}
-              onChange={(e) => setMini(e.target.value.toUpperCase())}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === "Enter") applyMini();
-                if (e.key === "Escape") { setEditing(false); setMiniErr(""); }
-              }}
-              onBlur={() => { setEditing(false); setMiniErr(""); }}
-              placeholder="SYM FNC"
-              aria-label="Change panel symbol and function"
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <button className="ghost term-mini-go" onClick={applyMini} aria-label="Apply panel command">GO</button>
-          </span>
-        ) : (
-          <span className="term-panel-actions">
-            <button className="term-icon" title="Change function (opens mini command)" aria-label="Change function" onClick={(e) => { e.stopPropagation(); onFocus(); setEditing(true); }}>✎</button>
-            <button className="term-icon" title={maximized ? "Restore (Ctrl+M)" : "Maximize (Ctrl+M)"} aria-label="Maximize panel" onClick={(e) => { e.stopPropagation(); onMaximize(); }}>▢</button>
-            <button className="term-icon danger" title="Close panel (Ctrl+W)" aria-label="Close panel" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
-          </span>
-        )}
+        {spec.symbol ? (
+          <>
+            <span className="term-panel-sep">|</span>
+            <span className="term-panel-sym">{spec.symbol}</span>
+          </>
+        ) : null}
+        <span className="term-panel-sp" />
+        <button className="term-icon" title={maximized ? "Restore (Ctrl+M)" : "Maximize (Ctrl+M)"} aria-label="Maximize panel" onClick={(e) => { e.stopPropagation(); onMaximize(); }}>▢</button>
+        <button className="term-icon danger" title="Close panel (Ctrl+W)" aria-label="Close panel" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
         {menu && (
           <div ref={menuRef} className="term-menu" role="menu" aria-label="Panel actions">
             <button role="menuitem" onClick={() => { setMenu(false); onDuplicate(); }}>⧉ DUPLICATE PANEL</button>
@@ -143,6 +122,26 @@ export default function Panel({
           </div>
         )}
       </header>
+      {editing && (
+        <div className="term-minirow">
+          <span className="cmd-prompt" aria-hidden>&gt;</span>
+          <input
+            ref={miniRef}
+            value={mini}
+            onChange={(e) => setMini(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") applyMini();
+              if (e.key === "Escape") { setEditing(false); setMiniErr(""); }
+            }}
+            onBlur={() => { setEditing(false); setMiniErr(""); }}
+            placeholder="SYM FNC"
+            aria-label="Change panel symbol and function"
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </div>
+      )}
       {miniErr && <div className="term-mini-err" role="alert">{miniErr}</div>}
       {showNumber && <div className="term-expose" aria-hidden>{index + 1}</div>}
       <div className="term-panel-body">
