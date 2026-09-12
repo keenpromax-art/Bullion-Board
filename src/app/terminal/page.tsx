@@ -78,6 +78,21 @@ function Inner() {
     try { return focused?.symbol || store.getTicker(); } catch { return focused?.symbol ?? ""; }
   }, [focused]);
 
+  // NOTE: all hooks must stay above the `if (!state)` early return —
+  // adding any hook below it breaks hook order on the first state update.
+  const focusTag = useMemo(() => {
+    if (!focused) return "";
+    const id = MODULE_MAP[focused.funcId] ? focused.funcId : panelCode(focused);
+    return `${id} · ${panelTitle(focused)}`.toUpperCase();
+  }, [focused]);
+
+  const focusStatus = useMemo(() => {
+    if (!focused) return null;
+    return `${panelCode(focused)} · ${panelTitle(focused)}`.toUpperCase();
+  }, [focused]);
+
+  const focusLabelLong = focused ? `${panelTitle(focused)} ${focused.symbol}` : null;
+
   function flashExpose() {
     setExpose(true);
     if (exposeTimer.current) clearTimeout(exposeTimer.current);
@@ -187,19 +202,6 @@ function Inner() {
   }, [triggerFunctionKey]);
 
   if (!state) return <main className="container"><p className="muted">LOADING TERMINAL…</p></main>;
-
-  const focusLabelLong = focused ? `${panelTitle(focused)} ${focused.symbol}` : null;
-
-  const focusTag = useMemo(() => {
-    if (!focused) return "";
-    const id = MODULE_MAP[focused.funcId] ? focused.funcId : panelCode(focused);
-    return `${id} · ${panelTitle(focused)}`.toUpperCase();
-  }, [focused]);
-
-  const focusStatus = useMemo(() => {
-    if (!focused) return null;
-    return `${panelCode(focused)} · ${panelTitle(focused)}`.toUpperCase();
-  }, [focused]);
 
   return (
     <div className="term-root">

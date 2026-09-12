@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Component, useEffect, useRef, useState } from "react";
 import { PSEUDO_DESKS } from "@/lib/terminal/functionKeyMap";
 import { MODULE_MAP } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
@@ -17,6 +17,28 @@ export function panelTitle(p: PanelSpec): string {
 export function panelCode(p: PanelSpec): string {
   if (PSEUDO_DESKS[p.funcId]) return p.funcId;
   return funcCode(p.funcId);
+}
+
+// One bad desk must never blank the whole workspace — contain the crash
+// to its panel with a retry path.
+class PanelErrorBoundary extends Component<{ label: string; children: React.ReactNode }, { err: string | null }> {
+  state = { err: null as string | null };
+  static getDerivedStateFromError(e: unknown) {
+    return { err: e instanceof Error ? e.message : "render failed" };
+  }
+  componentDidCatch() { /* contained per-panel; nothing global to report */ }
+  render() {
+    if (this.state.err) {
+      return (
+        <div>
+          <p className="neg">DESK ERR: {this.state.err}</p>
+          <button className="ghost" onClick={() => this.setState({ err: null })}>RETRY</button>
+          <span className="muted" style={{ fontSize: 11, marginLeft: 8 }}>{this.props.label} · RIGHT-CLICK HEADER TO CHANGE FUNCTION</span>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export default function Panel({
@@ -146,11 +168,13 @@ export default function Panel({
       {showNumber && <div className="term-expose" aria-hidden>{index + 1}</div>}
       <div className="term-panel-body">
         <div className="desk-fill">
-          <DeskRenderer
-            funcId={spec.funcId} symbol={spec.symbol} task={spec.task}
-            onOpen={(f, s) => onChange({ ...spec, funcId: f, symbol: s, task: null })}
-            onExpand={() => onChange({ ...spec, task: null })}
-          />
+          <PanelErrorBoundary key={`${spec.funcId}|${spec.symbol}|${spec.task ?? ""}`} label={title}>
+            <DeskRenderer
+              funcId={spec.funcId} symbol={spec.symbol} task={spec.task}
+              onOpen={(f, s) => onChange({ ...spec, funcId: f, symbol: s, task: null })}
+              onExpand={() => onChange({ ...spec, task: null })}
+            />
+          </PanelErrorBoundary>
         </div>
       </div>
     </section>
