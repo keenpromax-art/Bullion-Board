@@ -146,7 +146,11 @@ export default function Panel({
       {showNumber && <div className="term-expose" aria-hidden>{index + 1}</div>}
       <div className="term-panel-body">
         <div className="desk-fill">
-          <DeskRenderer funcId={spec.funcId} symbol={spec.symbol} task={spec.task} />
+          <DeskRenderer
+            funcId={spec.funcId} symbol={spec.symbol} task={spec.task}
+            onOpen={(f, s) => onChange({ ...spec, funcId: f, symbol: s, task: null })}
+            onExpand={() => onChange({ ...spec, task: null })}
+          />
         </div>
       </div>
     </section>

@@ -19,6 +19,7 @@ import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ANRDesk, CastDesk } from "@/components/CapitalDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
 import { Histogram, EquityDrawdown } from "@/components/charts";
+import { WatchPanel, StratMini, FundaMini, AIMini } from "./MiniDesks";
 import OptionsStrategyDesk from "@/components/OptionsStrategyDesk";
 import { analyseChain, calcSuggestion, expiryToDays } from "@/lib/ochain";
 
@@ -276,9 +277,25 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
   );
 }
 
-export default function DeskRenderer({ funcId, symbol, task }: { funcId: string; symbol: string; task?: string | null }) {
+export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand }: {
+  funcId: string;
+  symbol: string;
+  task?: string | null;
+  onOpen?: (funcId: string, symbol: string) => void;
+  onExpand?: () => void;
+}) {
   const sym = symbol || "RELIANCE.NS";
   const mod = MODULE_MAP[funcId];
+  const go = onOpen ?? (() => {});
+  const full = onExpand ?? (() => {});
+
+  // Compact summary views for the default no-scroll workspace.
+  if (task === "MINI") {
+    if (funcId === "DIR") return <WatchPanel onOpen={go} />;
+    if (funcId === "70") return <StratMini symbol={sym} onFull={full} />;
+    if (funcId === "12") return <FundaMini symbol={sym} onFull={full} />;
+    if (funcId === "66") return <AIMini symbol={sym} onFull={full} />;
+  }
 
   if (funcId === "DIR") return <DirectoryMini symbol={sym} />;
   if (funcId === "NOTE") return <NotesMini />;

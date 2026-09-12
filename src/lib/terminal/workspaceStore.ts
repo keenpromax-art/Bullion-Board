@@ -19,7 +19,7 @@ export interface SavedWorkspace {
 
 export type TilingPreset = "1-up" | "2-up-h" | "2-up-v" | "4-up";
 
-const ACTIVE_KEY = "bb.workspace.active";
+const ACTIVE_KEY = "bb.workspace.active.v2";
 const NAMES_KEY = "bb.workspace.saved";
 const LEGACY_NOTE = "bb.workspace.legacyWarned";
 
@@ -48,13 +48,15 @@ function write(key: string, val: unknown): void {
 }
 
 export function defaultPanels(): PanelSpec[] {
-  // "Equity Overview" preset: directory + chart + fundamentals.
+  // "Equity Overview" preset: four compact summary panels that fit the
+  // viewport with no scrolling (watchlist + strat mini + funda mini + AI).
+  // task MINI selects the summary view; FULL DESK in-panel opens the desk.
   const now = Date.now().toString(36);
   return [
-    { id: `p${now}a`, funcId: "DIR", symbol: "RELIANCE.NS" },
-    { id: `p${now}b`, funcId: "2", symbol: "RELIANCE.NS" },
-    { id: `p${now}c`, funcId: "12", symbol: "RELIANCE.NS" },
-    { id: `p${now}d`, funcId: "70", symbol: "NIFTY" },
+    { id: `p${now}a`, funcId: "70", symbol: "RELIANCE.NS", task: "MINI" },
+    { id: `p${now}b`, funcId: "DIR", symbol: "RELIANCE.NS", task: "MINI" },
+    { id: `p${now}c`, funcId: "12", symbol: "RELIANCE.NS", task: "MINI" },
+    { id: `p${now}d`, funcId: "66", symbol: "RELIANCE.NS", task: "MINI" },
   ];
 }
 

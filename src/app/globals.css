@@ -396,7 +396,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 
 /* workspace: flex fill, mockup grid */
 .term-work { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.term-grid { flex: 1; min-height: 0; display: grid; gap: 6px; padding: 6px; align-items: stretch; overflow: auto; }
+.term-grid { flex: 1; min-height: 0; display: grid; gap: 6px; padding: 6px; align-items: stretch; overflow: hidden; }
 .term-grid[data-layout="1-up"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .term-grid[data-layout="2-up-v"] { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr); }
 .term-grid[data-layout="2-up-h"] { grid-template-columns: minmax(0, 1.3fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
