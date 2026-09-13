@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { store } from "@/lib/store";
 import { DEFAULT_MODEL } from "@/lib/ai";
+import { downloadBackup, parseBackup, restoreBackup } from "@/lib/backup";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 
 export default function SettingsPage() {
@@ -13,6 +14,9 @@ export default function SettingsPage() {
   const [fkey, setFkey] = useState("");
   const [fsaved, setFsaved] = useState("");
   const [fserver, setFserver] = useState<{ hasServerKey: boolean } | null>(null);
+  const [withKeys, setWithKeys] = useState(true);
+  const [bmsg, setBmsg] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setKey(store.getORKey());
@@ -107,6 +111,47 @@ export default function SettingsPage() {
               <span className="pos">{fsaved}</span>
             </div>
           </div>
+        </div>
+        <div className="panel">
+          <p className="p-head">Backup & restore — move devices</p>
+          <p className="muted" style={{ fontSize: 12.5 }}>
+            NO ACCOUNTS HERE — WATCHLISTS, WORKSPACES, PORTFOLIO, ALERTS, NOTES,
+            CHAT SESSIONS AND KEYS LIVE IN THIS BROWSER ONLY. EXPORT A BACKUP FILE
+            AND IMPORT IT ON YOUR OTHER DEVICE TO CARRY EVERYTHING OVER.
+          </p>
+          <div className="toolbar" style={{ marginTop: 10 }}>
+            <label className="muted" style={{ fontSize: 12, display: "flex", gap: 6, alignItems: "center" }}>
+              <input type="checkbox" checked={withKeys} onChange={(e) => setWithKeys(e.target.checked)} />
+              INCLUDE API KEYS
+            </label>
+            <button className="btn" onClick={() => {
+              try {
+                const n = downloadBackup(withKeys);
+                setBmsg(`EXPORTED ${n} KEYS ✓`);
+              } catch (e: unknown) { setBmsg(e instanceof Error ? e.message : "EXPORT FAILED"); }
+            }}>↓ EXPORT BACKUP</button>
+            <button className="ghost" onClick={() => fileRef.current?.click()}>↑ IMPORT BACKUP</button>
+            <input
+              ref={fileRef} type="file" accept="application/json,.json" style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                if (!confirm("REPLACE THIS BROWSER'S STATE WITH THE BACKUP FILE?")) return;
+                f.text().then((t) => {
+                  try {
+                    const n = restoreBackup(parseBackup(t));
+                    setBmsg(`RESTORED ${n} KEYS ✓ — RELOADING…`);
+                    setTimeout(() => window.location.reload(), 800);
+                  } catch (err: unknown) { setBmsg(err instanceof Error ? err.message : "IMPORT FAILED"); }
+                }).catch(() => setBmsg("COULD NOT READ FILE"));
+              }}
+            />
+            {bmsg && <span className="pos" style={{ fontSize: 12 }}>{bmsg}</span>}
+          </div>
+          <p className="muted" style={{ fontSize: 11.5, marginBottom: 0 }}>
+            BACKUP FILES WITH KEYS CONTAIN SECRETS — STORE THEM LIKE A PASSWORD.
+          </p>
         </div>
       </main>
       <StatusBar extra="CONFIG" />
