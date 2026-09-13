@@ -7,6 +7,7 @@ import {
   parseTerminalCommand,
   suggestFunctions,
   suggestSymbols,
+  normalizeSymbolInput,
   loadHistory,
   pushHistory,
   resolveFuncId,
@@ -53,8 +54,8 @@ export default function CommandLine({
   const universe = useMemo(() => {
     try {
       const w = store.getWatchlist();
-      return w.length > 0 ? w : WATCHLIST.slice(0, 400);
-    } catch { return WATCHLIST.slice(0, 400); }
+      return w.length > 0 ? w : WATCHLIST;
+    } catch { return WATCHLIST; }
   }, []);
   const uniSet = useMemo(() => new Set(universe), [universe]);
   const fnQuery = useMemo(() => {
@@ -69,19 +70,30 @@ export default function CommandLine({
 
   const fnSugs: FuncSuggestion[] = useMemo(() => suggestFunctions(fnQuery, 8), [fnQuery]);
   const symSugs: string[] = useMemo(() => suggestSymbols(symQuery, universe, 6), [symQuery, universe]);
+  // Always offer the exact typed security on top (indices, futures, FX,
+  // crypto and deep-list names never live in the equity universe).
+  const symSugsPlus: string[] = useMemo(() => {
+    const q = symQuery.trim().toUpperCase();
+    if (!q || symSugs.includes(q)) return symSugs;
+    if (!TICKER_RE.test(q) || !/[A-Z]/.test(q)) return symSugs;
+    if (resolveFuncId(q)) return symSugs;
+    const norm = normalizeSymbolInput(q);
+    if (symSugs.includes(norm)) return symSugs;
+    return [norm, ...symSugs].slice(0, 6);
+  }, [symSugs, symQuery]);
 
   type Row = { kind: "sym" | "fn"; sym?: string; fn?: FuncSuggestion };
   const rows: Row[] = useMemo(() => {
     const out: Row[] = [];
     if (parts.length <= 1) {
-      symSugs.forEach((s) => out.push({ kind: "sym", sym: s }));
+      symSugsPlus.forEach((s) => out.push({ kind: "sym", sym: s }));
       fnSugs.forEach((f) => out.push({ kind: "fn", fn: f }));
     } else {
       fnSugs.forEach((f) => out.push({ kind: "fn", fn: f }));
-      symSugs.slice(0, 3).forEach((s) => out.push({ kind: "sym", sym: s }));
+      symSugsPlus.slice(0, 3).forEach((s) => out.push({ kind: "sym", sym: s }));
     }
     return out.slice(0, 12);
-  }, [symSugs, fnSugs, parts.length]);
+  }, [symSugsPlus, fnSugs, parts.length]);
 
   const open = cmd.trim().length > 0 && !showHelp;
 
