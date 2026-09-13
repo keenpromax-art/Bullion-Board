@@ -105,7 +105,7 @@ export function suggestFunctions(query: string, limit = 8): FuncSuggestion[] {
   const q = query.trim().toUpperCase();
   if (!q) {
     // Default: curated most-used first (mirrors functionKeyMap order).
-    const curated = ["70", "110", "2", "12", "74", "111", "66", "53"];
+    const curated = ["70", "110", "2", "12", "109", "111", "66", "53"];
     return curated
       .filter((id) => MODULE_MAP[id])
       .map((id) => {
