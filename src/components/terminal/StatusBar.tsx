@@ -8,6 +8,8 @@ const LAYOUTS: Array<{ id: TilingPreset; label: string }> = [
   { id: "1-up", label: "1-UP" },
   { id: "2-up-v", label: "2-UP" },
   { id: "2-up-h", label: "2-H" },
+  { id: "3-up-r", label: "3-R" },
+  { id: "3-up-l", label: "3-L" },
   { id: "4-up", label: "4-UP" },
 ];
 

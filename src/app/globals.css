@@ -493,10 +493,28 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-grid[data-layout="2-up-v"] { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr); }
 .term-grid[data-layout="2-up-h"] { grid-template-columns: minmax(0, 1.3fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .term-grid[data-layout="4-up"] { grid-template-columns: 1.3fr 1fr; grid-template-rows: 1fr 1fr; }
+.term-grid[data-layout="3-up-r"] { grid-template-columns: 1.3fr 1fr; grid-template-rows: 1fr 1fr; }
+.term-grid[data-layout="3-up-l"] { grid-template-columns: 1.3fr 1fr; grid-template-rows: 1fr 1fr; }
 .term-grid[data-layout="max"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .term-cell { min-width: 0; min-height: 0; display: flex; }
+.term-cell.empty { min-height: 40px; }
+.term-flex .term-cell { flex: 1 1 auto; }
 .term-cell.dragover { outline: 1px dashed var(--amber); outline-offset: -1px; }
 .term-grid { position: relative; }
+
+/* nested-flex tiling (4-up / 3-up-r / 3-up-l): outer row of columns, each
+   column stacks its own top/bottom panels — every quadrant resizes without
+   moving the other side (one shared col + independent rowL/rowR). */
+.term-flex { flex: 1; min-height: 0; display: flex; align-items: stretch; padding: 6px; overflow: hidden; }
+.term-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.term-flex-v, .term-flex-h { flex: 0 0 auto; z-index: 6; touch-action: none; border-radius: 2px; position: relative; }
+.term-flex-v { width: 9px; cursor: col-resize; }
+.term-flex-v::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: var(--grid); }
+.term-flex-h { height: 9px; cursor: row-resize; }
+.term-flex-h::after { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 1px; background: var(--grid); }
+.term-flex-v:hover::after, .term-flex-v.active::after,
+.term-flex-h:hover::after, .term-flex-h.active::after { background: var(--amber); }
+.term-flex-v:focus-visible, .term-flex-h:focus-visible { outline: 1px solid var(--amber); outline-offset: 0; }
 
 /* draggable resize dividers between grid tracks */
 .term-split-v, .term-split-h { position: absolute; z-index: 6; touch-action: none; border-radius: 2px; }
@@ -633,7 +651,13 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 
 /* responsive */
 @media (max-width: 1023px) {
-  .term-grid[data-layout="2-up-v"], .term-grid[data-layout="4-up"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .term-grid[data-layout="2-up-v"], .term-grid[data-layout="4-up"], .term-grid[data-layout="3-up-r"], .term-grid[data-layout="3-up-l"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .term-grid[data-layout="3-up-r"] .term-cell, .term-grid[data-layout="3-up-l"] .term-cell { grid-column: auto !important; grid-row: auto !important; }
+  .term-flex { flex-direction: column; overflow-y: auto; }
+  .term-col { flex: 1 1 auto !important; min-height: 0; }
+  .term-flex .term-cell { flex: 1 1 auto !important; min-height: 300px; }
+  .term-flex-v { width: auto; height: 9px; cursor: row-resize; }
+  .term-flex-v::after { left: 0; right: 0; top: 4px; bottom: auto; width: auto; height: 1px; }
   .term-fkeys { overflow-x: auto; }
 }
 @media (max-width: 639px) {

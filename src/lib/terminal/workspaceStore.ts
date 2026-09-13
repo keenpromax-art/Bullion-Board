@@ -18,7 +18,7 @@ export interface SavedWorkspace {
   focusedId: string | null;
 }
 
-export type TilingPreset = "1-up" | "2-up-h" | "2-up-v" | "4-up";
+export type TilingPreset = "1-up" | "2-up-h" | "2-up-v" | "4-up" | "3-up-r" | "3-up-l";
 
 // Hard cap: the grid only defines layouts up to 4-up (2x2) inside a fixed
 // viewport shell — a 5th panel would overflow invisibly. Every add-path
@@ -37,6 +37,7 @@ export function capPanels(panels: PanelSpec[]): PanelSpec[] {
 export function fitLayout(n: number): TilingPreset {
   if (n <= 1) return "1-up";
   if (n === 2) return "2-up-v";
+  if (n === 3) return "3-up-r";
   return "4-up";
 }
 
@@ -90,11 +91,15 @@ export interface ActiveState {
   splits?: Record<TilingPreset, PanelSplits>;
 }
 
-// Drag-resize state: fraction of the grid's width (col) / height (row)
-// owned by the first track. Always clamped to [0.2, 0.8] on read.
+// Drag-resize state: fraction of the width (col) owned by the left
+// column; fraction of each column's height (row = left, row2 = right)
+// owned by the top panel. A single full-width/height divider can't size
+// 4 quadrants independently (any 4-rectangle tiling has one full cut),
+// so 4-up nests: shared col + independent rowL/rowR. Always clamp [0.2,0.8].
 export interface PanelSplits {
   col: number;
   row: number;
+  row2?: number;
 }
 
 export function defaultSplits(): Record<TilingPreset, PanelSplits> {
@@ -104,6 +109,9 @@ export function defaultSplits(): Record<TilingPreset, PanelSplits> {
     "2-up-v": { col: 0.5, row: 0.5 },
     "2-up-h": { col: 0.5, row: 0.5 },
     "4-up": { col: 1.3 / 2.3, row: 0.5 },
+    // Spanning 3-panel layouts share the 4-up rails (left stack + tall side).
+    "3-up-r": { col: 1.3 / 2.3, row: 0.5 },
+    "3-up-l": { col: 1.3 / 2.3, row: 0.5 },
   };
 }
 
@@ -116,7 +124,8 @@ export function splitsFor(state: ActiveState, layout: TilingPreset = state.layou
   const fb = defaultSplits()[layout];
   const s = state.splits?.[layout];
   if (!s) return { ...fb };
-  return { col: clampSplit(s.col), row: clampSplit(s.row) };
+  const row = clampSplit(s.row);
+  return { col: clampSplit(s.col), row, row2: clampSplit(s.row2 ?? row) };
 }
 
 function withSplits(state: ActiveState): ActiveState {
@@ -124,7 +133,9 @@ function withSplits(state: ActiveState): ActiveState {
   const out: Record<TilingPreset, PanelSplits> = { ...d };
   (Object.keys(d) as TilingPreset[]).forEach((k) => {
     const s = state.splits?.[k];
-    out[k] = s ? { col: clampSplit(s.col), row: clampSplit(s.row) } : { ...d[k] };
+    if (!s) { out[k] = { ...d[k] }; return; }
+    const row = clampSplit(s.row);
+    out[k] = { col: clampSplit(s.col), row, row2: clampSplit(s.row2 ?? row) };
   });
   return { ...state, splits: out };
 }
@@ -158,9 +169,9 @@ function normalizeDesktop(raw: Partial<ActiveState> | null | undefined): ActiveS
   ));
   if (panels.length === 0) return null;
   const focusedId = panels.some((p) => p.id === raw.focusedId) ? (raw.focusedId as string) : panels[0].id;
-  const layout = raw.layout === "1-up" || raw.layout === "2-up-h" || raw.layout === "2-up-v" || raw.layout === "4-up"
+  const layout = raw.layout === "1-up" || raw.layout === "2-up-h" || raw.layout === "2-up-v" || raw.layout === "4-up" || raw.layout === "3-up-r" || raw.layout === "3-up-l"
     ? raw.layout
-    : panels.length >= 4 ? "4-up" : panels.length >= 2 ? "2-up-v" : "1-up";
+    : panels.length >= 4 ? "4-up" : panels.length === 3 ? "3-up-r" : panels.length >= 2 ? "2-up-v" : "1-up";
   return withSplits({
     panels,
     layout,
@@ -295,7 +306,7 @@ export function importWorkspace(json: string): ActiveState | null {
     if (!panels.length) return null;
     return {
       panels,
-      layout: j.layout ?? (panels.length >= 4 ? "4-up" : panels.length >= 2 ? "2-up-v" : "1-up"),
+      layout: j.layout ?? (panels.length >= 4 ? "4-up" : panels.length === 3 ? "3-up-r" : panels.length >= 2 ? "2-up-v" : "1-up"),
       focusedId: typeof j.focusedId === "string" && panels.some((p) => p.id === j.focusedId) ? j.focusedId : panels[0].id,
       workspaceName: null,
       dirty: true,
