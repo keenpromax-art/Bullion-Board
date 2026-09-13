@@ -258,6 +258,7 @@ export default function TickerTape({ onPick, onFeed, onScore }: {
           </button>
         );
       })()}
+      <div className="tape-viewport">
       <div
         className="tape-track"
         style={{ animationDuration: duration, ...(paused ? { animationPlayState: "paused" as const } : {}) }}
@@ -290,6 +291,7 @@ export default function TickerTape({ onPick, onFeed, onScore }: {
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );

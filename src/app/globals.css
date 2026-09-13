@@ -452,7 +452,9 @@ table.fndir tbody tr:focus-visible { outline: 2px solid var(--amber); outline-of
 
 /* ticker tape: 26px, grid rule, duration set inline (~4s per symbol) */
 .term-tape { flex: 0 0 auto; height: 26px; display: flex; align-items: center; background: #000; border-top: none; border-bottom: 1px solid var(--grid); overflow: hidden; position: relative; }
-.term-tape .tape-track { display: flex; gap: 28px; white-space: nowrap; animation: tape-scroll 72s linear infinite; padding-right: 28px; }
+.term-tape .tape-track { display: flex; gap: 28px; white-space: nowrap; animation: tape-scroll 72s linear infinite; padding-right: 28px; flex: 0 0 auto; }
+/* scroll viewport: clips the marquee so items never paint over the OPEN chip */
+.tape-viewport { flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; align-self: stretch; }
 .term-tape:hover .tape-track { animation-play-state: paused; }
 .tape-item { font-size: 11px; display: inline-flex; gap: 7px; align-items: center; font-family: var(--mono); white-space: nowrap; flex: 0 0 auto; }
 .tape-track.tape-static { animation: none; padding: 0 12px; }
