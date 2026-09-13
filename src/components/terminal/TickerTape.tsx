@@ -137,9 +137,14 @@ function buildSymbols(): string[] {
   return (out.length > 0 ? out : [...DEFAULT_TAPE]).slice(0, MAX_ITEMS);
 }
 
-export default function TickerTape({ onPick, onFeed }: { onPick: (sym: string) => void; onFeed: (ok: boolean | null) => void }) {
+export default function TickerTape({ onPick, onFeed, onScore }: {
+  onPick: (sym: string) => void;
+  onFeed: (ok: boolean | null) => void;
+  onScore?: () => void;
+}) {
   const [items, setItems] = useState<TapeItem[]>([]);
   const [paused, setPaused] = useState(false);
+  const [score, setScore] = useState<{ value: number | null; verdict: string } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -183,6 +188,28 @@ export default function TickerTape({ onPick, onFeed }: { onPick: (sym: string) =
     return () => { alive = false; clearInterval(t); };
   }, [onFeed]);
 
+  useEffect(() => {
+    let alive = true;
+    // Opening score: lite summary, 5-min refresh (slots move slowly).
+    async function pullScore() {
+      try {
+        const r = await fetch("/api/opening?summary=1");
+        const j = await r.json();
+        if (!alive) return;
+        if (!r.ok || j.error || j.score?.value === null || j.score?.value === undefined) {
+          setScore((s) => (s ? null : s));
+          return;
+        }
+        setScore({ value: j.score.value, verdict: String(j.score.verdict ?? "") });
+      } catch {
+        if (alive) setScore((s) => (s ? null : s));
+      }
+    }
+    pullScore();
+    const t = setInterval(pullScore, 300000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+
   const seq = items.length > 0 ? items : buildSymbols().map((s) => ({ symbol: s, price: null, chg: null, chgPct: null, currency: null, ok: false }));
   const loaded = items.length > 0;
   const allDown = loaded && seq.every((r) => !r.ok);
@@ -211,6 +238,26 @@ export default function TickerTape({ onPick, onFeed }: { onPick: (sym: string) =
       role="marquee"
       aria-label="Watchlist ticker tape"
     >
+      {(() => {
+        const v = score?.value ?? null;
+        const green = v !== null && v > 0;
+        const red = v !== null && v < 0;
+        const label = v === null ? "…" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)} ${score!.verdict}`;
+        return (
+          <button
+            className="tape-score"
+            onClick={onScore}
+            disabled={!onScore}
+            title={v === null ? "Opening score — loading" : `Opening score ${label} — open the Opening desk (PRE)`}
+            aria-label={`Opening market score ${label}`}
+          >
+            <span className="sym">OPEN</span>
+            {v === null
+              ? <span className="faint">…</span>
+              : <span className={green ? "up" : red ? "down" : "flat"}>{green ? "▲" : red ? "▼" : "●"} {label}</span>}
+          </button>
+        );
+      })()}
       <div
         className="tape-track"
         style={{ animationDuration: duration, ...(paused ? { animationPlayState: "paused" as const } : {}) }}

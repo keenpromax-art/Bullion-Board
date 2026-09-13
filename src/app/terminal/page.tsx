@@ -273,7 +273,11 @@ function Inner() {
         }}
         inputRef={cmdRef}
       />
-      <TickerTape onPick={(sym) => applyCommand(normalizeTicker(sym), null, false)} onFeed={setFeedOk} />
+      <TickerTape
+        onPick={(sym) => applyCommand(normalizeTicker(sym), null, false)}
+        onFeed={setFeedOk}
+        onScore={() => applyCommand(null, "109", false)}
+      />
       <div className="term-work">
         <PanelWorkspace
           panels={state.panels}

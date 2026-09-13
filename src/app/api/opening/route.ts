@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { yahooFetch, yahooHeaders } from "@/lib/yahoo";
 import {
   CAPTURE_SLOTS, OPENING_UNIVERSE, VIX_THRESHOLD, buildSignals, istStamp, nearestSlot, vixCondition,
@@ -119,7 +119,10 @@ async function fallbackBreadth() {
   };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // ?summary=1 skips the intraday tape + per-stock rows (tape chip only
+  // needs score/breadth/vix) — same signals, fraction of the payload.
+  const lite = req.nextUrl.searchParams.get("summary") === "1";
   try {
     const [ndq, dow, sti, vix, nifty] = await Promise.all([
       dayPct("^IXIC"), dayPct("^DJI"), dayPct("^STI"),
@@ -153,8 +156,9 @@ export async function GET() {
       })(),
     ]);
 
-    // Intraday 1h Nifty, converted to IST
+    // Intraday 1h Nifty, converted to IST (skipped in summary mode)
     let intraday: Array<{ time: string; date: string; open: number; high: number; low: number; close: number }> = [];
+    if (!lite) {
     try {
       const r = await yahooFetch(`/v8/finance/chart/%5ENSEI?range=5d&interval=1h`, { next: { revalidate: 60 } });
       const j = await r.json();
@@ -175,6 +179,7 @@ export async function GET() {
       const latestDate = all.length ? all[all.length - 1].date : null;
       intraday = all.filter((b) => b.date === latestDate) as typeof intraday;
     } catch { intraday = []; }
+    }
 
     // Breadth: NSE official first, Yahoo universe fallback
     let breadth: Awaited<ReturnType<typeof nseBreadth>> | Awaited<ReturnType<typeof fallbackBreadth>>;
@@ -218,8 +223,8 @@ export async function GET() {
         adv: breadth.adv, dec: breadth.dec, unc: breadth.unc, total,
         sentiment: total ? (breadth.adv > breadth.dec ? "BULLISH" : breadth.dec > breadth.adv ? "BEARISH" : "NEUTRAL") : null,
         matrix: breadth.matrix, source: breadth.source,
-        gainers: sorted.slice(0, 5), losers: sorted.slice(-5).reverse(),
-        rows: breadth.rows,
+        gainers: lite ? [] : sorted.slice(0, 5), losers: lite ? [] : sorted.slice(-5).reverse(),
+        rows: lite ? [] : breadth.rows,
       },
       globalCue: { source: gcSource, last: gcLast, chg: gcChg, fallback: gcFallback },
       score: { value: score, n, verdict, signals },
