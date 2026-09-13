@@ -167,6 +167,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
   const [appliedQ, setAppliedQ] = useState(initialQ ?? "");
   const [narrow, setNarrow] = useState("");
   const [sent, setSent] = useState<"ALL" | "BULL" | "BEAR" | "NEUT">("ALL");
+  const [topOnly, setTopOnly] = useState(false);
   const [shown, setShown] = useState(15);
   const [read, setRead] = useState<string[]>([]);
   const [aiOut, setAiOut] = useState("");
@@ -181,6 +182,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
   }, []);
   useEffect(() => {
     setTab(feed); setDraft(initialQ ?? ""); setAppliedQ(initialQ ?? ""); setShown(15); setNarrow(""); setSent("ALL");
+    setTopOnly(false);
     setOpenId(null); setArt(null); setArtErr("");
   }, [feed, symbol, initialQ]);
 
@@ -239,12 +241,46 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
     }
   }
 
+  // ★ TOP: today's stories ranked by market-moving value — directional
+  // call first, heavyweight keywords next, fresher first.
+  const TOP_WORDS = useMemo(() => (
+    "NIFTY SENSEX BANKNIFTY RBI FED RATE RATES INFLATION GDP BUDGET ELECTION STIMULUS " +
+    "CRASH RALLY RECORD CIRCUIT DEFAULT DOWNGRADE UPGRADE MERGER ACQUISITION SCAM PROBE " +
+    "RESULTS EARNINGS GUIDANCE DIVIDEND SPLIT BONUS IPO LISTING FII DII OIL RUPEE YIELD"
+  ).split(" "), []);
+  const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const todayKey = dayKey(new Date());
+  const isToday = (published: string) => {
+    if (!published) return false;
+    const t = Date.parse(published);
+    return isFinite(t) && dayKey(new Date(t)) === todayKey;
+  };
+  const valueScore = (n: { title: string; label: string; published: string }) => {
+    const t = n.title.toUpperCase();
+    let s = 0;
+    if (n.label === "BULL" || n.label === "BEAR") s += 3;
+    for (const w of TOP_WORDS) if (t.includes(w)) s += 2;
+    const ts = Date.parse(n.published);
+    if (isFinite(ts)) s -= Math.max(0, (Date.now() - ts) / 3600000) / 12;
+    return s;
+  };
+
   const items = (data?.items ?? []).filter((n) => {
     if (sent !== "ALL" && n.label !== sent) return false;
     if (narrow && !(n.title + " " + n.source).toUpperCase().includes(narrow.toUpperCase())) return false;
     return true;
   });
-  const visible = items.slice(0, shown);
+  const topItems = useMemo(() => (data?.items ?? [])
+    .filter((n) => isToday(n.published))
+    .map((n) => ({ n, s: valueScore(n) }))
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 12)
+    .map((x) => x.n),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data]);
+  const showingTop = topOnly && topItems.length > 0;
+  const listItems = showingTop ? topItems : items;
+  const visible = showingTop ? topItems : items.slice(0, shown);
   const tape = (data?.items ?? []).slice(0, 8);
   const counts: Array<{ k: "ALL" | "BULL" | "BEAR" | "NEUT"; n: number }> = [
     { k: "ALL", n: (data?.items ?? []).length },
@@ -257,11 +293,11 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
     <div className="top">
       <div className="top-tabs">
         {tabs.map((t) => (
-          <button key={t.id} className={`top-tab${tab === t.id ? " active" : ""}`} onClick={() => { setTab(t.id); setShown(15); }}>
+          <button key={t.id} className={`top-tab${tab === t.id ? " active" : ""}`} onClick={() => { setTab(t.id); setShown(15); setTopOnly(false); }}>
             {t.label}
           </button>
         ))}
-        <span className="top-count">{data ? `${items.length} STORIES` : "…"}</span>
+        <span className="top-count">{data ? `${listItems.length} STORIES` : "…"}</span>
       </div>
 
       {tab === "custom" && (
@@ -278,13 +314,20 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
 
       <div className="top-narrow">
         <span className="top-prompt">&lt;NARROW&gt;</span>
-        <input
-          className="top-input" value={narrow} onChange={(e) => { setNarrow(e.target.value.toUpperCase()); setShown(15); }}
+          <input
+            className="top-input" value={narrow} onChange={(e) => { setNarrow(e.target.value.toUpperCase()); setShown(15); setTopOnly(false); }}
           placeholder="FILTER THESE STORIES…" spellCheck={false} autoComplete="off"
         />
         <span className="top-show">SHOW</span>
+        <button
+          className={`top-check${topOnly ? " active" : ""}`}
+          title="Today's highest-value headlines"
+          onClick={() => { setTopOnly((v) => !v); setShown(15); }}
+        >
+          ★ TOP {topItems.length > 0 ? topItems.length : ""}
+        </button>
         {counts.map((c) => (
-          <button key={c.k} className={`top-check${sent === c.k ? " active" : ""}`} onClick={() => { setSent(c.k); setShown(15); }}>
+          <button key={c.k} className={`top-check${sent === c.k ? " active" : ""}`} onClick={() => { setSent(c.k); setShown(15); setTopOnly(false); }}>
             ☑ {c.k} {c.n}
           </button>
         ))}
@@ -292,7 +335,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
 
       <div className="top-cols">
         <div className="top-main">
-          <div className="top-sec">Top Stories {title} | <span className="top-more" onClick={() => setShown((s) => s + 15)}>More »</span></div>
+          <div className="top-sec">{showingTop ? "★ Top Headlines — Today" : `Top Stories ${title}`} | <span className="top-more" onClick={() => setShown((s) => s + 15)}>More »</span></div>
           {loading && <p className="muted">PULLING WIRE FOR {symbol}…</p>}
           {err && <p className="neg">ERR: {err} <button className="ghost" onClick={reload}>RETRY</button></p>}
           <ol className="top-list">
@@ -313,7 +356,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
               );
             })}
           </ol>
-          {data && items.length === 0 && (data.items ?? []).length > 0 && (
+          {data && listItems.length === 0 && (data.items ?? []).length > 0 && (
             <p className="muted">
               NO STORIES MATCH {sent !== "ALL" ? `${sent} + ` : ""}{narrow ? `“${narrow}”` : "FILTERS"} —{" "}
               <button
@@ -324,15 +367,15 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
               </button>
             </p>
           )}
-          {data && items.length === 0 && (data.items ?? []).length === 0 && <p className="muted">WIRE QUIET — RETRY IN A MINUTE.</p>}
-          {shown < items.length && <button className="ghost" style={{ marginTop: 8 }} onClick={() => setShown((s) => s + 15)}>MORE » ({items.length - shown} LEFT)</button>}
+          {data && listItems.length === 0 && (data.items ?? []).length === 0 && <p className="muted">WIRE QUIET — RETRY IN A MINUTE.</p>}
+          {!showingTop && shown < listItems.length && <button className="ghost" style={{ marginTop: 8 }} onClick={() => setShown((s) => s + 15)}>MORE » ({listItems.length - shown} LEFT)</button>}
         </div>
 
         <div className="top-rail">
           <div className="rail-panel">
             <div className="rail-head">Top News</div>
             <div className="rail-sub">Insight | <span className="top-more" onClick={() => setShown((s) => s + 15)}>More »</span></div>
-            {items.slice(0, 5).map((n) => (
+            {(showingTop ? topItems : items).slice(0, 5).map((n) => (
               <div key={n.id} className="rail-link">
                 &gt; {n.link
                   ? <span role="link" tabIndex={0} style={{ cursor: "pointer" }} onClick={() => openArticle(n)}
@@ -340,7 +383,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
                   : n.title}
               </div>
             ))}
-            {data && items.length === 0 && <p className="muted" style={{ fontSize: 12 }}>— NO MATCH —</p>}
+            {data && listItems.length === 0 && <p className="muted" style={{ fontSize: 12 }}>— NO MATCH —</p>}
           </div>
           <div className="rail-panel">
             <div className="rail-sub">First Word | <span className="top-more" onClick={() => setShown((s) => s + 15)}>More »</span></div>
