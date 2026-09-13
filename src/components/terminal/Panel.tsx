@@ -155,6 +155,9 @@ export default function Panel({
           </>
         ) : null}
         <span className="term-panel-sp" />
+        {spec.funcId !== "DIR" && (
+          <button className="term-icon" title="Back to directory (DIR)" aria-label="Back to directory" onClick={(e) => { e.stopPropagation(); onFocus(); onChange({ ...spec, funcId: "DIR", task: null }); }}>⌂</button>
+        )}
         <button className={`term-icon fav${isFav ? " active" : ""}`} title={isFav ? "Remove from favorites (★)" : "Make favorite tile (☆)"} aria-label={isFav ? "Remove from favorites" : "Make favorite"} aria-pressed={isFav} onClick={(e) => { e.stopPropagation(); onFocus(); toggleFav(); }}>{isFav ? "★" : "☆"}</button>
         <button className="term-icon" title={maximized ? "Restore (Ctrl+M)" : "Maximize (Ctrl+M)"} aria-label="Maximize panel" onClick={(e) => { e.stopPropagation(); onMaximize(); }}>▢</button>
         <button className="term-icon danger" title="Close panel (Ctrl+W)" aria-label="Close panel" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
