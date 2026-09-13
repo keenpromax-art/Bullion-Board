@@ -527,10 +527,13 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-menu button.danger:hover { color: var(--red); }
 .term-menu button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .term-expose { position: absolute; top: 34px; left: 10px; z-index: 5; font-size: 34px; font-weight: 700; color: rgba(255,160,40,0.9); background: rgba(0,0,0,0.6); border: 1px solid var(--amber); border-radius: 3px; padding: 0 12px; pointer-events: none; }
-.term-panel-body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; }
-.term-panel-body:has(.nexus-fill) { padding: 0; overflow: hidden; }
-.nexus-fill { display: flex; min-width: 0; min-height: 0; height: 100%; }
+.term-panel-body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; container-type: inline-size; container-name: panel; }
+.term-panel-body:has(.nexus-fill), .term-panel-body:has(.frame-fill) { padding: 0; overflow: hidden; }
+.term-panel-body:has(.nexus-fill) .desk-fill, .term-panel-body:has(.frame-fill) .desk-fill { display: flex; flex-direction: column; height: 100%; }
+.nexus-fill { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .nexus-fill iframe { flex: 1; min-width: 0; min-height: 0; width: 100%; border: none; border-radius: 0; display: block; background: #000; }
+.frame-fill { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; min-height: 0; padding: 10px 12px; }
+.frame-fill iframe { flex: 1; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: block; border: 1px solid var(--grid); border-radius: 3px; background: #000; }
 .desk-fill { min-height: 0; }
 .desk-fill .grid { gap: 8px; }
 .desk-head { margin-bottom: 4px; }
@@ -550,6 +553,27 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-panel-body .cell .lbl, .desk-fill .cell .lbl { font-size: 10px; }
 .term-panel-body .cell .val, .desk-fill .cell .val { font-size: 16px; }
 .term-panel-body .badge, .desk-fill .badge { font-size: 10px; border-radius: 3px; }
+
+/* container-aware panels: desks adapt to PANEL width, not viewport width —
+   a 6-stat strip must collapse in a narrow 4-up tile even on a wide monitor */
+@container panel (max-width: 720px) {
+  .term-panel-body .cells, .desk-fill .cells { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .term-panel-body .scrollx table.plain, .desk-fill .scrollx table.plain { min-width: 600px; }
+  .term-panel-body .toolbar input, .desk-fill .toolbar input { min-width: 120px; }
+}
+@container panel (max-width: 600px) {
+  .term-panel-body .grid-2, .desk-fill .grid-2,
+  .term-panel-body .grid-3, .desk-fill .grid-3,
+  .term-panel-body .grid-4, .desk-fill .grid-4 { grid-template-columns: 1fr; }
+  table.fndir th:nth-child(4), table.fndir td.desc { display: none; }
+  table.fndir th:nth-child(3) { width: auto; }
+  table.fndir td.desk { white-space: normal; line-height: 1.4; }
+  .term-panel-body .sec-name, .desk-fill .sec-name { font-size: 22px; }
+}
+@container panel (max-width: 460px) {
+  .term-panel-body .cells, .desk-fill .cells { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .term-panel-body table.plain td, .desk-fill table.plain td { padding: 4px; }
+}
 
 /* function-key bar: full-width flex, stacked k/l/c */
 .term-fkeys { flex: 0 0 auto; display: flex; border-top: 1px solid var(--grid); background: #000; overflow-x: auto; }

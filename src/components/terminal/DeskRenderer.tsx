@@ -219,7 +219,7 @@ function MacroMini() {
 function FrameDesk({ src, label }: { src: string; label: string }) {
   const external = /^https?:\/\//i.test(src);
   return (
-    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+    <div className="frame-fill">
       <p
         className="muted"
         style={{ fontSize: 12, margin: 0, minWidth: 0, overflowWrap: "anywhere", lineHeight: 1.5 }}
@@ -237,17 +237,6 @@ function FrameDesk({ src, label }: { src: string; label: string }) {
       <iframe
         src={src}
         title={label}
-        style={{
-          width: "100%",
-          maxWidth: "100%",
-          display: "block",
-          height: 480,
-          minHeight: 320,
-          maxHeight: "70vh",
-          border: "1px solid var(--grid)",
-          borderRadius: 3,
-          background: "#000",
-        }}
         loading="lazy"
       />
     </div>
