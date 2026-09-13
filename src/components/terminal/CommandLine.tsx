@@ -163,7 +163,14 @@ export default function CommandLine({
     }
     if (e.key === "Enter") {
       if (e.shiftKey) { e.preventDefault(); submit(true); return; }
-      if (open && rows[hi]) { e.preventDefault(); applyRow(rows[hi]); return; }
+      if (open && rows[hi]) {
+        const cur = rows[hi];
+        // Exact symbol already typed → GO there instead of re-completing.
+        if (cur.kind === "sym" && cur.sym && parts.length === 1 && cur.sym === parts[0]) {
+          e.preventDefault(); submit(false); return;
+        }
+        e.preventDefault(); applyRow(cur); return;
+      }
       submit(false);
       return;
     }
@@ -254,7 +261,7 @@ export default function CommandLine({
               </div>
             );
           })}
-          <div className="sug-row"><span className="sug-meta">ENTER = COMPLETE · SHIFT+ENTER = NEW PANEL DIRECTLY · ↑↓ HISTORY WHEN CLOSED · HELP = THIS PANEL</span></div>
+          <div className="sug-row"><span className="sug-meta">ENTER = GO ON EXACT SYMBOL · ELSE COMPLETE · SHIFT+ENTER = NEW PANEL DIRECTLY · ↑↓ HISTORY WHEN CLOSED · HELP = THIS PANEL</span></div>
         </div>
       )}
     </div>
