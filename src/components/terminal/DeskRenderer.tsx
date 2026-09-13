@@ -18,7 +18,7 @@ import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks"
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ANRDesk, CastDesk } from "@/components/CapitalDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
-import { Histogram, EquityDrawdown } from "@/components/charts";
+import { Histogram, EquityDrawdown, AreaChart, HBars } from "@/components/charts";
 import { WatchPanel, StratMini, FundaMini, AIMini } from "./MiniDesks";
 import OptionsStrategyDesk from "@/components/OptionsStrategyDesk";
 import { analyseChain, calcSuggestion, expiryToDays } from "@/lib/ochain";
@@ -256,29 +256,10 @@ function FrameDesk({ src, label }: { src: string; label: string }) {
 
 function NexusDesk() {
   return (
-    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-      <p
-        className="muted"
-        style={{ fontSize: 12, margin: 0, minWidth: 0, overflowWrap: "anywhere", lineHeight: 1.5 }}
-      >
-        CFA STUDY CHAT + BOOK/PDF LIBRARY · EXTERNAL APP INSIDE PANEL{" "}
-        <a href={NEXUS_CHAT_URL} target="_blank" rel="noopener" style={{ whiteSpace: "nowrap" }}>
-          OPEN FULL →
-        </a>
-      </p>
+    <div className="nexus-fill">
       <iframe
         src={NEXUS_CHAT_URL}
         title="Nexus Chat — CFA study app"
-        style={{
-          width: "100%",
-          maxWidth: "100%",
-          display: "block",
-          height: "calc(100dvh - 260px)",
-          minHeight: 420,
-          border: "1px solid var(--grid)",
-          borderRadius: 3,
-          background: "#000",
-        }}
         allow="clipboard-read; clipboard-write; fullscreen"
         allowFullScreen
         loading="lazy"
@@ -328,6 +309,18 @@ function OpeningMini({ symbol }: { symbol: string }) {
   const verdict = sc.verdict ?? "NO_DATA";
   const b = snap?.breadth ?? {};
   const n = snap?.nifty ?? {};
+  const intra: any[] = snap?.intraday ?? [];
+  const gainers: any[] = (b.gainers ?? []).slice(0, 6);
+  const losers: any[] = (b.losers ?? []).slice(0, 6);
+  const tup = (v: any): [number, number, number] => [Number(v?.[0] ?? 0), Number(v?.[1] ?? 0), Number(v?.[2] ?? 0)];
+  const seg = (label: string, v: [number, number, number]): [string, [number, number, number]] => [label, v];
+  const segs = [
+    seg("NIFTY 50", tup(b.matrix?.nifty50 ?? [b.adv ?? 0, b.dec ?? 0, b.unc ?? 0])),
+    seg("NIFTY 500", tup(b.matrix?.n500)),
+    seg("MIDCAP 150", tup(b.matrix?.midcap)),
+    seg("SMALLCAP 250", tup(b.matrix?.smallcap)),
+    seg("TOTAL MKT", tup(b.matrix?.total)),
+  ].filter(([, v]) => v[0] + v[1] + v[2] > 0);
   const f2 = (v: number | null | undefined, suffix = "") =>
     v === null || v === undefined || !isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${Number(v).toFixed(2)}${suffix}`;
   return (
@@ -419,6 +412,18 @@ function OpeningMini({ symbol }: { symbol: string }) {
               <div className="sub">{snap.vixCond ?? ""}</div>
             </div>
             <div className="cell">
+              <div className="lbl">DOW</div>
+              <div className={`val ${(snap.dow?.chg ?? 0) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 15 }}>
+                {snap.dow?.last?.toLocaleString("en-IN", { maximumFractionDigits: 0 }) ?? "—"}
+              </div>
+              <div className="sub">{f2(snap.dow?.chg, "%")}</div>
+            </div>
+            <div className="cell">
+              <div className="lbl">Global cue</div>
+              <div className="val" style={{ fontSize: 13 }}>{snap.globalCue?.source ?? "—"}</div>
+              <div className="sub">{f2(snap.globalCue?.chg, "%")}{snap.globalCue?.fallback ? " · PROXY" : ""}</div>
+            </div>
+            <div className="cell">
               <div className="lbl">Adv / Dec</div>
               <div className="val" style={{ fontSize: 15 }}>
                 <span className="pos">{b.adv ?? "—"}</span> / <span className="neg">{b.dec ?? "—"}</span>
@@ -431,6 +436,109 @@ function OpeningMini({ symbol }: { symbol: string }) {
               <div className="sub">CAPTURE GRID</div>
             </div>
           </div>
+
+          <div className="panel">
+            <p className="p-head">Nifty 50 — OHLC + intraday path</p>
+            <div className="cells">
+              <div className="cell"><div className="lbl">Open</div><div className="val" style={{ fontSize: 14 }}>{n.open?.toLocaleString("en-IN", { maximumFractionDigits: 1 }) ?? "—"}</div></div>
+              <div className="cell"><div className="lbl">High</div><div className="val" style={{ fontSize: 14 }}>{n.high?.toLocaleString("en-IN", { maximumFractionDigits: 1 }) ?? "—"}</div><div className="sub">day</div></div>
+              <div className="cell"><div className="lbl">Low</div><div className="val" style={{ fontSize: 14 }}>{n.low?.toLocaleString("en-IN", { maximumFractionDigits: 1 }) ?? "—"}</div><div className="sub">day</div></div>
+              <div className="cell"><div className="lbl">Range</div><div className="val" style={{ fontSize: 14 }}>{n.range?.toFixed(1) ?? "—"}</div><div className="sub">pts</div></div>
+              <div className="cell"><div className="lbl">Bars</div><div className="val" style={{ fontSize: 14 }}>{String(intra.length)}</div><div className="sub">1H today</div></div>
+            </div>
+            {intra.length > 1 && (
+              <div style={{ marginTop: 8 }}>
+                <AreaChart values={intra.map((x) => x.close)} dates={intra.map((x) => x.time)} label="NIFTY" height={110} />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5 }} className="faint">
+                  <span>{intra[0].time}</span><span>{intra[Math.floor(intra.length / 2)].time}</span><span>{intra[intra.length - 1].time} IST</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {(sc.signals ?? []).length > 0 && (
+            <div className="panel">
+              <p className="p-head">Signal build — every vote that makes the score</p>
+              <table className="plain">
+                <thead><tr><th>SIGNAL</th><th style={{ textAlign: "right" }}>READING</th><th style={{ textAlign: "right" }}>VOTE</th></tr></thead>
+                <tbody>
+                  {(sc.signals ?? []).map((s: any) => (
+                    <tr key={s.name}>
+                      <td><strong>{s.name}</strong></td>
+                      <td style={{ textAlign: "right" }}>{s.value === null || s.value === undefined ? "—" : typeof s.value === "number" ? s.value.toFixed(2) : s.value}</td>
+                      <td style={{ textAlign: "right" }}><span className={s.vote > 0 ? "pos" : s.vote < 0 ? "neg" : ""}>{s.vote === null ? "—" : s.vote > 0 ? "+1" : s.vote < 0 ? "−1" : "0"}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="panel">
+            <p className="p-head">Market breadth — {b.source === "NSE" ? "NSE OFFICIAL" : "YAHOO FALLBACK"} · A/D</p>
+            <HBars rows={[
+              { label: "ADVANCES", value: b.adv ?? 0, display: String(b.adv ?? 0), color: "#00d664" },
+              { label: "DECLINES", value: b.dec ?? 0, display: String(b.dec ?? 0), color: "#ff453a" },
+              { label: "UNCHANGED", value: b.unc ?? 0, display: String(b.unc ?? 0), color: "#5b5b62" },
+            ]} />
+            {segs.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <table className="plain">
+                  <thead><tr><th>SEGMENT</th><th style={{ textAlign: "right" }}>ADV</th><th style={{ textAlign: "right" }}>DEC</th><th style={{ textAlign: "right" }}>UNCH</th><th style={{ textAlign: "right" }}>NET</th></tr></thead>
+                  <tbody>
+                    {segs.map(([label, v]) => (
+                      <tr key={label}>
+                        <td><strong>{label}</strong></td>
+                        <td style={{ textAlign: "right" }} className="pos">{v[0].toLocaleString("en-IN")}</td>
+                        <td style={{ textAlign: "right" }} className="neg">{v[1].toLocaleString("en-IN")}</td>
+                        <td style={{ textAlign: "right" }}>{v[2].toLocaleString("en-IN")}</td>
+                        <td style={{ textAlign: "right" }}><span className={v[0] - v[1] >= 0 ? "pos" : "neg"}>{v[0] - v[1] >= 0 ? "+" : ""}{(v[0] - v[1]).toLocaleString("en-IN")}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {gainers.length > 0 && (
+            <div className="panel">
+              <p className="p-head">Top gainers</p>
+              <table className="plain">
+                <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST</th><th style={{ textAlign: "right" }}>CHG %</th></tr></thead>
+                <tbody>
+                  {gainers.map((r: any) => (
+                    <tr key={r.symbol}><td><span className="sec">{r.symbol}</span></td><td style={{ textAlign: "right" }}>{r.last?.toLocaleString("en-IN", { maximumFractionDigits: 1 })}</td><td style={{ textAlign: "right" }} className="pos">+{r.chgPct?.toFixed(2)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {losers.length > 0 && (
+            <div className="panel">
+              <p className="p-head">Top losers</p>
+              <table className="plain">
+                <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST</th><th style={{ textAlign: "right" }}>CHG %</th></tr></thead>
+                <tbody>
+                  {losers.map((r: any) => (
+                    <tr key={r.symbol}><td><span className="sec">{r.symbol}</span></td><td style={{ textAlign: "right" }}>{r.last?.toLocaleString("en-IN", { maximumFractionDigits: 1 })}</td><td style={{ textAlign: "right" }} className="neg">{r.chgPct?.toFixed(2)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {(snap.slots ?? []).length > 0 && (
+            <div className="panel">
+              <p className="p-head">Capture grid</p>
+              <div className="pills">
+                {(snap.slots ?? []).map((s: string) => (
+                  <span key={s} className={`badge${s === snap.currentSlot ? " fnc" : ""}`}>{s === snap.currentSlot ? `▶ ${s}` : s}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
