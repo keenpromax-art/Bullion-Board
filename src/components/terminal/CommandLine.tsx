@@ -157,6 +157,23 @@ export default function CommandLine({
     setHi(0);
   }
 
+  // Mouse must mirror Enter: clicking the exact match GOes in the focused
+  // panel instead of pointlessly re-completing the same text. E.g. with
+  // "SUZLON.NS ANR" typed, clicking the ANR <GO> row opens ANR for
+  // SUZLON.NS in the currently selected panel. Partial queries still
+  // complete. Shift+click = new panel (mirrors Shift+Enter).
+  function pickRow(r: Row, shiftNew: boolean) {
+    if (r.kind === "sym" && r.sym && parts.length === 1 && r.sym === parts[0]) {
+      submit(shiftNew);
+      return;
+    }
+    if (r.kind === "fn" && r.fn && fnQuery === r.fn.code) {
+      submit(shiftNew);
+      return;
+    }
+    applyRow(r);
+  }
+
   function onKey(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       if (!open || rows.length === 0) {
@@ -179,6 +196,10 @@ export default function CommandLine({
         const cur = rows[hi];
         // Exact symbol already typed → GO there instead of re-completing.
         if (cur.kind === "sym" && cur.sym && parts.length === 1 && cur.sym === parts[0]) {
+          e.preventDefault(); submit(false); return;
+        }
+        // Exact function code already typed → OPEN in the focused panel.
+        if (cur.kind === "fn" && cur.fn && fnQuery === cur.fn.code) {
           e.preventDefault(); submit(false); return;
         }
         e.preventDefault(); applyRow(cur); return;
@@ -230,8 +251,8 @@ export default function CommandLine({
         <button className="ai-inline" onClick={toggleAIChat} title="Desk chat (?)">◈ AI</button>
         <button
           className="cfa-inline"
-          onClick={() => window.open("https://nexus-chat-473.pages.dev/", "_blank", "noopener")}
-          title="Nexus Chat — CFA study app (new tab)"
+          onClick={(e) => onSubmit(null, "114", e.shiftKey, "NEXUS", null)}
+          title="Nexus Chat — open in focused panel (Shift+click = new panel)"
         >✎ CFA</button>
       </div>
 
@@ -258,7 +279,7 @@ export default function CommandLine({
             return (
               <div key={`s${r.sym}`} role="option" aria-selected={gi === hi}
                 className={`sug-row${gi === hi ? " active" : ""}`}
-                onMouseDown={(e) => { e.preventDefault(); applyRow(r); }}>
+                onMouseDown={(e) => { e.preventDefault(); pickRow(r, e.shiftKey); }}>
                 <span className="sug-sym">{r.sym}</span>
                 <span className="sug-name">SECURITY</span>
                 <span className="sug-meta">SYM</span>
@@ -271,14 +292,14 @@ export default function CommandLine({
             return (
               <div key={`f${r.fn!.id}`} role="option" aria-selected={gi === hi}
                 className={`sug-row${gi === hi ? " active" : ""}`}
-                onMouseDown={(e) => { e.preventDefault(); applyRow(r); }}>
+                onMouseDown={(e) => { e.preventDefault(); pickRow(r, e.shiftKey); }}>
                 <span className="sug-sym fn">{r.fn!.code} &lt;GO&gt;</span>
                 <span className="sug-name">{r.fn!.label.toUpperCase()}</span>
                 <span className="sug-meta">{r.fn!.category.toUpperCase()}</span>
               </div>
             );
           })}
-          <div className="sug-row"><span className="sug-meta">ENTER = GO ON EXACT SYMBOL · ELSE COMPLETE · SHIFT+ENTER = NEW PANEL DIRECTLY · ↑↓ HISTORY WHEN CLOSED · HELP = THIS PANEL</span></div>
+          <div className="sug-row"><span className="sug-meta">ENTER/CLICK = GO WHEN EXACT IN FOCUSED PANEL · ELSE COMPLETE · SHIFT+ENTER/CLICK = NEW PANEL DIRECTLY · ↑↓ HISTORY WHEN CLOSED · HELP = THIS PANEL</span></div>
         </div>
       )}
     </div>

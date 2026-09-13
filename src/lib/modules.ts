@@ -4,6 +4,11 @@
 
 import type { ModuleInfo } from "./types";
 
+// Nexus Chat (Keenjio/nexus-chat) — CFA study chat app with book + PDF
+// library, modes and notes. Static build deployed to Cloudflare Pages;
+// embedded inside terminal panels + deep-link page via iframe.
+export const NEXUS_CHAT_URL = "https://nexus-chat-473.pages.dev/";
+
 function m(id: string, pyFn: string, label: string, category: string, description: string, hidden = false): ModuleInfo {
   return { id, pyFn, label, category, description, route: `/module/${id}`, hidden };
 }
@@ -103,6 +108,7 @@ export const TERMINAL_DESKS: ModuleInfo[] = [
   t("111", "IND", "Macro Indicators", "GDP, PMI, payrolls, CPI/PCE, yields, curve, sentiment, India data.", "/macro"),
   t("112", "ANR", "Analyst Ratings", "Street consensus, buy split, estimates, key stats.", "/analyst"),
   t("113", "CAST", "Capital Structure", "Equity vs debt stack, WACC build, leverage path, debt tranches.", "/capital"),
+  t("114", "NEXUS", "Nexus Chat — CFA Study", "CFA study chat with book + PDF library, modes and notes. Hosted app inside panel.", "/module/114"),
 ];
 
 MODULES.push(...TERMINAL_DESKS);

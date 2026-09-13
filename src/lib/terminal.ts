@@ -24,7 +24,7 @@ export const FUNC_CODES: Record<string, string> = {
   "73": "PRED", "74": "SWING", "75": "DIP",
   "101": "HOLD", "102": "ALRT", "103": "COMP", "104": "CORR",
   "105": "SEAS", "106": "EVTS", "107": "BRTH",   "108": "CALC", "109": "PRE",
-  "110": "OC", "111": "IND", "112": "ANR", "113": "CAST",
+  "110": "OC", "111": "IND", "112": "ANR", "113": "CAST", "114": "NEXUS",
 };
 
 export const CODE_TO_ID: Record<string, string> = Object.fromEntries(

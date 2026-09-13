@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MODULE_MAP, MODULES } from "@/lib/modules";
+import { MODULE_MAP, MODULES, NEXUS_CHAT_URL } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
 import { store } from "@/lib/store";
 import { chatComplete } from "@/lib/ai";
@@ -49,6 +49,7 @@ export const SYMBOL_LESS = new Set([
   "21", "38", "41", "44", "45", "46", "47", "49", "51", "53",
   "65", "67", "72", "73", "74", "75",
   "101", "102", "104", "107", "108", "109", "110", "111",
+  "114",
 ]);
 
 function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
@@ -218,9 +219,220 @@ function MacroMini() {
 function FrameDesk({ src, label }: { src: string; label: string }) {
   const external = /^https?:\/\//i.test(src);
   return (
-    <div style={{ display: "grid", gap: 8 }}>
-      <p className="muted" style={{ fontSize: 12, margin: 0 }}>{label} · {external ? "EXTERNAL APP INSIDE PANEL" : "HOSTED ROUTE INSIDE PANEL"} <a href={src} target={external ? "_blank" : undefined} rel={external ? "noopener" : undefined}>OPEN FULL →</a></p>
-      <iframe src={src} title={label} style={{ width: "100%", height: 520, border: "1px solid var(--grid)", borderRadius: 3, background: "#000" }} loading="lazy" />
+    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+      <p
+        className="muted"
+        style={{ fontSize: 12, margin: 0, minWidth: 0, overflowWrap: "anywhere", lineHeight: 1.5 }}
+      >
+        {label} · {external ? "EXTERNAL APP INSIDE PANEL" : "HOSTED ROUTE INSIDE PANEL"}{" "}
+        <a
+          href={src}
+          target={external ? "_blank" : undefined}
+          rel={external ? "noopener" : undefined}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          OPEN FULL →
+        </a>
+      </p>
+      <iframe
+        src={src}
+        title={label}
+        style={{
+          width: "100%",
+          maxWidth: "100%",
+          display: "block",
+          height: 480,
+          minHeight: 320,
+          maxHeight: "70vh",
+          border: "1px solid var(--grid)",
+          borderRadius: 3,
+          background: "#000",
+        }}
+        loading="lazy"
+      />
+    </div>
+  );
+}
+
+function NexusDesk() {
+  return (
+    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+      <p
+        className="muted"
+        style={{ fontSize: 12, margin: 0, minWidth: 0, overflowWrap: "anywhere", lineHeight: 1.5 }}
+      >
+        CFA STUDY CHAT + BOOK/PDF LIBRARY · EXTERNAL APP INSIDE PANEL{" "}
+        <a href={NEXUS_CHAT_URL} target="_blank" rel="noopener" style={{ whiteSpace: "nowrap" }}>
+          OPEN FULL →
+        </a>
+      </p>
+      <iframe
+        src={NEXUS_CHAT_URL}
+        title="Nexus Chat — CFA study app"
+        style={{
+          width: "100%",
+          maxWidth: "100%",
+          display: "block",
+          height: "calc(100dvh - 260px)",
+          minHeight: 420,
+          border: "1px solid var(--grid)",
+          borderRadius: 3,
+          background: "#000",
+        }}
+        allow="clipboard-read; clipboard-write; fullscreen"
+        allowFullScreen
+        loading="lazy"
+      />
+    </div>
+  );
+}
+
+function OpeningMini({ symbol }: { symbol: string }) {
+  const [snap, setSnap] = useState<any>(null);
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+  async function load() {
+    setLoading(true);
+    setErr("");
+    try {
+      const r = await fetch("/api/opening");
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "snapshot failed");
+      setSnap(j);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      setErr("");
+      try {
+        const r = await fetch("/api/opening");
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || "snapshot failed");
+        if (alive) setSnap(j);
+      } catch (e: any) {
+        if (alive) setErr(e.message);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const sc = snap?.score ?? {};
+  const verdict = sc.verdict ?? "NO_DATA";
+  const b = snap?.breadth ?? {};
+  const n = snap?.nifty ?? {};
+  const f2 = (v: number | null | undefined, suffix = "") =>
+    v === null || v === undefined || !isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${Number(v).toFixed(2)}${suffix}`;
+  return (
+    <div className="grid" style={{ gap: 8, minWidth: 0 }}>
+      <div className="toolbar">
+        <button className="pill active">● LIVE DESK</button>
+        <a
+          href={`/opening?symbol=${encodeURIComponent(symbol)}`}
+          style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}
+        >
+          OPEN FULL →
+        </a>
+        <button className="ghost" style={{ padding: "3px 8px", fontSize: 10.5 }} onClick={load} disabled={loading}>
+          {loading ? "LOADING…" : "↻ REFRESH"}
+        </button>
+      </div>
+      {loading && !snap && <p className="muted">PULLING PRE-MARKET TAPE…</p>}
+      {err && (
+        <p className="neg">
+          ERR: {err} <button className="ghost" onClick={load}>RETRY</button>
+        </p>
+      )}
+      {snap && (
+        <>
+          <div
+            className="panel panel-glow"
+            style={{
+              borderColor:
+                verdict === "GREEN"
+                  ? "rgba(0,214,100,0.5)"
+                  : verdict === "RED"
+                    ? "rgba(255,69,58,0.5)"
+                    : undefined,
+              minWidth: 0,
+            }}
+          >
+            <p className="p-head">Pre-market verdict — {snap.currentSlot} IST</p>
+            <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", minWidth: 0 }}>
+              <span
+                style={{ fontSize: 20, fontWeight: 800, overflowWrap: "anywhere" }}
+                className={verdict === "GREEN" ? "pos" : verdict === "RED" ? "neg" : "neutral"}
+              >
+                {verdict === "GREEN"
+                  ? "● LIKELY GREEN OPEN"
+                  : verdict === "RED"
+                    ? "● LIKELY RED OPEN"
+                    : verdict === "FLAT"
+                      ? "● MIXED / FLAT OPEN"
+                      : "○ NO DATA"}
+              </span>
+              <span className="muted">
+                SCORE{" "}
+                {sc.value !== null && sc.value !== undefined
+                  ? `${sc.value >= 0 ? "+" : ""}${sc.value}/${sc.n}`
+                  : "—"}
+              </span>
+            </div>
+            <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0 0", overflowWrap: "anywhere" }}>
+              LOAD {snap.fetchedAtIST} · US {snap.usDate ?? "—"} · SGX {snap.sgxDate ?? "—"} · NIFTY {snap.niftyDate ?? "—"}
+            </p>
+          </div>
+          <div className="cells">
+            <div className="cell">
+              <div className="lbl">Nifty</div>
+              <div className={`val ${(n.chg ?? 0) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 15 }}>
+                {n.last?.toLocaleString("en-IN", { maximumFractionDigits: 0 }) ?? "—"}
+              </div>
+              <div className="sub">{f2(n.chg, "%")}</div>
+            </div>
+            <div className="cell">
+              <div className="lbl">Nasdaq</div>
+              <div className={`val ${(snap.nasdaq?.chg ?? 0) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 15 }}>
+                {snap.nasdaq?.last?.toLocaleString("en-IN", { maximumFractionDigits: 0 }) ?? "—"}
+              </div>
+              <div className="sub">{f2(snap.nasdaq?.chg, "%")}</div>
+            </div>
+            <div className="cell">
+              <div className="lbl">SGX</div>
+              <div className={`val ${(snap.sgx?.chg ?? 0) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 15 }}>
+                {snap.sgx?.last?.toLocaleString("en-IN", { maximumFractionDigits: 0 }) ?? "—"}
+              </div>
+              <div className="sub">NIFTY PROXY</div>
+            </div>
+            <div className="cell">
+              <div className="lbl">VIX</div>
+              <div className="val" style={{ fontSize: 15 }}>
+                {snap.vix !== null && snap.vix !== undefined ? Number(snap.vix).toFixed(2) : "—"}
+              </div>
+              <div className="sub">{snap.vixCond ?? ""}</div>
+            </div>
+            <div className="cell">
+              <div className="lbl">Adv / Dec</div>
+              <div className="val" style={{ fontSize: 15 }}>
+                <span className="pos">{b.adv ?? "—"}</span> / <span className="neg">{b.dec ?? "—"}</span>
+              </div>
+              <div className="sub">{b.source === "NSE" ? "NSE OFFICIAL" : "YAHOO FALLBACK"}</div>
+            </div>
+            <div className="cell">
+              <div className="lbl">Slot</div>
+              <div className="val" style={{ fontSize: 13 }}>{snap.currentSlot ?? "—"}</div>
+              <div className="sub">CAPTURE GRID</div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -333,9 +545,10 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (funcId === "106") return <FrameDesk src={`/events?symbol=${encodeURIComponent(sym)}`} label="HISTORY & ACTIONS" />;
   if (funcId === "107") return <FrameDesk src={`/breadth?symbol=${encodeURIComponent(sym)}`} label="BREADTH & MOVERS" />;
   if (funcId === "108") return <FrameDesk src={`/calc?symbol=${encodeURIComponent(sym)}`} label="DESK CALCULATORS" />;
-  if (funcId === "109") return <FrameDesk src={`/opening?symbol=${encodeURIComponent(sym)}`} label="PRE-MARKET OPENING DESK" />;
+  if (funcId === "109") return <OpeningMini symbol={sym} />;
   if (funcId === "112") return <ANRDesk symbol={sym} />;
   if (funcId === "113") return <CastDesk symbol={sym} />;
+  if (funcId === "114") return <NexusDesk />;
 
   if (!mod) return <p className="neg">UNKNOWN FUNCTION {funcId}.</p>;
   const id = funcId;

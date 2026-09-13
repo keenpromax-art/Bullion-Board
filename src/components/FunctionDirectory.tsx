@@ -102,10 +102,30 @@ export default function FunctionDirectory({
       window.open(deskLink(mod, ticker), "_blank", "noopener");
       return;
     }
+    // Inside the terminal workspace (onPickHere provided) a left-click
+    // replaces the currently selected (focused) panel in place — it must
+    // never navigate away to a full page. Standalone usage falls back
+    // to deep-link navigation.
+    if (onPickHere) {
+      onPickHere(mod);
+      return;
+    }
     router.push(deskLink(mod, ticker));
   }
 
   function openFav(id: string) {
+    // Inside the workspace favorites also open in the focused panel.
+    if (onPickHere) {
+      const mod = MODULE_MAP[id];
+      if (mod) {
+        onPickHere(mod);
+        return;
+      }
+      // Pseudo-desks (DIR/NOTE/…) have no ModuleInfo — forward the id
+      // directly; DirectoryMini only reads `.id` so this opens in place.
+      onPickHere({ id } as ModuleInfo);
+      return;
+    }
     const mod = MODULE_MAP[id];
     if (mod) {
       open(mod);
@@ -121,7 +141,7 @@ export default function FunctionDirectory({
         Function directory — {counts}
         <span className="faint" style={{ fontWeight: 400 }}>
           {" "}
-          · CLICK A ROW TO OPEN ITS DESK{onPickHere ? " · RIGHT-CLICK FOR OPTIONS" : ""}
+          · {onPickHere ? "CLICK A ROW TO OPEN IN FOCUSED PANEL" : "CLICK A ROW TO OPEN ITS DESK"}{onPickHere ? " · RIGHT-CLICK FOR OPTIONS" : ""}
         </span>
         <span style={{ flex: 1 }} />
         <button
@@ -136,7 +156,7 @@ export default function FunctionDirectory({
 
       {favMods.length > 0 && (
         <div className="fav-wrap" aria-label="Favorite functions">
-          <p className="fav-head">★ FAVORITES — CLICK A TILE TO OPEN</p>
+          <p className="fav-head">{onPickHere ? "★ FAVORITES — CLICK A TILE TO OPEN IN FOCUSED PANEL" : "★ FAVORITES — CLICK A TILE TO OPEN"}</p>
           <div className="fav-tiles">
             {favMods.map(({ id, resolved }) => (
               <div
@@ -151,7 +171,7 @@ export default function FunctionDirectory({
                 }}
                 tabIndex={0}
                 role="button"
-                title={`${resolved.code} — OPEN ${resolved.label.toUpperCase()} FOR ${ticker}`}
+                title={`${resolved.code} — ${onPickHere ? "OPEN IN FOCUSED PANEL" : "OPEN"} ${resolved.label.toUpperCase()} FOR ${ticker}`}
               >
                 <span className="fav-tile-code">{resolved.code}</span>
                 <span className="fav-tile-label">{resolved.label.toUpperCase()}</span>
@@ -208,7 +228,7 @@ export default function FunctionDirectory({
                   }
                 }}
                 tabIndex={0}
-                title={`${code} — OPEN ${m.label.toUpperCase()} FOR ${ticker}`}
+                title={`${code} — ${onPickHere ? "OPEN IN FOCUSED PANEL" : "OPEN"} ${m.label.toUpperCase()} FOR ${ticker}`}
                 className={isFav ? "fav-row" : undefined}
               >
                 <td className="favcell">

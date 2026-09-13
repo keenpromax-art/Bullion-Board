@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MODULE_MAP } from "@/lib/modules";
+import { MODULE_MAP, NEXUS_CHAT_URL } from "@/lib/modules";
 import { normalizeTicker, fmtINR, fmtPct, fmtNum } from "@/lib/utils";
 import { funcCode } from "@/lib/terminal";
 import { chatComplete } from "@/lib/ai";
@@ -141,6 +141,28 @@ function Inner({ id }: { id: string }) {
 
   if (!mod) return <main className="container"><p>UNKNOWN FUNCTION.</p><a href="/">← DIRECTORY</a></main>;
   const status = `${code} ${mod.label.toUpperCase()}`;
+
+  if (id === "114") {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <div className="panel">
+          <p className="p-head">Nexus Chat — CFA study app · hosted inside this page</p>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+            CHAT + BOOK/PDF LIBRARY + MODES + NOTES ·{" "}
+            <a href={NEXUS_CHAT_URL} target="_blank" rel="noopener">OPEN FULL →</a>
+          </div>
+          <iframe
+            src={NEXUS_CHAT_URL}
+            title="Nexus Chat — CFA study app"
+            style={{ width: "100%", height: "calc(100dvh - 260px)", minHeight: 480, border: "1px solid var(--grid)", borderRadius: 3, background: "#000" }}
+            allow="clipboard-read; clipboard-write; fullscreen"
+            allowFullScreen
+            loading="lazy"
+          />
+        </div>
+      </Shell>
+    );
+  }
 
   if (NEWS_FEED[id]) {
     return (
