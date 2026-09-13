@@ -48,7 +48,7 @@ const MARKET_IDS = new Set(["38", "53"]);
 export const SYMBOL_LESS = new Set([
   "21", "38", "41", "44", "45", "46", "47", "49", "51", "53",
   "65", "67", "72", "73", "74", "75",
-  "101", "102", "104", "107", "108", "109", "110", "111", "114",
+  "101", "102", "104", "107", "108", "109", "110", "111",
 ]);
 
 function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
@@ -336,7 +336,6 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (funcId === "109") return <FrameDesk src={`/opening?symbol=${encodeURIComponent(sym)}`} label="PRE-MARKET OPENING DESK" />;
   if (funcId === "112") return <ANRDesk symbol={sym} />;
   if (funcId === "113") return <CastDesk symbol={sym} />;
-  if (funcId === "114") return <FrameDesk src="https://nexus-chat-473.pages.dev/" label="NEXUS CHAT — CFA STUDY" />;
 
   if (!mod) return <p className="neg">UNKNOWN FUNCTION {funcId}.</p>;
   const id = funcId;

@@ -300,6 +300,12 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
   font-family: var(--mono); font-weight: 700; font-size: 11px; padding: 4px 10px; cursor: pointer; line-height: 1.4;
 }
 .ai-inline:hover { background: var(--sec); border-color: var(--sec); }
+/* CFA launcher: outlined sibling of the solid AI button */
+.cfa-inline {
+  flex: 0 0 auto; background: transparent; color: var(--amber); border: 1px solid rgba(255,160,40,0.4); border-radius: 3px;
+  font-family: var(--mono); font-weight: 700; font-size: 11px; padding: 4px 10px; cursor: pointer; line-height: 1.4;
+}
+.cfa-inline:hover { background: rgba(255,160,40,0.12); }
 /* Terminal pages use the in-bar button — hide the floating overlay fab there */
 body:has(.term-root) .ai-fab { display: none; }
 /* Reserve room for the top-right AI button so it never covers the clock/feed/fnc-tag */

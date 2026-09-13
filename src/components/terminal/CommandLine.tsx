@@ -228,6 +228,11 @@ export default function CommandLine({
         </span>
         <span className="cmd-clock">{clock} IST</span>
         <button className="ai-inline" onClick={toggleAIChat} title="Desk chat (?)">◈ AI</button>
+        <button
+          className="cfa-inline"
+          onClick={() => window.open("https://nexus-chat-473.pages.dev/", "_blank", "noopener")}
+          title="Nexus Chat — CFA study app (new tab)"
+        >✎ CFA</button>
       </div>
 
       {showHelp && (
