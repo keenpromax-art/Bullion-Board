@@ -302,7 +302,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
-      <div className="panel panel-glow" style={{ position: "sticky", top: 48, zIndex: 15 }}>
+      <div className="panel panel-glow stmt-toolbar">
         <div className="toolbar">
           {(["annual", "quarterly", "ttm"] as const).map((b) => (
             <button key={b} className={`pill${basis === b ? " active" : ""}`} onClick={() => setBasis(b)}>{b.toUpperCase()}</button>

@@ -631,7 +631,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
-      <div className="panel panel-glow" style={{ position: "sticky", top: 48, zIndex: 15 }}>
+      <div className="panel panel-glow stmt-toolbar">
         <div className="pills">
           {NAV.map(([id, l]) => (
             <button key={id} className="pill" style={{ fontSize: 10.5, padding: "4px 8px" }}

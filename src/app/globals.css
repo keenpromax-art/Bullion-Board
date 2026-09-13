@@ -363,6 +363,9 @@ input.box:focus, select.box:focus, textarea.box:focus { outline: none; border-co
 
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .toolbar input { flex: 1; min-width: 200px; }
+/* statements toolbar: sticks below the page cmdbar standalone, flush at panel top */
+.stmt-toolbar { position: sticky; top: 48px; z-index: 15; }
+.term-panel-body .stmt-toolbar { top: 0; }
 .pills { display: flex; gap: 6px; flex-wrap: wrap; }
 .pill {
   padding: 6px 12px; border-radius: 2px; border: 1px solid var(--grid);
