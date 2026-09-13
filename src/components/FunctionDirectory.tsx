@@ -33,14 +33,19 @@ export default function FunctionDirectory({
   ticker,
   modules,
   total,
+  onPickHere,
+  onPickNew,
 }: {
   ticker: string;
   modules: ModuleInfo[];
   total: number;
+  onPickHere?: (mod: ModuleInfo) => void;
+  onPickNew?: (mod: ModuleInfo) => void;
 }) {
   const router = useRouter();
   const [favs, setFavs] = useState<string[]>(() => readFavs());
   const [favsOnly, setFavsOnly] = useState(false);
+  const [ctx, setCtx] = useState<{ id: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     setFavs(readFavs());
@@ -51,6 +56,21 @@ export default function FunctionDirectory({
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // Custom row menu replaces the browser menu inside terminal panels.
+  useEffect(() => {
+    if (!ctx) return;
+    function onDoc(e: MouseEvent) {
+      if ((e.target as HTMLElement | null)?.closest?.(".dir-menu")) return;
+      setCtx(null);
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setCtx(null); }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [ctx]);
+
+  const ctxMod = ctx ? modules.find((m) => m.id === ctx.id) ?? null : null;
+
   const toggleFav = useCallback((id: string) => {
     try {
       setFavs(store.toggleFavorite(id));
@@ -60,6 +80,7 @@ export default function FunctionDirectory({
   }, []);
 
   const favSet = useMemo(() => new Set(favs.map((f) => f.toUpperCase())), [favs]);
+  const ctxIsFav = ctxMod ? favSet.has(ctxMod.id.toUpperCase()) : false;
   const favMods = useMemo(
     () =>
       favs
@@ -95,7 +116,7 @@ export default function FunctionDirectory({
         Function directory — {counts}
         <span className="faint" style={{ fontWeight: 400 }}>
           {" "}
-          · CLICK A ROW TO OPEN ITS DESK
+          · CLICK A ROW TO OPEN ITS DESK{onPickHere ? " · RIGHT-CLICK FOR OPTIONS" : ""}
         </span>
         <span style={{ flex: 1 }} />
         <button
@@ -166,6 +187,15 @@ export default function FunctionDirectory({
               <tr
                 key={m.id}
                 onClick={() => open(m)}
+                onContextMenu={onPickHere ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCtx({
+                    id: m.id,
+                    x: Math.min(e.clientX, window.innerWidth - 250),
+                    y: Math.min(e.clientY, window.innerHeight - 160),
+                  });
+                } : undefined}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -201,6 +231,21 @@ export default function FunctionDirectory({
       </table>
       {visible.length === 0 && (
         <p className="muted">{favsOnly ? "NO FAVORITES MATCH — STAR A ROW TO PIN IT HERE." : "NO FUNCTIONS MATCH — CLEAR THE FILTER."}</p>
+      )}
+      {ctx && ctxMod && onPickHere && (
+        <div className="dir-menu" role="menu" aria-label={`Actions for ${ctxMod.label}`} style={{ left: ctx.x, top: ctx.y }}>
+          <button role="menuitem" onClick={() => { setCtx(null); onPickHere(ctxMod); }}>
+            ▸ OPEN HERE — {funcCode(ctxMod.id)} FOR {ticker}
+          </button>
+          {onPickNew && (
+            <button role="menuitem" onClick={() => { setCtx(null); onPickNew(ctxMod); }}>
+              ⧉ OPEN IN NEW PANEL
+            </button>
+          )}
+          <button role="menuitem" onClick={() => { setCtx(null); toggleFav(ctxMod.id); }}>
+            {ctxIsFav ? "★ REMOVE FROM FAVORITES" : "☆ MAKE FAVORITE TILE"}
+          </button>
+        </div>
       )}
     </div>
   );

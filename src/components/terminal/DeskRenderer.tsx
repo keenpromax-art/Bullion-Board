@@ -98,7 +98,11 @@ function NotesMini() {
   );
 }
 
-function DirectoryMini({ symbol }: { symbol: string }) {
+function DirectoryMini({ symbol, onPickHere, onPickNew }: {
+  symbol: string;
+  onPickHere: (modId: string) => void;
+  onPickNew?: (modId: string) => void;
+}) {
   const [q, setQ] = useState("");
   const mods = MODULES.filter((m) => !m.hidden).filter((m) => {
     const s = q.trim().toUpperCase();
@@ -108,7 +112,11 @@ function DirectoryMini({ symbol }: { symbol: string }) {
   return (
     <div className="grid" style={{ gap: 8 }}>
       <div className="toolbar"><input className="box" value={q} onChange={(e) => setQ(e.target.value.toUpperCase())} placeholder="FILTER: NAME, FNC…" /></div>
-      <FunctionDirectory ticker={symbol || "RELIANCE.NS"} modules={mods} total={MODULES.filter((m) => !m.hidden).length} />
+      <FunctionDirectory
+        ticker={symbol || "RELIANCE.NS"} modules={mods} total={MODULES.filter((m) => !m.hidden).length}
+        onPickHere={(m) => onPickHere(m.id)}
+        onPickNew={onPickNew ? (m) => onPickNew(m.id) : undefined}
+      />
     </div>
   );
 }
@@ -289,12 +297,13 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
   );
 }
 
-export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand }: {
+export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, onOpenNew }: {
   funcId: string;
   symbol: string;
   task?: string | null;
   onOpen?: (funcId: string, symbol: string) => void;
   onExpand?: () => void;
+  onOpenNew?: (funcId: string, symbol: string) => void;
 }) {
   const sym = symbol || "RELIANCE.NS";
   const mod = MODULE_MAP[funcId];
@@ -309,7 +318,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand }:
     if (funcId === "66") return <AIMini symbol={sym} onFull={full} />;
   }
 
-  if (funcId === "DIR") return <DirectoryMini symbol={sym} />;
+  if (funcId === "DIR") return <DirectoryMini symbol={sym} onPickHere={(id) => go(id, sym)} onPickNew={onOpenNew ? (id) => onOpenNew(id, sym) : undefined} />;
   if (funcId === "NOTE") return <NotesMini />;
   // Terminal-native hosted routes: light minis for the two heaviest,
   // isolated iframes for the rest (no viewport assumptions, no rewrites).

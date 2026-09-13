@@ -54,6 +54,7 @@ export default function Panel({
   onChange,
   onDuplicate,
   onDetach,
+  onOpenNew,
 }: {
   spec: PanelSpec;
   index: number;
@@ -66,6 +67,7 @@ export default function Panel({
   onChange: (next: PanelSpec) => void;
   onDuplicate: () => void;
   onDetach: () => void;
+  onOpenNew?: (funcId: string, symbol: string) => void;
 }) {
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -202,6 +204,7 @@ export default function Panel({
               funcId={spec.funcId} symbol={spec.symbol} task={spec.task}
               onOpen={(f, s) => onChange({ ...spec, funcId: f, symbol: s, task: null })}
               onExpand={() => onChange({ ...spec, task: null })}
+              onOpenNew={onOpenNew ? (f, s) => onOpenNew(f, s) : undefined}
             />
           </PanelErrorBoundary>
         </div>

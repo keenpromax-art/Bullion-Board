@@ -29,6 +29,7 @@ export default function PanelWorkspace({
   onDuplicate,
   onDetach,
   onReorder,
+  onOpenNew,
 }: {
   panels: PanelSpec[];
   layout: TilingPreset;
@@ -42,6 +43,7 @@ export default function PanelWorkspace({
   onDuplicate: (id: string) => void;
   onDetach: (id: string) => void;
   onReorder: (from: number, to: number) => void;
+  onOpenNew: (fromId: string, funcId: string, symbol: string) => void;
 }) {
   const dragFrom = useRef<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
@@ -57,6 +59,7 @@ export default function PanelWorkspace({
             onFocus={() => onFocus(p.id)} onClose={() => onClose(p.id)}
             onMaximize={() => onMaximize(p.id)} onChange={(n) => onChange(p.id, n)}
             onDuplicate={() => onDuplicate(p.id)} onDetach={() => onDetach(p.id)}
+            onOpenNew={(f, s) => onOpenNew(p.id, f, s)}
           />
         </div>
       );
@@ -94,6 +97,7 @@ export default function PanelWorkspace({
               onFocus={() => onFocus(p.id)} onClose={() => onClose(p.id)}
               onMaximize={() => onMaximize(p.id)} onChange={(n) => onChange(p.id, n)}
               onDuplicate={() => onDuplicate(p.id)} onDetach={() => onDetach(p.id)}
+              onOpenNew={(f, s) => onOpenNew(p.id, f, s)}
             />
           </div>
         </div>

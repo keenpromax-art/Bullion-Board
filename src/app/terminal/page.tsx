@@ -326,6 +326,16 @@ function Inner() {
               return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
             });
           }}
+          onOpenNew={(_fromId, funcId, symbol) => {
+            if (state.panels.length >= MAX_PANELS) { alert("MAX 4 PANELS — CLOSE ONE TO OPEN ANOTHER."); return; }
+            setState((prev) => {
+              if (!prev) return prev;
+              if (prev.panels.length >= MAX_PANELS) return prev;
+              const np: PanelSpec = { id: uid(), funcId, symbol };
+              try { store.setTicker(symbol); } catch { /* ignore */ }
+              return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
+            });
+          }}
           onReorder={(from, to) => setState((prev) => {
             if (!prev) return prev;
             const next = [...prev.panels];
