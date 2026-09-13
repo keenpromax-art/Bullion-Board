@@ -13,8 +13,9 @@ import StatusBar from "@/components/terminal/StatusBar";
 import WorkspaceSwitcher from "@/components/terminal/WorkspaceSwitcher";
 import { panelCode, panelTitle } from "@/components/terminal/Panel";
 import {
-  loadActive, saveActive, uid, defaultPanels, fitLayout, capPanels, MAX_PANELS,
-  type ActiveState, type PanelSpec, type TilingPreset,
+  loadShell, saveShell, blankDesktop, deskName, splitsFor, defaultSplits, MAX_DESKTOPS,
+  uid, fitLayout, capPanels, MAX_PANELS,
+  type ActiveState, type PanelSpec, type ShellState, type TilingPreset,
 } from "@/lib/terminal/workspaceStore";
 import { installShortcuts } from "@/lib/terminal/keyboardShortcuts";
 import { FUNCTION_KEY_MAP } from "@/lib/terminal/functionKeyMap";
@@ -36,21 +37,44 @@ function writeLastFunc(m: Record<string, string>) {
 
 function Inner() {
   const sp = useSearchParams();
-  const [state, setState] = useState<ActiveState | null>(null);
+  const [shell, setShell] = useState<ShellState | null>(null);
   const [maxId, setMaxId] = useState<string | null>(null);
   const [feedOk, setFeedOk] = useState<boolean | null>(null);
   const [expose, setExpose] = useState(false);
   const cmdRef = useRef<HTMLInputElement>(null);
   const lastFunc = useRef<Record<string, string>>({});
   const exposeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shellRef = useRef<ShellState | null>(null);
+  shellRef.current = shell;
+
+  // Active desktop; every panel/layout/focus mutation below targets it —
+  // other desktops sit untouched in shell.desktops until switched to.
+  const state: ActiveState | null = shell ? shell.desktops[shell.idx] ?? null : null;
+
+  // setState equivalent scoped to the active desktop.
+  const patchActive = useCallback((fn: (prev: ActiveState) => ActiveState) => {
+    setShell((prev) => {
+      if (!prev) return prev;
+      const cur = prev.desktops[prev.idx];
+      if (!cur) return prev;
+      const next = fn(cur);
+      if (next === cur) return prev;
+      const desktops = [...prev.desktops];
+      desktops[prev.idx] = next;
+      return { ...prev, desktops };
+    });
+  }, []);
 
   useEffect(() => { lastFunc.current = readLastFunc(); }, []);
 
-  // Initial load: localStorage or default preset; honor ?symbol=&func= deep-add.
+  // Initial load: shell (all desktops) from localStorage, migrating the
+  // pre-desktop workspace into desk 1; honor ?symbol=&func= deep-add on the
+  // active desktop.
   useEffect(() => {
-    let s = loadActive();
-    if (!s.panels.length) s = { panels: defaultPanels(), layout: "4-up", focusedId: null, workspaceName: "EQUITY OVERVIEW", dirty: false };
-    if (!s.focusedId && s.panels.length) s.focusedId = s.panels[0].id;
+    const sh = loadShell();
+    let s = sh.desktops[sh.idx] ?? sh.desktops[0];
+    if (!s.focusedId && s.panels.length) s = { ...s, focusedId: s.panels[0].id };
     const qSym = sp.get("symbol");
     const qFunc = sp.get("func");
     if (qSym || qFunc) {
@@ -67,13 +91,25 @@ function Inner() {
         }
       }
     }
-    setState(s);
+    const desktops = [...sh.desktops];
+    desktops[sh.idx] = s;
+    setShell({ ...sh, desktops });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Persist the whole shell (debounced — resize drags fire many updates;
+  // the unmount flush below covers tab-close).
   useEffect(() => {
-    if (state) saveActive(state);
-  }, [state]);
+    if (!shell) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      try { saveShell(shellRef.current ?? shell); } catch { /* quota — ignore */ }
+    }, 250);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      try { if (shellRef.current) saveShell(shellRef.current); } catch { /* ignore */ }
+    };
+  }, [shell]);
 
   const focused = useMemo(
     () => state?.panels.find((p) => p.id === state.focusedId) ?? state?.panels[0] ?? null,
@@ -105,8 +141,50 @@ function Inner() {
     exposeTimer.current = setTimeout(() => setExpose(false), 1200);
   }
 
+  // ---- Virtual desktops (Linux-style): each holds ≤ MAX_PANELS panels.
+  function switchDesktop(i: number) {
+    if (!shell || i === shell.idx || !shell.desktops[i]) return;
+    setMaxId(null);
+    setShell({ ...shell, idx: i });
+  }
+
+  function addDesktop() {
+    if (!shell || !state) return;
+    if (shell.desktops.length >= MAX_DESKTOPS) { alert(`MAX ${MAX_DESKTOPS} DESKTOPS — RIGHT-CLICK A DESK CHIP TO CLOSE ONE FIRST.`); return; }
+    const sym = state.panels.find((p) => p.id === state.focusedId)?.symbol ?? store.getTicker();
+    const d = blankDesktop(sym);
+    setMaxId(null);
+    setShell({ ...shell, desktops: [...shell.desktops, d], names: [...shell.names, deskName(shell.desktops.length)], idx: shell.desktops.length });
+  }
+
+  function renameDesktop(i: number) {
+    if (!shell || !shell.names[i]) return;
+    const n = prompt("RENAME DESKTOP", shell.names[i]);
+    if (n === null) return;
+    const clean = n.trim().toUpperCase().slice(0, 18) || deskName(i);
+    const names = [...shell.names];
+    names[i] = clean;
+    setShell({ ...shell, names });
+  }
+
+  function closeDesktop(i: number) {
+    if (!shell) return;
+    if (shell.desktops.length <= 1) { alert("AT LEAST ONE DESKTOP STAYS OPEN."); return; }
+    const d = shell.desktops[i];
+    if (!d) return;
+    const pristine = d.panels.length <= 1 && d.panels.every((p) => p.funcId === "DIR");
+    if (!pristine && !confirm(`CLOSE ${shell.names[i] ?? deskName(i)} (${d.panels.length} PANEL${d.panels.length === 1 ? "" : "S"})?`)) return;
+    const desktops = shell.desktops.filter((_, j) => j !== i);
+    const names = shell.names.filter((_, j) => j !== i);
+    let idx = shell.idx;
+    if (i < idx) idx -= 1;
+    else if (i === idx) idx = Math.min(idx, desktops.length - 1);
+    setMaxId(null);
+    setShell({ ...shell, desktops, names, idx });
+  }
+
   const applyCommand = useCallback((ticker: string | null, funcId: string | null, openNew: boolean) => {
-    setState((prev) => {
+    patchActive((prev) => {
       if (!prev) return prev;
       // Resolve defaults.
       let t = ticker;
@@ -154,7 +232,7 @@ function Inner() {
   const triggerFunctionKey = useCallback((key: string) => {
     const def = FUNCTION_KEY_MAP[key];
     if (!def) return;
-    setState((prev) => {
+    patchActive((prev) => {
       if (!prev) return prev;
       const focusSym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
       if (!prev.focusedId) {
@@ -182,7 +260,7 @@ function Inner() {
           el.blur();
         } else el?.blur?.();
       },
-      closeFocused: () => setState((prev) => {
+      closeFocused: () => patchActive((prev) => {
         if (!prev || !prev.focusedId) return prev;
         if (prev.panels.length <= 1) {
           if (!confirm("CLOSE THE LAST PANEL?")) return prev;
@@ -194,19 +272,19 @@ function Inner() {
         if (maxId && prev.focusedId === maxId) setMaxId(null);
         return { ...prev, panels: next, focusedId: nf.id, layout: fitLayout(next.length), dirty: true };
       }),
-      maximizeFocused: () => setState((prev) => {
+      maximizeFocused: () => patchActive((prev) => {
         if (!prev?.focusedId) return prev;
         setMaxId((m) => (m === prev.focusedId ? null : prev.focusedId));
         return prev;
       }),
       focusPanelIndex: (i) => {
         flashExpose();
-        setState((prev) => {
+        patchActive((prev) => {
           if (!prev || !prev.panels[i]) return prev;
           return { ...prev, focusedId: prev.panels[i].id };
         });
       },
-      cycleFocus: (dir) => setState((prev) => {
+      cycleFocus: (dir) => patchActive((prev) => {
         if (!prev || prev.panels.length < 2) return prev;
         const idx = prev.panels.findIndex((p) => p.id === prev.focusedId);
         const n = prev.panels.length;
@@ -219,7 +297,7 @@ function Inner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [triggerFunctionKey]);
 
-  if (!state) return <main className="container"><p className="muted">LOADING TERMINAL…</p></main>;
+  if (!shell || !state) return <main className="container"><p className="muted">LOADING TERMINAL…</p></main>;
 
   return (
     <div className="term-root">
@@ -230,7 +308,7 @@ function Inner() {
           if (special === "MENU") {
             // BBG MENU key: back to the function directory (in place,
             // or a new panel with Shift+Enter / trailing NEW).
-            setState((prev) => {
+            patchActive((prev) => {
               if (!prev) return prev;
               const sym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
               if (openNew || !prev.focusedId) {
@@ -255,7 +333,7 @@ function Inner() {
           }
           if (special === "CANCEL") {
             // BBG CANCEL key: exit the focused panel's function.
-            setState((prev) => {
+            patchActive((prev) => {
               if (!prev || !prev.focusedId) return prev;
               if (prev.panels.length <= 1) {
                 if (!confirm("CLOSE THE LAST PANEL?")) return prev;
@@ -285,8 +363,10 @@ function Inner() {
           focusedId={state.focusedId}
           maximizedId={maxId}
           showNumbers={expose}
-          onFocus={(id) => setState((p) => (p ? { ...p, focusedId: id } : p))}
-          onClose={(id) => setState((prev) => {
+          splits={splitsFor(state, state.layout)}
+          onSplits={(s) => patchActive((prev) => ({ ...prev, splits: { ...defaultSplits(), ...prev.splits, [prev.layout]: s }, dirty: true }))}
+          onFocus={(id) => patchActive((p) => (p ? { ...p, focusedId: id } : p))}
+          onClose={(id) => patchActive((prev) => {
             if (!prev) return prev;
             if (prev.panels.length <= 1) {
               if (!confirm("CLOSE THE LAST PANEL?")) return prev;
@@ -300,7 +380,7 @@ function Inner() {
           })}
           onMaximize={(id) => setMaxId((m) => (m === id ? null : id))}
           onChange={(id, next) => {
-            setState((prev) => {
+            patchActive((prev) => {
               if (!prev) return prev;
               try { if (next.symbol) store.setTicker(next.symbol); } catch { /* ignore */ }
               return { ...prev, panels: prev.panels.map((p) => (p.id === id ? next : p)), dirty: true };
@@ -308,7 +388,7 @@ function Inner() {
           }}
           onDuplicate={(id) => {
             if (state.panels.length >= MAX_PANELS) { alert("MAX 4 PANELS — CLOSE ONE TO OPEN ANOTHER."); return; }
-            setState((prev) => {
+            patchActive((prev) => {
               if (!prev) return prev;
               const src = prev.panels.find((p) => p.id === id);
               if (!src) return prev;
@@ -320,7 +400,7 @@ function Inner() {
           }}
           onDetach={(id) => {
             if (state.panels.length >= MAX_PANELS) { alert("MAX 4 PANELS — CLOSE ONE TO OPEN ANOTHER."); return; }
-            setState((prev) => {
+            patchActive((prev) => {
               // "Detach" splits content into an additional panel (duplicate +
               // focus the copy) — same visual result without pop-out windows.
               if (!prev) return prev;
@@ -332,7 +412,7 @@ function Inner() {
           }}
           onOpenNew={(_fromId, funcId, symbol) => {
             if (state.panels.length >= MAX_PANELS) { alert("MAX 4 PANELS — CLOSE ONE TO OPEN ANOTHER."); return; }
-            setState((prev) => {
+            patchActive((prev) => {
               if (!prev) return prev;
               if (prev.panels.length >= MAX_PANELS) return prev;
               const np: PanelSpec = { id: uid(), funcId, symbol };
@@ -340,7 +420,7 @@ function Inner() {
               return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
             });
           }}
-          onReorder={(from, to) => setState((prev) => {
+          onReorder={(from, to) => patchActive((prev) => {
             if (!prev) return prev;
             const next = [...prev.panels];
             const [mv] = next.splice(from, 1);
@@ -350,7 +430,7 @@ function Inner() {
         />
       </div>
       <FunctionKeyBar onTrigger={(fid) => {
-        setState((prev) => {
+        patchActive((prev) => {
           if (!prev) return prev;
           const focusSym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
           if (!prev.focusedId) {
@@ -369,19 +449,19 @@ function Inner() {
               state={state}
               onLoad={(next) => {
                 const panels = capPanels(next.panels);
-                setState({ ...next, panels, focusedId: panels.some((p) => p.id === next.focusedId) ? next.focusedId : panels[0]?.id ?? null, dirty: false });
+                patchActive(() => ({ ...next, panels, focusedId: panels.some((p) => p.id === next.focusedId) ? next.focusedId : panels[0]?.id ?? null, dirty: false }));
                 setMaxId(null);
               }}
-              onSaved={(next) => setState(next)}
+              onSaved={(next) => patchActive(() => next)}
             />
           </span>
         }
         layout={state.layout}
-        onLayout={(l: TilingPreset) => setState((prev) => (prev ? { ...prev, layout: l, dirty: true } : prev))}
+        onLayout={(l: TilingPreset) => patchActive((prev) => (prev ? { ...prev, layout: l, dirty: true } : prev))}
         onAdd={() => {
           cmdRef.current?.focus();
           if (state.panels.length >= MAX_PANELS) { alert("MAX 4 PANELS — CLOSE ONE TO OPEN ANOTHER."); return; }
-          setState((prev) => {
+          patchActive((prev) => {
             if (!prev) return prev;
             if (prev.panels.length >= MAX_PANELS) return prev;
             const sym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
@@ -392,6 +472,13 @@ function Inner() {
         addDisabled={state.panels.length >= MAX_PANELS}
         focusLabel={focusStatus}
         ticker={focusTicker}
+        desks={shell.names}
+        deskIdx={shell.idx}
+        onDeskSwitch={switchDesktop}
+        onDeskAdd={addDesktop}
+        onDeskRename={renameDesktop}
+        onDeskClose={closeDesktop}
+        deskAddDisabled={shell.desktops.length >= MAX_DESKTOPS}
       />
       <span className="sr-only" aria-live="polite">{focusLabelLong ? `Focused: ${focusLabelLong}` : ""}</span>
     </div>

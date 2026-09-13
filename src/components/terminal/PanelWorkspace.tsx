@@ -13,8 +13,12 @@
 // status bar; panels are cheap — duplicate instead of tab-docking.
 
 import { useRef, useState } from "react";
-import type { PanelSpec, TilingPreset } from "@/lib/terminal/workspaceStore";
+import type { PanelSpec, PanelSplits, TilingPreset } from "@/lib/terminal/workspaceStore";
 import Panel from "./Panel";
+
+function clampRatio(v: number): number {
+  return Math.min(0.8, Math.max(0.2, v));
+}
 
 export default function PanelWorkspace({
   panels,
@@ -22,6 +26,7 @@ export default function PanelWorkspace({
   focusedId,
   maximizedId,
   showNumbers,
+  splits,
   onFocus,
   onClose,
   onMaximize,
@@ -30,12 +35,14 @@ export default function PanelWorkspace({
   onDetach,
   onReorder,
   onOpenNew,
+  onSplits,
 }: {
   panels: PanelSpec[];
   layout: TilingPreset;
   focusedId: string | null;
   maximizedId: string | null;
   showNumbers: boolean;
+  splits: PanelSplits;
   onFocus: (id: string) => void;
   onClose: (id: string) => void;
   onMaximize: (id: string) => void;
@@ -44,9 +51,79 @@ export default function PanelWorkspace({
   onDetach: (id: string) => void;
   onReorder: (from: number, to: number) => void;
   onOpenNew: (fromId: string, funcId: string, symbol: string) => void;
+  onSplits: (next: PanelSplits) => void;
 }) {
   const dragFrom = useRef<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const splitDrag = useRef<"col" | "row" | null>(null);
+  const [splitActive, setSplitActive] = useState<"col" | "row" | null>(null);
+
+  // Inline track sizes so panels are draggable (stylesheet holds the
+  // defaults for 1-up / maximized, which have no divider).
+  function gridStyle(): React.CSSProperties | undefined {
+    if (layout === "2-up-v") return { gridTemplateColumns: `${splits.col}fr ${1 - splits.col}fr` };
+    if (layout === "2-up-h") return { gridTemplateRows: `minmax(0,${splits.row}fr) minmax(0,${1 - splits.row}fr)` };
+    if (layout === "4-up") return {
+      gridTemplateColumns: `${splits.col}fr ${1 - splits.col}fr`,
+      gridTemplateRows: `minmax(0,${splits.row}fr) minmax(0,${1 - splits.row}fr)`,
+    };
+    return undefined;
+  }
+
+  function splitMove(e: React.PointerEvent) {
+    const axis = splitDrag.current;
+    const el = gridRef.current;
+    if (!axis || !el) return;
+    const r = el.getBoundingClientRect();
+    if (axis === "col" && r.width > 0) onSplits({ ...splits, col: clampRatio((e.clientX - r.left) / r.width) });
+    if (axis === "row" && r.height > 0) onSplits({ ...splits, row: clampRatio((e.clientY - r.top) / r.height) });
+  }
+
+  function endSplit() {
+    splitDrag.current = null;
+    setSplitActive(null);
+  }
+
+  function splitKey(axis: "col" | "row") {
+    return (e: React.KeyboardEvent) => {
+      const step = e.shiftKey ? 0.1 : 0.02;
+      if (axis === "col" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        e.preventDefault();
+        onSplits({ ...splits, col: clampRatio(splits.col + (e.key === "ArrowRight" ? step : -step)) });
+      }
+      if (axis === "row" && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        onSplits({ ...splits, row: clampRatio(splits.row + (e.key === "ArrowDown" ? step : -step)) });
+      }
+    };
+  }
+
+  function divider(axis: "col" | "row", pos: number) {
+    const vertical = axis === "col";
+    return (
+      <div
+        className={`term-split-${vertical ? "v" : "h"}${splitActive === axis ? " active" : ""}`}
+        style={vertical ? { left: `calc(${(pos * 100).toFixed(2)}% - 4px)` } : { top: `calc(${(pos * 100).toFixed(2)}% - 4px)` }}
+        role="separator"
+        aria-orientation={vertical ? "vertical" : "horizontal"}
+        aria-label={vertical ? "Resize panel columns" : "Resize panel rows"}
+        tabIndex={0}
+        title="DRAG TO RESIZE PANELS"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          (e.target as HTMLElement).setPointerCapture(e.pointerId);
+          splitDrag.current = axis;
+          setSplitActive(axis);
+        }}
+        onPointerMove={splitMove}
+        onPointerUp={endSplit}
+        onPointerCancel={endSplit}
+        onLostPointerCapture={endSplit}
+        onKeyDown={splitKey(axis)}
+      />
+    );
+  }
 
   if (maximizedId) {
     const idx = panels.findIndex((p) => p.id === maximizedId);
@@ -67,7 +144,9 @@ export default function PanelWorkspace({
   }
 
   return (
-    <div className="term-grid" data-layout={layout}>
+    <div className="term-grid" data-layout={layout} ref={gridRef} style={gridStyle()}>
+      {(layout === "2-up-v" || layout === "4-up") && divider("col", splits.col)}
+      {(layout === "2-up-h" || layout === "4-up") && divider("row", splits.row)}
       {panels.map((p, i) => (
         <div
           key={p.id}

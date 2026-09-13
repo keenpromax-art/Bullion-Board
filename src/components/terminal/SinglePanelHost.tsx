@@ -7,7 +7,7 @@
 
 import Panel from "./Panel";
 import type { PanelSpec } from "@/lib/terminal/workspaceStore";
-import { loadActive, saveActive, uid } from "@/lib/terminal/workspaceStore";
+import { loadActive, saveActive, uid, MAX_PANELS } from "@/lib/terminal/workspaceStore";
 import { useRouter } from "next/navigation";
 
 export default function SinglePanelHost({ spec }: { spec: PanelSpec }) {
@@ -16,7 +16,18 @@ export default function SinglePanelHost({ spec }: { spec: PanelSpec }) {
     try {
       const active = loadActive();
       const next: PanelSpec = { ...spec, id: uid() };
-      saveActive({ ...active, panels: [...active.panels, next], focusedId: next.id, dirty: true });
+      if (active.panels.length >= MAX_PANELS) {
+        // At the 4-panel cap reuse the focused panel instead of adding.
+        const target = active.focusedId ?? active.panels[0]?.id;
+        saveActive({
+          ...active,
+          panels: active.panels.map((p) => (p.id === target ? next : p)),
+          focusedId: target,
+          dirty: true,
+        });
+      } else {
+        saveActive({ ...active, panels: [...active.panels, next], focusedId: next.id, dirty: true });
+      }
     } catch { /* storage unavailable */ }
     router.push("/terminal");
   }

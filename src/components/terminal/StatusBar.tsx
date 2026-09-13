@@ -20,6 +20,13 @@ export default function StatusBar({
   focusLabel,
   ticker,
   addDisabled,
+  desks,
+  deskIdx,
+  onDeskSwitch,
+  onDeskAdd,
+  onDeskRename,
+  onDeskClose,
+  deskAddDisabled,
 }: {
   panelCount: number;
   workspaceSlot: React.ReactNode;
@@ -29,6 +36,13 @@ export default function StatusBar({
   focusLabel: string | null;
   ticker?: string;
   addDisabled?: boolean;
+  desks: string[];
+  deskIdx: number;
+  onDeskSwitch: (i: number) => void;
+  onDeskAdd: () => void;
+  onDeskRename: (i: number) => void;
+  onDeskClose: (i: number) => void;
+  deskAddDisabled?: boolean;
 }) {
   const clock = useClock();
   return (
@@ -40,6 +54,27 @@ export default function StatusBar({
       <span>{panelCount} PANEL{panelCount === 1 ? "" : "S"} OPEN</span>
       <span className="dot">|</span>
       {workspaceSlot}
+      <span className="dot">|</span>
+      <span className="hl hide-sm">DESKS:</span>
+      <span className="desk-chips" role="tablist" aria-label="Virtual desktops">
+        {desks.map((n, i) => (
+          <button
+            key={i}
+            role="tab"
+            aria-selected={i === deskIdx}
+            className={`desk-chip${i === deskIdx ? " active" : ""}`}
+            onClick={() => onDeskSwitch(i)}
+            onDoubleClick={() => onDeskRename(i)}
+            onContextMenu={(e) => { e.preventDefault(); onDeskClose(i); }}
+            title={`${n} — CLICK TO SWITCH · DOUBLE-CLICK TO RENAME · RIGHT-CLICK TO CLOSE`}
+          >{n}</button>
+        ))}
+        <button
+          className="add-btn" onClick={onDeskAdd} disabled={deskAddDisabled}
+          title={deskAddDisabled ? "Max desktops reached" : "New desktop"}
+          aria-label="New desktop"
+        >+</button>
+      </span>
       {focusLabel && (
         <>
           <span className="dot hide-sm">|</span>

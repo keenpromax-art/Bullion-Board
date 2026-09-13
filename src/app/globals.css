@@ -496,6 +496,29 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-grid[data-layout="max"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .term-cell { min-width: 0; min-height: 0; display: flex; }
 .term-cell.dragover { outline: 1px dashed var(--amber); outline-offset: -1px; }
+.term-grid { position: relative; }
+
+/* draggable resize dividers between grid tracks */
+.term-split-v, .term-split-h { position: absolute; z-index: 6; touch-action: none; border-radius: 2px; }
+.term-split-v { top: 0; bottom: 0; width: 9px; cursor: col-resize; }
+.term-split-v::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: var(--grid); }
+.term-split-h { left: 0; right: 0; height: 9px; cursor: row-resize; }
+.term-split-h::after { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 1px; background: var(--grid); }
+.term-split-v:hover::after, .term-split-v.active::after,
+.term-split-h:hover::after, .term-split-h.active::after { background: var(--amber); }
+.term-split-v:focus-visible, .term-split-h:focus-visible { outline: 1px solid var(--amber); outline-offset: 0; }
+
+/* virtual-desktop chips in the status bar */
+.desk-chips { display: inline-flex; gap: 4px; align-items: center; }
+.desk-chip {
+  background: transparent; border: 1px solid var(--grid); border-radius: 2px;
+  color: var(--sub); font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.04em; padding: 1px 7px; cursor: pointer; text-transform: uppercase;
+  max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.desk-chip:hover { color: var(--amber); border-color: var(--amber); }
+.desk-chip.active { color: var(--amber); border-color: var(--amber); background: rgba(255,160,40,0.09); }
+.desk-chip:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
 
 /* panels: 28px panel2 header, internal scroll body */
 .term-panel { position: relative; background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; display: flex; flex-direction: column; min-width: 0; min-height: 0; max-width: 100%; flex: 1; overflow: hidden; }

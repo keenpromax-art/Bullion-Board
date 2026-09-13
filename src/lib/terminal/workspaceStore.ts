@@ -87,36 +87,154 @@ export interface ActiveState {
   focusedId: string | null;
   workspaceName: string | null;
   dirty: boolean;
+  splits?: Record<TilingPreset, PanelSplits>;
 }
 
-export function loadActive(): ActiveState {
-  const fb: ActiveState = {
+// Drag-resize state: fraction of the grid's width (col) / height (row)
+// owned by the first track. Always clamped to [0.2, 0.8] on read.
+export interface PanelSplits {
+  col: number;
+  row: number;
+}
+
+export function defaultSplits(): Record<TilingPreset, PanelSplits> {
+  return {
+    // 4-up mirrors the stylesheet default (1.3fr 1fr rails).
+    "1-up": { col: 0.5, row: 0.5 },
+    "2-up-v": { col: 0.5, row: 0.5 },
+    "2-up-h": { col: 0.5, row: 0.5 },
+    "4-up": { col: 1.3 / 2.3, row: 0.5 },
+  };
+}
+
+function clampSplit(v: unknown): number {
+  const n = typeof v === "number" && isFinite(v) ? v : 0.5;
+  return Math.min(0.8, Math.max(0.2, n));
+}
+
+export function splitsFor(state: ActiveState, layout: TilingPreset = state.layout): PanelSplits {
+  const fb = defaultSplits()[layout];
+  const s = state.splits?.[layout];
+  if (!s) return { ...fb };
+  return { col: clampSplit(s.col), row: clampSplit(s.row) };
+}
+
+function withSplits(state: ActiveState): ActiveState {
+  const d = defaultSplits();
+  const out: Record<TilingPreset, PanelSplits> = { ...d };
+  (Object.keys(d) as TilingPreset[]).forEach((k) => {
+    const s = state.splits?.[k];
+    out[k] = s ? { col: clampSplit(s.col), row: clampSplit(s.row) } : { ...d[k] };
+  });
+  return { ...state, splits: out };
+}
+
+// ---- Virtual desktops (Linux-style). Each desktop is a full workspace
+// (≤ MAX_PANELS panels); the strip in the status bar flips between them.
+// Persisted as one shell so every desktop survives reloads.
+export const MAX_DESKTOPS = 6;
+
+export interface ShellState {
+  desktops: ActiveState[];
+  idx: number;
+  names: string[];
+}
+
+const SHELL_KEY = "bb.workspace.shell.v1";
+
+export function deskName(i: number): string {
+  return `DESK ${i + 1}`;
+}
+
+export function blankDesktop(symbol: string): ActiveState {
+  const p: PanelSpec = { id: uid(), funcId: "DIR", symbol, task: null };
+  return { panels: [p], layout: "1-up", focusedId: p.id, workspaceName: null, dirty: false, splits: defaultSplits() };
+}
+
+function normalizeDesktop(raw: Partial<ActiveState> | null | undefined): ActiveState | null {
+  if (!raw || !Array.isArray(raw.panels) || raw.panels.length === 0) return null;
+  const panels = capPanels(raw.panels.filter(
+    (p): p is PanelSpec => !!p && typeof p.funcId === "string" && typeof p.symbol === "string"
+  ));
+  if (panels.length === 0) return null;
+  const focusedId = panels.some((p) => p.id === raw.focusedId) ? (raw.focusedId as string) : panels[0].id;
+  const layout = raw.layout === "1-up" || raw.layout === "2-up-h" || raw.layout === "2-up-v" || raw.layout === "4-up"
+    ? raw.layout
+    : panels.length >= 4 ? "4-up" : panels.length >= 2 ? "2-up-v" : "1-up";
+  return withSplits({
+    panels,
+    layout,
+    focusedId,
+    workspaceName: typeof raw.workspaceName === "string" ? raw.workspaceName : null,
+    dirty: !!raw.dirty,
+    splits: (raw as ActiveState).splits,
+  });
+}
+
+function fallbackShell(): ShellState {
+  const d = normalizeDesktop({
     panels: defaultPanels(),
     layout: "4-up",
     focusedId: null,
     workspaceName: "EQUITY OVERVIEW",
     dirty: false,
-  };
-  const saved = read<Partial<ActiveState> | null>(ACTIVE_KEY, null);
-  if (!saved || !Array.isArray(saved.panels) || saved.panels.length === 0) return fb;
-  const panels = capPanels(saved.panels.filter(
-    (p): p is PanelSpec => !!p && typeof p.funcId === "string" && typeof p.symbol === "string"
-  ));
-  if (panels.length === 0) return fb;
-  const focusedId = panels.some((p) => p.id === saved.focusedId) ? (saved.focusedId as string) : panels[0].id;
-  return {
-    panels,
-    layout: saved.layout === "1-up" || saved.layout === "2-up-h" || saved.layout === "2-up-v" || saved.layout === "4-up"
-      ? saved.layout
-      : panels.length >= 4 ? "4-up" : panels.length >= 2 ? "2-up-v" : "1-up",
-    focusedId,
-    workspaceName: typeof saved.workspaceName === "string" ? saved.workspaceName : null,
-    dirty: !!saved.dirty,
-  };
+  })!;
+  return { desktops: [d], idx: 0, names: [deskName(0)] };
+}
+
+export function loadShell(): ShellState {
+  const saved = read<{ desktops?: Partial<ActiveState>[]; idx?: unknown; names?: unknown } | null>(SHELL_KEY, null);
+  if (saved && Array.isArray(saved.desktops) && saved.desktops.length > 0) {
+    const desktops = capDesktops(saved.desktops.map(normalizeDesktop).filter((d): d is ActiveState => !!d));
+    if (desktops.length > 0) {
+      const idx = typeof saved.idx === "number" && isFinite(saved.idx)
+        ? Math.min(Math.max(0, Math.floor(saved.idx)), desktops.length - 1)
+        : 0;
+      const names = desktops.map((_, i) =>
+        Array.isArray(saved.names) && typeof (saved.names as unknown[])[i] === "string" && ((saved.names as string[])[i].trim())
+          ? (saved.names as string[])[i].trim().toUpperCase().slice(0, 18)
+          : deskName(i));
+      return { desktops, idx, names };
+    }
+  }
+  // Migrate the pre-desktop workspace (v2 key) into desktop 1.
+  const legacy = read<Partial<ActiveState> | null>(ACTIVE_KEY, null);
+  const migrated = normalizeDesktop(legacy);
+  if (migrated) return { desktops: [migrated], idx: 0, names: [deskName(0)] };
+  return fallbackShell();
+}
+
+export function saveShell(shell: ShellState): void {
+  const desktops = capDesktops(shell.desktops).map((d) => withSplits({ ...d, panels: capPanels(d.panels) }));
+  if (desktops.length === 0) return;
+  const idx = Math.min(Math.max(0, shell.idx | 0), desktops.length - 1);
+  const names = desktops.map((_, i) =>
+    typeof shell.names[i] === "string" && shell.names[i].trim()
+      ? shell.names[i].trim().toUpperCase().slice(0, 18)
+      : deskName(i));
+  write(SHELL_KEY, { desktops, idx, names });
+}
+
+export function capDesktops(desktops: ActiveState[]): ActiveState[] {
+  return desktops.length > MAX_DESKTOPS ? desktops.slice(0, MAX_DESKTOPS) : desktops;
+}
+
+export function loadActive(): ActiveState {
+  const sh = loadShell();
+  return sh.desktops[sh.idx] ?? fallbackShell().desktops[0];
 }
 
 export function saveActive(state: ActiveState): void {
-  write(ACTIVE_KEY, state);
+  let sh: ShellState;
+  try {
+    sh = loadShell();
+  } catch {
+    sh = fallbackShell();
+  }
+  const next = normalizeDesktop(state) ?? fallbackShell().desktops[0];
+  const desktops = [...sh.desktops];
+  desktops[Math.min(sh.idx, desktops.length - 1)] = next;
+  saveShell({ ...sh, desktops });
 }
 
 export function listWorkspaces(): SavedWorkspace[] {
