@@ -295,7 +295,7 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .ai-fab:hover { background: var(--sec); border-color: var(--sec); }
 /* Reserve room for the top-right AI button so it never covers the clock/feed/fnc-tag */
-.term-cmdbar, .cmdbar, .nav { padding-right: 78px; }
+.term-cmdbar, .cmdbar, .nav { padding-right: 96px; }
 .ai-dock {
   position: fixed; top: 36px; right: 0; bottom: 28px; width: min(430px, 100vw); z-index: 40;
   background: #000; border-left: 1px solid rgba(255, 160, 40, 0.45);
@@ -434,8 +434,9 @@ body:has(.term-root) { padding-bottom: 0; }
 table.fndir tbody tr:hover { outline: 1px solid rgba(255,255,255,0.55); outline-offset: -1px; }
 table.fndir tbody tr:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .term-cmdbar .cmd-input::placeholder { color: var(--faint); text-transform: none; letter-spacing: 0; }
-.term-cmdbar .cmd-right { display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--sub); white-space: nowrap; }
-.term-cmdbar .fn-tag { background: transparent; border: 1px solid rgba(255,160,40,0.4); color: var(--amber); padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 400; letter-spacing: 0.08em; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-cmdbar .cmd-right { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--sub); white-space: nowrap; flex: 0 0 auto; }
+.term-cmdbar .cmd-right .cmd-clock { white-space: nowrap; }
+.term-cmdbar .fn-tag { background: transparent; border: 1px solid rgba(255,160,40,0.4); color: var(--amber); padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 400; letter-spacing: 0.08em; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
 .term-helpbox { padding-bottom: 6px; }
 
 /* ticker tape: 26px, grid rule, duration set inline (~4s per symbol) */
@@ -553,7 +554,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
   .term-panel-body { padding: 8px 10px; }
   .term-status .hide-sm { display: none; }
   .ai-fab { top: 6px; right: 8px; padding: 4px 9px; font-size: 11px; }
-  .term-cmdbar, .cmdbar, .nav { padding-right: 62px; }
+  .term-cmdbar, .cmdbar, .nav { padding-right: 68px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .term-tape .tape-track { animation: none; }
