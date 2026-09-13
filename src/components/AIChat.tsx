@@ -58,6 +58,13 @@ function deskLabel(): string {
   return mod ? `#${m[1]} ${mod.label.toUpperCase()}` : `MODULE ${m[1]}`;
 }
 
+export const AI_TOGGLE_EVENT = "iss:toggle-ai";
+
+export function toggleAIChat(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(AI_TOGGLE_EVENT));
+}
+
 export default function AIChat() {
   const [open, setOpen] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -83,7 +90,9 @@ export default function AIChat() {
       if (e.key === "Escape") setOpen(false);
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const onToggle = () => setOpen((o) => !o);
+    window.addEventListener(AI_TOGGLE_EVENT, onToggle);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener(AI_TOGGLE_EVENT, onToggle); };
   }, []);
 
   useEffect(() => {

@@ -14,6 +14,7 @@ import {
   type SpecialCommand,
 } from "@/lib/terminal/commandParser";
 import { useClock } from "@/components/TerminalChrome";
+import { toggleAIChat } from "@/components/AIChat";
 
 const TICKER_RE = /^[A-Z0-9&.=\-^]+(\.(NS|BO))?$/;
 
@@ -207,6 +208,7 @@ export default function CommandLine({
           FEED · {feedOk === false ? "STALE" : feedOk === null ? "SYNC" : "LIVE"}
         </span>
         <span className="cmd-clock">{clock} IST</span>
+        <button className="ai-inline" onClick={toggleAIChat} title="Desk chat (?)">◈ AI</button>
       </div>
 
       {showHelp && (
