@@ -48,7 +48,7 @@ const MARKET_IDS = new Set(["38", "53"]);
 export const SYMBOL_LESS = new Set([
   "21", "38", "41", "44", "45", "46", "47", "49", "51", "53",
   "65", "67", "72", "73", "74", "75",
-  "101", "102", "104", "107", "108", "109", "110", "111",
+  "101", "102", "104", "107", "108", "109", "110", "111", "114",
 ]);
 
 function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
@@ -216,9 +216,10 @@ function MacroMini() {
 }
 
 function FrameDesk({ src, label }: { src: string; label: string }) {
+  const external = /^https?:\/\//i.test(src);
   return (
     <div style={{ display: "grid", gap: 8 }}>
-      <p className="muted" style={{ fontSize: 12, margin: 0 }}>{label} · HOSTED ROUTE INSIDE PANEL <a href={src}>OPEN FULL →</a></p>
+      <p className="muted" style={{ fontSize: 12, margin: 0 }}>{label} · {external ? "EXTERNAL APP INSIDE PANEL" : "HOSTED ROUTE INSIDE PANEL"} <a href={src} target={external ? "_blank" : undefined} rel={external ? "noopener" : undefined}>OPEN FULL →</a></p>
       <iframe src={src} title={label} style={{ width: "100%", height: 520, border: "1px solid var(--grid)", borderRadius: 3, background: "#000" }} loading="lazy" />
     </div>
   );
@@ -335,6 +336,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (funcId === "109") return <FrameDesk src={`/opening?symbol=${encodeURIComponent(sym)}`} label="PRE-MARKET OPENING DESK" />;
   if (funcId === "112") return <ANRDesk symbol={sym} />;
   if (funcId === "113") return <CastDesk symbol={sym} />;
+  if (funcId === "114") return <FrameDesk src="https://nexus-chat-473.pages.dev/" label="NEXUS CHAT — CFA STUDY" />;
 
   if (!mod) return <p className="neg">UNKNOWN FUNCTION {funcId}.</p>;
   const id = funcId;

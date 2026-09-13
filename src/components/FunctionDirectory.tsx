@@ -97,6 +97,11 @@ export default function FunctionDirectory({
   );
 
   function open(mod: ModuleInfo) {
+    // External apps (http…) open in a new tab — never navigate away.
+    if (/^https?:\/\//i.test(mod.route)) {
+      window.open(deskLink(mod, ticker), "_blank", "noopener");
+      return;
+    }
     router.push(deskLink(mod, ticker));
   }
 

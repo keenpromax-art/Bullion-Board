@@ -103,6 +103,7 @@ export const TERMINAL_DESKS: ModuleInfo[] = [
   t("111", "IND", "Macro Indicators", "GDP, PMI, payrolls, CPI/PCE, yields, curve, sentiment, India data.", "/macro"),
   t("112", "ANR", "Analyst Ratings", "Street consensus, buy split, estimates, key stats.", "/analyst"),
   t("113", "CAST", "Capital Structure", "Equity vs debt stack, WACC build, leverage path, debt tranches.", "/capital"),
+  t("114", "CFA", "Nexus Chat — CFA Study", "Your CFA study chat app, embedded in a panel.", "https://nexus-chat-473.pages.dev/"),
 ];
 
 MODULES.push(...TERMINAL_DESKS);
