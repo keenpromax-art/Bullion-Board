@@ -7,7 +7,7 @@ import { fredKey, fredObservations } from "@/lib/fred";
 
 interface HistDef { key: string; label: string; unit: string; id: string; mode: "yoy" | "avg" | "avgK" }
 
-const HIST: HistDef[] = [
+const US_HIST: HistDef[] = [
   { key: "RGDP", label: "REAL GDP YOY", unit: "%", id: "GDPC1", mode: "yoy" },
   { key: "CPI", label: "CPI YOY", unit: "%", id: "CPIAUCSL", mode: "yoy" },
   { key: "PCE", label: "PCE PRICE IDX YOY", unit: "%", id: "PCEPI", mode: "yoy" },
@@ -24,6 +24,84 @@ const SEP: Array<{ key: string; id: string }> = [
   { key: "PCE", id: "PCECTPIMD" },
   { key: "UNRATE", id: "UNRATEMD" },
   { key: "FEDFUNDS", id: "FEDTARMD" },
+];
+
+interface CountryCfg {
+  slug: string;
+  label: string;
+  hist: HistDef[];
+  sep: boolean; // FOMC SEP forwards exist for the US only
+}
+
+// Non-US series reuse the IDs already proven live by /api/macro/matrix
+// (ECMX). Quarterly GDP levels + monthly CPI indices collapse to annual
+// averages via the shared "yoy" mode; WB annual-% CPI prints use "avg".
+const COUNTRIES: CountryCfg[] = [
+  { slug: "us", label: "UNITED STATES", hist: US_HIST, sep: true },
+  {
+    slug: "germany", label: "GERMANY", sep: false, hist: [
+      { key: "GDP", label: "REAL GDP YOY", unit: "%", id: "CLVMNACSCAB1GQDE", mode: "yoy" },
+      { key: "CPI", label: "CPI YOY", unit: "%", id: "CP0000DEM086NEST", mode: "yoy" },
+      { key: "UNE", label: "UNEMPLOYMENT", unit: "%", id: "LRHUTTTTDEM156S", mode: "avg" },
+      { key: "RATE", label: "ECB POLICY RATE", unit: "%", id: "ECBDFR", mode: "avg" },
+    ],
+  },
+  {
+    slug: "france", label: "FRANCE", sep: false, hist: [
+      { key: "GDP", label: "REAL GDP YOY", unit: "%", id: "CLVMNACSCAB1GQFR", mode: "yoy" },
+      { key: "CPI", label: "CPI YOY", unit: "%", id: "CP0000FRM086NEST", mode: "yoy" },
+      { key: "UNE", label: "UNEMPLOYMENT", unit: "%", id: "LRHUTTTTFRM156S", mode: "avg" },
+      { key: "RATE", label: "ECB POLICY RATE", unit: "%", id: "ECBDFR", mode: "avg" },
+    ],
+  },
+  {
+    slug: "italy", label: "ITALY", sep: false, hist: [
+      { key: "GDP", label: "REAL GDP YOY", unit: "%", id: "CLVMNACSCAB1GQIT", mode: "yoy" },
+      { key: "CPI", label: "CPI YOY", unit: "%", id: "CP0000ITM086NEST", mode: "yoy" },
+      { key: "UNE", label: "UNEMPLOYMENT", unit: "%", id: "LRHUTTTTITM156S", mode: "avg" },
+      { key: "RATE", label: "ECB POLICY RATE", unit: "%", id: "ECBDFR", mode: "avg" },
+    ],
+  },
+  {
+    slug: "uk", label: "UNITED KINGDOM", sep: false, hist: [
+      // No live UK CPI series on FRED (OECD vintages end Mar-2025) — GDP,
+      // labor and overnight-rate proxy only.
+      { key: "GDP", label: "REAL GDP YOY", unit: "%", id: "NGDPRSAXDCGBQ", mode: "yoy" },
+      { key: "UNE", label: "UNEMPLOYMENT", unit: "%", id: "LRHUTTTTGBM156S", mode: "avg" },
+      { key: "RATE", label: "POLICY RATE PROXY", unit: "%", id: "IRSTCI01GBM156N", mode: "avg" },
+    ],
+  },
+  {
+    slug: "japan", label: "JAPAN", sep: false, hist: [
+      { key: "GDP", label: "REAL GDP YOY", unit: "%", id: "JPNRGDPEXP", mode: "yoy" },
+      { key: "CPI", label: "CPI YOY", unit: "%", id: "FPCPITOTLZGJPN", mode: "avg" },
+      { key: "UNE", label: "UNEMPLOYMENT", unit: "%", id: "LRHUTTTTJPM156S", mode: "avg" },
+      { key: "RATE", label: "POLICY RATE", unit: "%", id: "IRSTCI01JPM156N", mode: "avg" },
+    ],
+  },
+  {
+    slug: "canada", label: "CANADA", sep: false, hist: [
+      { key: "GDP", label: "REAL GDP YOY", unit: "%", id: "NGDPRSAXDCCAQ", mode: "yoy" },
+      { key: "CPI", label: "CPI YOY", unit: "%", id: "FPCPITOTLZGCAN", mode: "avg" },
+      { key: "UNE", label: "UNEMPLOYMENT", unit: "%", id: "LRHUTTTTCAM156S", mode: "avg" },
+      { key: "RATE", label: "POLICY RATE", unit: "%", id: "IRSTCI01CAM156N", mode: "avg" },
+    ],
+  },
+  {
+    slug: "australia", label: "AUSTRALIA", sep: false, hist: [
+      { key: "GDP", label: "REAL GDP YOY", unit: "%", id: "NGDPRSAXDCAUQ", mode: "yoy" },
+      { key: "CPI", label: "CPI YOY", unit: "%", id: "FPCPITOTLZGAUS", mode: "avg" },
+      { key: "UNE", label: "UNEMPLOYMENT", unit: "%", id: "LRHUTTTTAUM156S", mode: "avg" },
+      { key: "RATE", label: "POLICY RATE", unit: "%", id: "IRSTCI01AUM156N", mode: "avg" },
+    ],
+  },
+  {
+    slug: "india", label: "INDIA", sep: false, hist: [
+      // No GDP / unemployment series on FRED — inflation + call rate only.
+      { key: "CPI", label: "CPI YOY", unit: "%", id: "FPCPITOTLZGIND", mode: "avg" },
+      { key: "RATE", label: "CALL MONEY RATE", unit: "%", id: "IRSTCI01INM156N", mode: "avg" },
+    ],
+  },
 ];
 
 interface Obs { date: string; v: number }
@@ -47,6 +125,9 @@ async function fetchCSV(id: string): Promise<Obs[]> {
 
 export async function GET(req: NextRequest) {
   const key = fredKey(req.nextUrl.searchParams.get("fkey"));
+  const slug = (req.nextUrl.searchParams.get("country") || "us").trim().toLowerCase();
+  const country = COUNTRIES.find((c) => c.slug === slug) ?? COUNTRIES[0];
+  const HIST = country.hist;
   const FROM = 2015;
   try {
     const hists = await Promise.all(
@@ -83,10 +164,12 @@ export async function GET(req: NextRequest) {
     );
 
     // SEP medians: observations dated by TARGET year (Jan 1), revised each
-    // meeting — keep latest value per target year.
+    // meeting — keep latest value per target year. US only.
     const fwd: Record<string, Record<string, number>> = {};
     let fwdNote = "";
-    if (key) {
+    if (!country.sep) {
+      fwdNote = "HISTORY ONLY — SEP IS US-ONLY";
+    } else if (key) {
       await Promise.all(
         SEP.map(async (s) => {
           try {
@@ -117,7 +200,14 @@ export async function GET(req: NextRequest) {
       hist: hists.find((x) => x.key === h.key)?.hist ?? {},
       fwd: fwd[h.key] ?? {},
     }));
-    return NextResponse.json({ from: FROM, histYears, fwdYears, lastHist, rows, fwdNote, keyed: !!key });
+    const foot = country.sep
+      ? "HIST = ANNUAL AVG OF FRED OBS (YOY WHERE MARKED). F = FOMC SEP MEDIAN, LATEST VINTAGE — NOT A CONSENSUS SURVEY."
+      : "HIST = ANNUAL AVG OF FRED OBS (YOY WHERE MARKED). NO FWD — FOMC SEP IS US-ONLY.";
+    return NextResponse.json({
+      country: country.slug, countryLabel: country.label,
+      countries: COUNTRIES.map((c) => ({ slug: c.slug, label: c.label })),
+      from: FROM, histYears, fwdYears, lastHist, rows, fwdNote, foot, keyed: !!key,
+    });
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "forecasts failed", rows: [] }, { status: 502 });
   }

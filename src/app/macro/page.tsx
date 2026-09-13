@@ -291,13 +291,18 @@ function EcmxMatrix() {
 
 interface FcRow { label: string; unit: string; hist: Record<string, number>; fwd: Record<string, number> }
 
-// Economic Forecasts (ECFC): annual history + FOMC SEP medians.
+// Economic Forecasts (ECFC): annual history + FOMC SEP medians (US).
+// Country pills switch the whole table; non-US prints history only.
 // Clicking a row graphs that indicator below (history solid, FWD dashed).
 function EcfcForecasts() {
+  const [country, setCountry] = useState("us");
+  const [countries, setCountries] = useState<Array<{ slug: string; label: string }>>([]);
+  const [countryLabel, setCountryLabel] = useState("UNITED STATES");
   const [years, setYears] = useState<number[]>([]);
   const [fwdYears, setFwdYears] = useState<number[]>([]);
   const [rows, setRows] = useState<FcRow[]>([]);
   const [note, setNote] = useState("");
+  const [foot, setFoot] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
@@ -307,19 +312,25 @@ function EcfcForecasts() {
     let alive = true;
     setLoading(true); setErr("");
     const fk = store.getFredKey();
-    fetch(`/api/macro/forecasts${fk ? `?fkey=${encodeURIComponent(fk)}` : ""}`)
+    const qs = new URLSearchParams({ country });
+    if (fk) qs.set("fkey", fk);
+    fetch(`/api/macro/forecasts?${qs.toString()}`)
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || "forecasts failed");
         if (alive) {
           setYears(j.histYears ?? []); setFwdYears(j.fwdYears ?? []);
           setRows(j.rows ?? []); setNote(j.fwdNote ?? "");
+          setFoot(j.foot ?? "");
+          if (j.countries?.length) setCountries(j.countries);
+          if (j.countryLabel) setCountryLabel(j.countryLabel);
+          setActive(0); setHover(null);
         }
       })
       .catch((e) => { if (alive) setErr(e.message); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, []);
+  }, [country]);
 
   const showHist = years.slice(-8);
   const row = rows[active];
@@ -343,8 +354,17 @@ function EcfcForecasts() {
 
   return (
     <div className="panel">
-      <p className="p-head">Economic forecasts — ECFC · click a row to graph{note ? ` · ${note}` : ""}</p>
-      {loading && <p className="muted">PULLING HISTORY + SEP…</p>}
+      <p className="p-head">Economic forecasts — ECFC · {countryLabel} · click a row to graph{note ? ` · ${note}` : ""}</p>
+      <div className="toolbar">
+        <div className="pills">
+          {countries.map((c) => (
+            <button key={c.slug} className={`pill${country === c.slug ? " active" : ""}`} onClick={() => setCountry(c.slug)}>
+              {c.slug === "us" ? "US" : c.label.replace("UNITED ", "")}
+            </button>
+          ))}
+        </div>
+        {loading && <span className="muted">PULLING HISTORY + SEP…</span>}
+      </div>
       {err && <p className="neg">ERR: {err}</p>}
       {rows.length > 0 && (
         <div style={{ overflowX: "auto" }}>
@@ -407,7 +427,7 @@ function EcfcForecasts() {
           </svg>
         </div>
       )}
-      <p className="muted" style={{ fontSize: 11.5, marginBottom: 0 }}>HIST = ANNUAL AVG OF FRED OBS (YOY WHERE MARKED). F = FOMC SEP MEDIAN, LATEST VINTAGE — NOT A CONSENSUS SURVEY.</p>
+      <p className="muted" style={{ fontSize: 11.5, marginBottom: 0 }}>{foot || "HIST = ANNUAL AVG OF FRED OBS (YOY WHERE MARKED)."}</p>
     </div>
   );
 }
