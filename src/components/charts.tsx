@@ -421,13 +421,16 @@ export function Donut({ slices, size = 130, thickness = 24, unit = "%" }: {
         <text x={cx} y={cy + 5} fontSize="13" fill="#f5f5f4" textAnchor="middle" fontWeight="700">{total >= 100 ? Math.round(total).toLocaleString("en-IN") : total.toFixed(1)}</text>
       </svg>
       <div style={{ display: "grid", gap: 4, fontSize: 12 }}>
-        {segs.map((s, i) => (
-          <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }} title={`${s.label}: ${typeof s.value === "number" ? s.value.toFixed(1) : s.value}${unit}`}>
-            <span style={{ width: 10, height: 10, background: s.color, borderRadius: 2 }} />
-            <span className="muted">{s.label}</span>
-            <strong>{typeof s.value === "number" ? s.value.toFixed(1) : s.value}{unit}</strong>
-          </div>
-        ))}
+        {slices.map((s, i) => {
+          const zero = !(s.value > 0);
+          return (
+            <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", opacity: zero ? 0.45 : 1 }} title={`${s.label}: ${typeof s.value === "number" ? s.value.toFixed(1) : s.value}${unit}`}>
+              <span style={{ width: 10, height: 10, background: zero ? "#5b5b62" : s.color, borderRadius: 2 }} />
+              <span className="muted">{s.label}</span>
+              <strong>{typeof s.value === "number" ? s.value.toFixed(1) : s.value}{unit}</strong>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

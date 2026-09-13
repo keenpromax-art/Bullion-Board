@@ -3,10 +3,24 @@
 import { useEffect, useState } from "react";
 import { LineChart, BarChart, Donut, HBars } from "./charts";
 import { sectorOf, SECTORS } from "@/lib/sectors";
+import { chatComplete } from "@/lib/ai";
+import { store } from "@/lib/store";
 
 /* ---------------- analyst ratings desk (ANR) ---------------- */
 
 const REC_COLORS = ["#00d664", "#39d353", "#e3b341", "#ff853a", "#ff453a"];
+
+// Rupee prints: max 2 decimals (₹111.67, never ₹111.667).
+const rs = (v: unknown): string =>
+  typeof v === "number" && isFinite(v) ? `₹${v.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "—";
+
+// Conviction = 50% buy skew + 25% upside + 25% revision momentum (all 0–100 scaled).
+const convictionOf = (pctBuy: number, upsidePct: number | null | undefined, revMom: number): number =>
+  Math.round(
+    (pctBuy ?? 0) * 0.5 +
+    ((Math.max(-20, Math.min(50, upsidePct ?? 0)) + 20) / 70) * 100 * 0.25 +
+    ((Math.max(-10, Math.min(10, revMom)) + 10) / 20) * 100 * 0.25
+  );
 
 export function ANRDesk({ symbol }: { symbol: string }) {
   const [data, setData] = useState<any>(null);
@@ -17,6 +31,12 @@ export function ANRDesk({ symbol }: { symbol: string }) {
   const [peersLoading, setPeersLoading] = useState(false);
   const [sortK, setSortK] = useState<string>("period");
   const [sortD, setSortD] = useState<1 | -1>(1);
+  const [aiWhy, setAiWhy] = useState("");
+  const [aiWhyLoading, setAiWhyLoading] = useState(false);
+  const [cmpA, setCmpA] = useState("");
+  const [cmpB, setCmpB] = useState("");
+  const [cmpRows, setCmpRows] = useState<any[] | null>(null);
+  const [cmpLoading, setCmpLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -62,17 +82,12 @@ export function ANRDesk({ symbol }: { symbol: string }) {
   };
   const chrono = [...t].reverse();
   const buySeries = chrono.map(buyPctOf);
-  const peak = buySeries.length ? Math.max(...buySeries) : 0;
-  const peakAt = chrono[buySeries.indexOf(peak)]?.period ?? "";
+  const buyDelta = buySeries.length > 1 ? buySeries[buySeries.length - 1] - buySeries[0] : 0;
   const trendUp = buySeries.length > 1 ? buySeries[buySeries.length - 1] >= buySeries[0] : true;
   const peg = s.forwardPE && e.growthPct ? s.forwardPE / e.growthPct : null;
   const est1y = (data.estimates ?? []).find((x: any) => x.period === "+1y") ?? {};
   const revMom = (est1y.up30d ?? 0) - (est1y.down30d ?? 0);
-  const conviction = Math.round(
-    (data.pctBuy ?? 0) * 0.5 +
-    ((Math.max(-20, Math.min(50, tg.upsidePct ?? 0)) + 20) / 70) * 100 * 0.25 +
-    ((Math.max(-10, Math.min(10, revMom)) + 10) / 20) * 100 * 0.25
-  );
+  const conviction = convictionOf(data.pctBuy ?? 0, tg.upsidePct, revMom);
   const contra = data.pctBuy >= 90 ? "CROWDED LONG — CONTRARIAN CAUTION" : data.pctBuy <= 15 ? "UNIVERSALLY HATED — CONTRARIAN OPPORTUNITY" : null;
   const asOf = (() => {
     try {
@@ -86,7 +101,7 @@ export function ANRDesk({ symbol }: { symbol: string }) {
     return (gv(a) > gv(b) ? 1 : gv(a) < gv(b) ? -1 : 0) * sortD;
   });
   const th = (label: string, key: string) => (
-    <th style={{ textAlign: key === "period" ? "left" : "right", cursor: "pointer" }} onClick={() => {
+    <th style={{ textAlign: key === "period" ? "left" : "right", cursor: "pointer", color: sortK === key ? "var(--amber)" : undefined }} onClick={() => {
       if (sortK === key) setSortD(sortD === 1 ? -1 : 1);
       else { setSortK(key); setSortD(1); }
     }}>{label}{sortK === key ? (sortD === 1 ? " ▲" : " ▼") : ""}</th>
@@ -112,6 +127,67 @@ export function ANRDesk({ symbol }: { symbol: string }) {
   const pxVals = pxCloses.map((b: any) => b.close as number);
   const tgtLine = pxVals.map(() => (typeof tg.mean === "number" ? tg.mean : null));
 
+  async function askWhy() {
+    if (aiWhyLoading) return;
+    setAiWhyLoading(true); setAiWhy("");
+    try {
+      const txt = await chatComplete([
+        { role: "system", content: "You are a terminal equity analyst. Reply in terse uppercase terminal lines: 2 sentences max." },
+        { role: "user", content: `SEC ${symbol}. CONSENSUS ${data.consensus} (${data.pctBuy}% BUY, ${data.nAnalysts} ANALYSTS). TARGET ${tg.mean ?? "?"} (${tg.upsidePct ?? "?"}% UPSIDE, RANGE ${tg.low ?? "?"}-${tg.high ?? "?"}, DISPERSION ${tg.dispersionPct ?? "?"}%). 30D REVS +${est1y.up30d ?? 0}/-${est1y.down30d ?? 0}. BUY% DELTA ${buyDelta >= 0 ? "+" : ""}${buyDelta.toFixed(0)}PP VS OLDEST VINTAGE. CONVICTION ${conviction}/100. WHY THIS CONSENSUS — WHAT DRIVES IT?` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiWhy(txt);
+    } catch (e: unknown) { setAiWhy(`AI ERR: ${e instanceof Error ? e.message : "failed"}`); }
+    finally { setAiWhyLoading(false); }
+  }
+
+  function exportCSV() {
+    const esc = (v: unknown) => {
+      const s = String(v ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [`STREET,${symbol}`,
+      "PERIOD,STRONG_BUY,BUY,HOLD,SELL,STRONG_SELL,BUY_PCT",
+      ...t.map((r: any) => [r.period, r.strongBuy, r.buy, r.hold, r.sell, r.strongSell, buyPctOf(r).toFixed(1)].map(esc).join(",")),
+      `ESTIMATES,${symbol}`,
+      "PERIOD,END_DATE,EPS_AVG,EPS_LO,EPS_HI,REV_CR,GROWTH_PCT,UP30D,DOWN30D",
+      ...(data.estimates ?? []).map((x: any) => [x.period, x.endDate, x.epsAvg, x.epsLow, x.epsHigh, x.revAvg ? Math.round(x.revAvg / 1e7) : "", x.growthPct, x.up30d, x.down30d].map(esc).join(",")),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${symbol}-ANR.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  async function runCompare() {
+    const syms = [cmpA.trim().toUpperCase(), cmpB.trim().toUpperCase()].filter(Boolean).slice(0, 2);
+    if (!syms.length) return;
+    setCmpLoading(true); setCmpRows(null);
+    try {
+      const rows = await Promise.all(syms.map(async (sm) => {
+        try {
+          const r = await fetch(`/api/analyst?symbol=${encodeURIComponent(sm)}`);
+          const j = await r.json();
+          if (!r.ok || !j.hasData) return { symbol: sm, err: true };
+          const e1 = (j.estimates ?? []).find((x: any) => x.period === "+1y") ?? {};
+          const rm = (e1.up30d ?? 0) - (e1.down30d ?? 0);
+          return {
+            symbol: sm, consensus: j.consensus, pctBuy: j.pctBuy,
+            mean: j.targets?.mean ?? null, upsidePct: j.targets?.upsidePct ?? null,
+            conviction: convictionOf(j.pctBuy ?? 0, j.targets?.upsidePct, rm),
+          };
+        } catch { return { symbol: sm, err: true }; }
+      }));
+      setCmpRows([
+        { symbol, consensus: data.consensus, pctBuy: data.pctBuy, mean: tg.mean ?? null, upsidePct: tg.upsidePct ?? null, conviction, self: true },
+        ...rows,
+      ]);
+    } finally { setCmpLoading(false); }
+  }
+
   return (
     <div className="grid">
       <div className="panel panel-glow">
@@ -120,49 +196,49 @@ export function ANRDesk({ symbol }: { symbol: string }) {
           <div className="cell">
             <div className="lbl">Consensus</div>
             <div className={`val ${data.pctBuy >= 60 ? "pos" : data.pctBuy < 40 ? "neg" : ""}`} style={{ fontSize: 19 }}>{data.consensus}</div>
-            <div className="sub">{data.pctBuy}% buy · street: {data.streetKey ?? "—"}</div>
+            <div className="sub">{data.pctBuy}% buy · street: {data.streetKey ?? "—"}{contra ? <span className="badge bad" style={{ marginLeft: 6 }}>⚠ {contra}</span> : null}</div>
           </div>
           <div className="cell"><div className="lbl">Buy split</div><div className="val" style={{ fontSize: 15 }}>{latest.strongBuy ?? 0} SB / {latest.buy ?? 0} B</div><div className="sub">hold {latest.hold ?? 0} · sell {(latest.sell ?? 0) + (latest.strongSell ?? 0)} of {nTot}</div></div>
-          <div className="cell"><div className="lbl">Target mean</div><div className={`val ${(tg.upsidePct ?? 0) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 17 }}>{tg.mean ? `₹${tg.mean.toLocaleString("en-IN")}` : "—"}</div><div className="sub">{tg.upsidePct !== null && tg.upsidePct !== undefined ? `${tg.upsidePct >= 0 ? "+" : ""}${tg.upsidePct}% upside` : "no target"}</div></div>
-          <div className="cell"><div className="lbl">Target range</div><div className="val" style={{ fontSize: 14 }}>{tg.low && tg.high ? `₹${tg.low.toLocaleString("en-IN")} – ₹${tg.high.toLocaleString("en-IN")}` : "—"}</div><div className="sub">{tg.dispersionPct !== null && tg.dispersionPct !== undefined ? `spread ${tg.dispersionPct}% = uncertainty` : `med ${tg.median ? `₹${tg.median.toLocaleString("en-IN")}` : "—"}`}</div></div>
-          <div className="cell"><div className="lbl">Conviction</div><div className={`val ${conviction >= 70 ? "pos" : conviction < 50 ? "neg" : ""}`} style={{ fontSize: 17 }}>{conviction}/100</div><div className="sub">{conviction >= 70 ? "strong" : conviction >= 50 ? "moderate" : "weak"} · rating+upside+revs</div></div>
+          <div className="cell"><div className="lbl">Rev 30D mom</div><div className={`val ${(revMom) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 15 }}>{revMom >= 0 ? "+" : "−"}{Math.abs(revMom)}</div><div className="sub"><span className="pos">+{est1y.up30d ?? 0}</span> up / <span className="neg">−{est1y.down30d ?? 0}</span> down · leads price</div></div>
+          <div className="cell"><div className="lbl">Target mean</div><div className={`val ${(tg.upsidePct ?? 0) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 17 }}>{tg.mean ? rs(tg.mean) : "—"}</div><div className="sub">{tg.upsidePct !== null && tg.upsidePct !== undefined ? `${tg.upsidePct >= 0 ? "+" : ""}${tg.upsidePct}% upside` : "no target"}</div></div>
+          <div className="cell"><div className="lbl">Target range</div><div className="val" style={{ fontSize: 14 }}>{tg.low && tg.high ? `${rs(tg.low)} – ${rs(tg.high)}` : "—"}</div><div className="sub">{tg.dispersionPct !== null && tg.dispersionPct !== undefined ? `range ÷ mean ${tg.dispersionPct}% · comparable across names` : `med ${tg.median ? rs(tg.median) : "—"}`}</div></div>
+          <div className="cell"><div className="lbl">Conviction</div><div className={`val ${conviction >= 70 ? "pos" : conviction < 50 ? "neg" : ""}`} style={{ fontSize: 17 }} title="50% buy skew + 25% upside (−20…+50 scaled) + 25% 30-day revision momentum (−10…+10 scaled)">{conviction}/100</div><div className="sub">{conviction >= 70 ? "strong" : conviction >= 50 ? "moderate" : "weak"} · 50% buy · 25% upside · 25% revs</div></div>
           <div className="cell"><div className="lbl">Fwd PE / Trail</div><div className="val">{s.forwardPE?.toFixed(1) ?? "—"} / {s.trailingPE?.toFixed(1) ?? "—"}</div><div className="sub">PEG {peg !== null && isFinite(peg) ? peg.toFixed(2) : "—"}</div></div>
           <div className="cell"><div className="lbl">P/B</div><div className="val">{s.priceToBook?.toFixed(2) ?? "—"}</div><div className="sub">book {s.bookValue?.toFixed(1) ?? "—"}</div></div>
           <div className="cell"><div className="lbl">EPS est {e.endDate || ""}</div><div className="val" style={{ fontSize: 15 }}>{e.epsAvg ?? "—"}</div><div className="sub">lo {e.epsLow ?? "—"} · hi {e.epsHigh ?? "—"}</div></div>
           <div className="cell"><div className="lbl">EPS growth</div><div className={`val ${e.growthPct >= 0 ? "pos" : "neg"}`}>{e.growthPct !== null && e.growthPct !== undefined ? `${e.growthPct >= 0 ? "+" : ""}${e.growthPct}%` : "—"}</div><div className="sub">{e.nAnalysts ?? "—"} analysts</div></div>
         </div>
-        {contra && <p className="neg" style={{ fontSize: 12, marginBottom: 0 }}>⚠ {contra}</p>}
         <div className="grid grid-2" style={{ marginTop: 10 }}>
           <div>
             <p className="p-head">Recommendation split — counts (hover slices)</p>
             <Donut slices={parts} unit="" />
           </div>
           <div>
-            <p className="p-head">Buy % trend — line, peak {peak.toFixed(1)} @ {peakAt}</p>
-            <LineChart
-              dates={chrono.map((r: any) => r.period)}
-              yFmt={(v) => `${v.toFixed(0)}%`}
-              series={[{ label: "BUY%", color: trendUp ? "#00d664" : "#ff453a", values: buySeries }]}
-            />
+            <p className="p-head">Buy % by vintage — bars · now {buySeries.length ? buySeries[buySeries.length - 1].toFixed(0) : "—"}% ({buyDelta >= 0 ? "+" : "−"}{Math.abs(buyDelta).toFixed(0)}pp vs {chrono[0]?.period ?? "—"})</p>
+            <BarChart values={buySeries} labels={chrono.map((r: any) => r.period)} height={140} posColor={trendUp ? "#00d664" : "#ff453a"} negColor="#ff453a" />
           </div>
         </div>
         {pxVals.length > 20 && tg.mean ? (
           <div style={{ marginTop: 10 }}>
-            <p className="p-head">Price vs consensus target — 1Y</p>
+            <p className="p-head">Price history 1Y vs current consensus target · {tg.upsidePct !== null && tg.upsidePct !== undefined ? `${tg.upsidePct >= 0 ? "+" : ""}${tg.upsidePct}% upside` : ""}</p>
             <LineChart
               dates={pxDates.filter((_, i) => i % 5 === 0)}
               yFmt={(v) => `₹${Math.round(v).toLocaleString("en-IN")}`}
               series={[
                 { label: "PRICE", color: "#ffb000", values: pxVals.filter((_, i) => i % 5 === 0) },
-                { label: "TARGET", color: "#00d664", values: tgtLine.filter((_, i) => i % 5 === 0), dashed: true },
+                { label: "TARGET (NOW)", color: "#00d664", values: tgtLine.filter((_, i) => i % 5 === 0), dashed: true },
               ]}
             />
+            <p className="faint" style={{ fontSize: 11, marginBottom: 0 }}>DASHED = CURRENT CONSENSUS SNAPSHOT ({rs(tg.mean)}), NOT A HISTORICAL SERIES. RATINGS COUNTS COVER ~4 MONTHS — 12M HISTORY NEEDS A RATINGS FEED.</p>
           </div>
         ) : null}
       </div>
 
       <div className="panel">
         <p className="p-head">Street table — counts by period (click headers to sort)</p>
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <button className="ghost" onClick={exportCSV}>↓ CSV — STREET + ESTIMATES</button>
+        </div>
         <div className="scrollx">
           <table className="plain">
             <thead><tr>{th("PERIOD", "period")}{th("STR BUY", "strongBuy")}{th("BUY", "buy")}{th("HOLD", "hold")}{th("SELL", "sell")}{th("STR SELL", "strongSell")}{th("BUY %", "buypct")}</tr></thead>
@@ -231,6 +307,14 @@ export function ANRDesk({ symbol }: { symbol: string }) {
       )}
 
       <div className="panel">
+        <p className="p-head">Why this consensus — AI</p>
+        <div className="toolbar">
+          <button className="btn" onClick={askWhy} disabled={aiWhyLoading}>{aiWhyLoading ? "RUNNING…" : "RUN AI: WHY THIS CONSENSUS"}</button>
+        </div>
+        {aiWhy && <pre className="ai" style={{ marginTop: 8 }}>{aiWhy}</pre>}
+      </div>
+
+      <div className="panel">
         <p className="p-head">Peer multiples — sector context</p>
         {!peers && (
           <div className="toolbar">
@@ -257,6 +341,47 @@ export function ANRDesk({ symbol }: { symbol: string }) {
           </div>
         )}
         {peers && peers.length === 0 && <p className="muted">NO SECTOR MAPPING FOR THIS SYMBOL.</p>}
+      </div>
+
+      <div className="panel">
+        <p className="p-head">Conviction compare — {symbol} vs 2 names</p>
+        <div className="toolbar">
+          <input
+            className="box" value={cmpA} onChange={(e) => setCmpA(e.target.value.toUpperCase())}
+            placeholder={(() => { try { const k = sectorOf(symbol); const ms = k ? SECTORS[k].tickers.filter((x) => x !== symbol.toUpperCase()).slice(0, 2) : []; return ms[0] ?? "NAME 1…"; } catch { return "NAME 1…"; } })()}
+            style={{ maxWidth: 170 }} spellCheck={false} autoComplete="off"
+          />
+          <input
+            className="box" value={cmpB} onChange={(e) => setCmpB(e.target.value.toUpperCase())}
+            placeholder={(() => { try { const k = sectorOf(symbol); const ms = k ? SECTORS[k].tickers.filter((x) => x !== symbol.toUpperCase()).slice(0, 2) : []; return ms[1] ?? "NAME 2…"; } catch { return "NAME 2…"; } })()}
+            style={{ maxWidth: 170 }} spellCheck={false} autoComplete="off"
+          />
+          <button className="btn" onClick={runCompare} disabled={cmpLoading}>{cmpLoading ? "LOADING…" : "COMPARE"}</button>
+          <span className="faint" style={{ fontSize: 11 }}>SAME 50/25/25 CONVICTION MATH BOTH SIDES</span>
+        </div>
+        {cmpRows && (
+          <div className="scrollx" style={{ marginTop: 8 }}>
+            <table className="plain">
+              <thead><tr><th style={{ textAlign: "left" }}>NAME</th><th style={{ textAlign: "right" }}>CONSENSUS</th><th style={{ textAlign: "right" }}>BUY %</th><th style={{ textAlign: "right" }}>TARGET</th><th style={{ textAlign: "right" }}>UPSIDE</th><th style={{ textAlign: "right" }}>CONVICTION</th></tr></thead>
+              <tbody>
+                {cmpRows.map((r: any) => (
+                  <tr key={r.symbol}>
+                    <td><strong>{r.symbol}{r.self ? " ★" : ""}</strong></td>
+                    {r.err ? <td colSpan={5} style={{ textAlign: "right" }} className="faint">NO COVERAGE</td> : (
+                      <>
+                        <td style={{ textAlign: "right" }}>{r.consensus}</td>
+                        <td style={{ textAlign: "right" }}>{r.pctBuy}%</td>
+                        <td style={{ textAlign: "right" }}>{r.mean !== null ? rs(r.mean) : "—"}</td>
+                        <td style={{ textAlign: "right" }} className={(r.upsidePct ?? 0) >= 0 ? "pos" : "neg"}>{r.upsidePct !== null ? `${r.upsidePct >= 0 ? "+" : ""}${r.upsidePct}%` : "—"}</td>
+                        <td style={{ textAlign: "right" }}><strong className={r.conviction >= 70 ? "pos" : r.conviction < 50 ? "neg" : ""}>{r.conviction}</strong></td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="panel">
