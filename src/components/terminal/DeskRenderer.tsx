@@ -108,7 +108,7 @@ function DirectoryMini({ symbol, onPickHere, onPickNew }: {
     const s = q.trim().toUpperCase();
     if (!s) return true;
     return m.label.toUpperCase().includes(s) || funcCode(m.id) === s || m.id === s;
-  }).slice(0, 60);
+  });
   return (
     <div className="grid" style={{ gap: 8 }}>
       <div className="toolbar"><input className="box" value={q} onChange={(e) => setQ(e.target.value.toUpperCase())} placeholder="FILTER: NAME, FNC…" /></div>
