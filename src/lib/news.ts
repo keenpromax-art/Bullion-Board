@@ -47,7 +47,7 @@ function decodeEntities(s: string): string {
 
 async function fetchYahooNews(query: string): Promise<NewsItem[]> {
   try {
-    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=25`;
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=50`;
     const r = await fetch(url, { headers: yahooHeaders(), next: { revalidate: 300 } });
     if (!r.ok) return [];
     const j = await r.json();
@@ -89,7 +89,7 @@ async function fetchYahooNews(query: string): Promise<NewsItem[]> {
 
 async function fetchGoogleRSS(query: string): Promise<NewsItem[]> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
-  return fetchRSS(url, null, 30);
+  return fetchRSS(url, null, 100);
 }
 
 async function fetchFinshotsRSS(): Promise<NewsItem[]> {
@@ -273,5 +273,5 @@ function mergeParts(parts: NewsItem[][]): { items: NewsItem[]; sources: string[]
   }
   out.sort((a, b) => (b.published || "").localeCompare(a.published || ""));
   const sources = [...new Set(out.map((n) => n.source))].slice(0, 12);
-  return { items: out.slice(0, 40), sources };
+  return { items: out.slice(0, 150), sources };
 }
