@@ -4,6 +4,7 @@ import { Component, useEffect, useRef, useState } from "react";
 import { PSEUDO_DESKS } from "@/lib/terminal/functionKeyMap";
 import { MODULE_MAP } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
+import { store } from "@/lib/store";
 import type { PanelSpec } from "@/lib/terminal/workspaceStore";
 import { parseTerminalCommand } from "@/lib/terminal/commandParser";
 import DeskRenderer, { SYMBOL_LESS } from "./DeskRenderer";
@@ -70,10 +71,25 @@ export default function Panel({
   const [editing, setEditing] = useState(false);
   const [mini, setMini] = useState(`${spec.symbol ? spec.symbol.replace(".NS", "") : ""} ${panelCode(spec)}`.trim());
   const [miniErr, setMiniErr] = useState("");
+  const [isFav, setIsFav] = useState(() => {
+    try { return store.isFavorite(spec.funcId); } catch { return false; }
+  });
   const menuRef = useRef<HTMLDivElement>(null);
   const miniRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setMini(`${spec.symbol ? spec.symbol.replace(".NS", "") : ""} ${panelCode(spec)}`.trim()); }, [spec.symbol, spec.funcId]);
+  useEffect(() => {
+    try { setIsFav(store.isFavorite(spec.funcId)); } catch { setIsFav(false); }
+  }, [spec.funcId]);
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === "iss.favorites") {
+        try { setIsFav(store.isFavorite(spec.funcId)); } catch { /* ignore */ }
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [spec.funcId]);
   useEffect(() => {
     if (!menu) return;
     function onDoc(e: MouseEvent) {
@@ -104,6 +120,13 @@ export default function Panel({
 
   const title = panelTitle(spec);
 
+  function toggleFav() {
+    try {
+      const next = store.toggleFavorite(spec.funcId);
+      setIsFav(next.some((x) => x.toUpperCase() === spec.funcId.toUpperCase()));
+    } catch { /* quota — ignore */ }
+  }
+
   return (
     <section
       className={`term-panel${focused ? " focused" : ""}${maximized ? " maximized" : ""}`}
@@ -132,11 +155,13 @@ export default function Panel({
           </>
         ) : null}
         <span className="term-panel-sp" />
+        <button className={`term-icon fav${isFav ? " active" : ""}`} title={isFav ? "Remove from favorites (★)" : "Make favorite tile (☆)"} aria-label={isFav ? "Remove from favorites" : "Make favorite"} aria-pressed={isFav} onClick={(e) => { e.stopPropagation(); onFocus(); toggleFav(); }}>{isFav ? "★" : "☆"}</button>
         <button className="term-icon" title={maximized ? "Restore (Ctrl+M)" : "Maximize (Ctrl+M)"} aria-label="Maximize panel" onClick={(e) => { e.stopPropagation(); onMaximize(); }}>▢</button>
         <button className="term-icon danger" title="Close panel (Ctrl+W)" aria-label="Close panel" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
         {menu && (
           <div ref={menuRef} className="term-menu" role="menu" aria-label="Panel actions">
             <button role="menuitem" onClick={() => { setMenu(false); onChange({ ...spec, funcId: "DIR", task: null }); }}>⌂ BACK TO MENU (DIR)</button>
+            <button role="menuitem" onClick={() => { setMenu(false); toggleFav(); }}>{isFav ? "★ REMOVE FROM FAVORITES" : "☆ MAKE FAVORITE TILE"}</button>
             <button role="menuitem" onClick={() => { setMenu(false); onDuplicate(); }}>⧉ DUPLICATE PANEL</button>
             <button role="menuitem" onClick={() => { setMenu(false); setEditing(true); }}>✎ CHANGE FUNCTION…</button>
             <button role="menuitem" onClick={() => { setMenu(false); onDetach(); }}>⇪ DETACH TO NEW PANEL</button>

@@ -20,6 +20,17 @@ export interface SavedWorkspace {
 
 export type TilingPreset = "1-up" | "2-up-h" | "2-up-v" | "4-up";
 
+// Hard cap: the grid only defines layouts up to 4-up (2x2) inside a fixed
+// viewport shell — a 5th panel would overflow invisibly. Every add-path
+// (command NEW, +PANEL, duplicate, detach, deep link, workspace load)
+// enforces this: new-panel requests at cap reuse the focused panel or
+// are blocked.
+export const MAX_PANELS = 4;
+
+export function capPanels(panels: PanelSpec[]): PanelSpec[] {
+  return panels.length > MAX_PANELS ? panels.slice(0, MAX_PANELS) : panels;
+}
+
 // Auto-reshuffle: closing a panel reflows survivors into the tightest
 // preset that fits them — the workspace itself never empties (the last
 // panel requires confirm and is kept on cancel).
@@ -88,16 +99,17 @@ export function loadActive(): ActiveState {
   };
   const saved = read<Partial<ActiveState> | null>(ACTIVE_KEY, null);
   if (!saved || !Array.isArray(saved.panels) || saved.panels.length === 0) return fb;
-  const panels = saved.panels.filter(
+  const panels = capPanels(saved.panels.filter(
     (p): p is PanelSpec => !!p && typeof p.funcId === "string" && typeof p.symbol === "string"
-  );
+  ));
   if (panels.length === 0) return fb;
+  const focusedId = panels.some((p) => p.id === saved.focusedId) ? (saved.focusedId as string) : panels[0].id;
   return {
     panels,
     layout: saved.layout === "1-up" || saved.layout === "2-up-h" || saved.layout === "2-up-v" || saved.layout === "4-up"
       ? saved.layout
       : panels.length >= 4 ? "4-up" : panels.length >= 2 ? "2-up-v" : "1-up",
-    focusedId: typeof saved.focusedId === "string" ? saved.focusedId : panels[0].id,
+    focusedId,
     workspaceName: typeof saved.workspaceName === "string" ? saved.workspaceName : null,
     dirty: !!saved.dirty,
   };
@@ -154,17 +166,19 @@ export function importWorkspace(json: string): ActiveState | null {
   try {
     const j = JSON.parse(json);
     if (!j || !Array.isArray(j.panels)) return null;
-    const panels = (j.panels as PanelSpec[]).filter((p) => p && typeof p.funcId === "string");
-    if (!panels.length) return null;
-    return {
-      panels: panels.map((p) => ({
+    const panels = capPanels(
+      (j.panels as PanelSpec[]).filter((p) => p && typeof p.funcId === "string").map((p) => ({
         id: typeof p.id === "string" ? p.id : uid(),
         funcId: p.funcId,
         symbol: typeof p.symbol === "string" ? p.symbol : "",
         task: typeof p.task === "string" ? p.task : null,
-      })),
+      }))
+    );
+    if (!panels.length) return null;
+    return {
+      panels,
       layout: j.layout ?? (panels.length >= 4 ? "4-up" : panels.length >= 2 ? "2-up-v" : "1-up"),
-      focusedId: typeof j.focusedId === "string" ? j.focusedId : panels[0].id,
+      focusedId: typeof j.focusedId === "string" && panels.some((p) => p.id === j.focusedId) ? j.focusedId : panels[0].id,
       workspaceName: null,
       dirty: true,
     };

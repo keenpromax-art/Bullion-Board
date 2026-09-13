@@ -13,7 +13,7 @@ import StatusBar from "@/components/terminal/StatusBar";
 import WorkspaceSwitcher from "@/components/terminal/WorkspaceSwitcher";
 import { panelCode, panelTitle } from "@/components/terminal/Panel";
 import {
-  loadActive, saveActive, uid, defaultPanels, fitLayout,
+  loadActive, saveActive, uid, defaultPanels, fitLayout, capPanels, MAX_PANELS,
   type ActiveState, type PanelSpec, type TilingPreset,
 } from "@/lib/terminal/workspaceStore";
 import { installShortcuts } from "@/lib/terminal/keyboardShortcuts";
@@ -58,7 +58,13 @@ function Inner() {
       const fid = qFunc && (MODULE_MAP[qFunc] || qFunc === "DIR" || qFunc === "NOTE") ? qFunc : null;
       if (fid || qSym) {
         const np: PanelSpec = { id: uid(), funcId: fid ?? DEFAULT_OVERVIEW, symbol: sym, task: sp.get("task") };
-        s = { ...s, panels: [...s.panels, np], focusedId: np.id, dirty: true };
+        if (s.panels.length >= MAX_PANELS) {
+          // At the 4-panel cap a deep link reuses the focused panel.
+          const target = s.focusedId ?? s.panels[0]?.id;
+          s = { ...s, panels: s.panels.map((p) => (p.id === target ? { ...p, funcId: np.funcId, symbol: np.symbol, task: np.task } : p)), focusedId: target, dirty: true };
+        } else {
+          s = { ...s, panels: [...s.panels, np], focusedId: np.id, dirty: true };
+        }
       }
     }
     setState(s);
@@ -117,6 +123,18 @@ function Inner() {
       lastFunc.current = { ...lastFunc.current, [sym]: f };
       writeLastFunc(lastFunc.current);
       if (openNew) {
+        // At the 4-panel cap a "new panel" request reuses the focused panel.
+        if (!prev.focusedId) {
+          const np: PanelSpec = { id: uid(), funcId: f, symbol: sym };
+          return { ...prev, panels: [np], focusedId: np.id, dirty: true };
+        }
+        if (prev.panels.length >= MAX_PANELS) {
+          return {
+            ...prev,
+            panels: prev.panels.map((p) => (p.id === prev.focusedId ? { ...p, funcId: f!, symbol: sym, task: null } : p)),
+            dirty: true,
+          };
+        }
         const np: PanelSpec = { id: uid(), funcId: f, symbol: sym };
         return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
       }
@@ -216,6 +234,14 @@ function Inner() {
               if (!prev) return prev;
               const sym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
               if (openNew || !prev.focusedId) {
+                if (prev.focusedId && prev.panels.length >= MAX_PANELS) {
+                  // At cap — MENU reuses the focused panel instead of adding.
+                  return {
+                    ...prev,
+                    panels: prev.panels.map((p) => (p.id === prev.focusedId ? { ...p, funcId: "DIR", task: null } : p)),
+                    dirty: true,
+                  };
+                }
                 const np: PanelSpec = { id: uid(), funcId: "DIR", symbol: sym };
                 return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
               }
@@ -276,24 +302,30 @@ function Inner() {
               return { ...prev, panels: prev.panels.map((p) => (p.id === id ? next : p)), dirty: true };
             });
           }}
-          onDuplicate={(id) => setState((prev) => {
-            if (!prev) return prev;
-            const src = prev.panels.find((p) => p.id === id);
-            if (!src) return prev;
-            const np: PanelSpec = { ...src, id: uid() };
-            const idx = prev.panels.findIndex((p) => p.id === id);
-            const next = [...prev.panels.slice(0, idx + 1), np, ...prev.panels.slice(idx + 1)];
-            return { ...prev, panels: next, focusedId: np.id, dirty: true };
-          })}
-          onDetach={(id) => setState((prev) => {
-            // "Detach" splits content into an additional panel (duplicate +
-            // focus the copy) — same visual result without pop-out windows.
-            if (!prev) return prev;
-            const src = prev.panels.find((p) => p.id === id);
-            if (!src) return prev;
-            const np: PanelSpec = { ...src, id: uid() };
-            return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
-          })}
+          onDuplicate={(id) => {
+            if (state.panels.length >= MAX_PANELS) { alert("MAX 4 PANELS — CLOSE ONE TO OPEN ANOTHER."); return; }
+            setState((prev) => {
+              if (!prev) return prev;
+              const src = prev.panels.find((p) => p.id === id);
+              if (!src) return prev;
+              const np: PanelSpec = { ...src, id: uid() };
+              const idx = prev.panels.findIndex((p) => p.id === id);
+              const next = [...prev.panels.slice(0, idx + 1), np, ...prev.panels.slice(idx + 1)];
+              return { ...prev, panels: next, focusedId: np.id, dirty: true };
+            });
+          }}
+          onDetach={(id) => {
+            if (state.panels.length >= MAX_PANELS) { alert("MAX 4 PANELS — CLOSE ONE TO OPEN ANOTHER."); return; }
+            setState((prev) => {
+              // "Detach" splits content into an additional panel (duplicate +
+              // focus the copy) — same visual result without pop-out windows.
+              if (!prev) return prev;
+              const src = prev.panels.find((p) => p.id === id);
+              if (!src) return prev;
+              const np: PanelSpec = { ...src, id: uid() };
+              return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
+            });
+          }}
           onReorder={(from, to) => setState((prev) => {
             if (!prev) return prev;
             const next = [...prev.panels];
@@ -321,7 +353,11 @@ function Inner() {
             <span className="hl">WORKSPACE: </span>
             <WorkspaceSwitcher
               state={state}
-              onLoad={(next) => { setState({ ...next, dirty: false }); setMaxId(null); }}
+              onLoad={(next) => {
+                const panels = capPanels(next.panels);
+                setState({ ...next, panels, focusedId: panels.some((p) => p.id === next.focusedId) ? next.focusedId : panels[0]?.id ?? null, dirty: false });
+                setMaxId(null);
+              }}
               onSaved={(next) => setState(next)}
             />
           </span>
@@ -330,13 +366,16 @@ function Inner() {
         onLayout={(l: TilingPreset) => setState((prev) => (prev ? { ...prev, layout: l, dirty: true } : prev))}
         onAdd={() => {
           cmdRef.current?.focus();
+          if (state.panels.length >= MAX_PANELS) { alert("MAX 4 PANELS — CLOSE ONE TO OPEN ANOTHER."); return; }
           setState((prev) => {
             if (!prev) return prev;
+            if (prev.panels.length >= MAX_PANELS) return prev;
             const sym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
             const np: PanelSpec = { id: uid(), funcId: DEFAULT_OVERVIEW, symbol: sym };
             return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
           });
         }}
+        addDisabled={state.panels.length >= MAX_PANELS}
         focusLabel={focusStatus}
         ticker={focusTicker}
       />

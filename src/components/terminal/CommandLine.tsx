@@ -213,7 +213,7 @@ export default function CommandLine({
         <div className="suggest term-helpbox" role="dialog" aria-label="Command help">
           <div className="sug-head">COMMAND SYNTAX{focusedLabel ? ` — FOCUSED: ${focusedLabel}` : ""}</div>
           <div className="sug-row"><span className="sug-sym">SYM FNC + ENTER</span><span className="sug-name">REPLACE FOCUSED PANEL — E.G. RELIANCE STRAT</span></div>
-          <div className="sug-row"><span className="sug-sym">SYM FNC + SHIFT+ENTER</span><span className="sug-name">OPEN IN NEW PANEL (OR APPEND “ NEW”)</span></div>
+          <div className="sug-row"><span className="sug-sym">SYM FNC + SHIFT+ENTER</span><span className="sug-name">OPEN IN NEW PANEL (OR APPEND “ NEW” · MAX 4, REUSES FOCUS AT CAP)</span></div>
           <div className="sug-row"><span className="sug-sym">FNC / ID + ENTER</span><span className="sug-name">REUSE FOCUSED SYMBOL — E.G. STRAT · 70 · OCH</span></div>
           <div className="sug-row"><span className="sug-sym">SYM + ENTER</span><span className="sug-name">REOPEN LAST FNC FOR SYM (ELSE DIRECTORY)</span></div>
           <div className="sug-row"><span className="sug-sym fn">MENU + ENTER</span><span className="sug-name">BACK TO FUNCTION DIRECTORY (SHIFT+ENTER = NEW PANEL)</span></div>

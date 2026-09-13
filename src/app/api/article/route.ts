@@ -13,6 +13,24 @@ const BROWSER_HEADERS: Record<string, string> = {
   "Upgrade-Insecure-Requests": "1",
 };
 
+function isByline(t: string, title = ""): boolean {
+  // Yahoo/TheStreet/Mint merge title + author + timestamp + disclosure into
+  // the first <p> (see screenshot: "...Walmart Emma Kershaw Sat, September
+  // 12, 2026 at 5:30 PM GMT+5:30 2 min read The Street and Yahoo may earn
+  // commission..."). None of that is body copy — drop it so the reader
+  // starts at the first real paragraph.
+  if (/may earn commission|earn commission from links|affiliate (links|disclosure)/i.test(t)) return true;
+  if (/\b\d+\s*min\s*read\b/i.test(t)) return true;
+  if (/GMT[+-]\d/i.test(t)) return true;
+  if (/^\s*By\s+[A-Z][a-z]+(\s+[A-Z][a-z.]+){0,3}/.test(t)) return true;
+  if (/(Mon(day)?|Tue(sday)?|Wed(nesday)?|Thu(rsday)?|Fri(day)?|Sat(urday)?|Sun(day)?),?\s+(Jan(uary)?|Feb(ruary)?|Mar(ch)?|Apr(il)?|May|Jun(e)?|Jul(y)?|Aug(ust)?|Sep(t(ember)?)?|Oct(ober)?|Nov(ember)?|Dec(ember)?)\s+\d{1,2},?\s+\d{4}\s+at\s+\d{1,2}:\d{2}/i.test(t)) return true;
+  if (title && title.length > 20) {
+    const head = title.slice(0, 40).toLowerCase();
+    if (t.toLowerCase().startsWith(head) && t.length < title.length + 250) return true;
+  }
+  return false;
+}
+
 function proxyParagraphs(text: string): string[] {
   const out: string[] = [];
   for (const line of text.split("\n")) {
@@ -20,6 +38,7 @@ function proxyParagraphs(text: string): string[] {
     if (t.length < 60) continue;
     if (/^(image|images|video|advertisement|subscribe|sign up|follow us|also read|read more|published|updated)\b/i.test(t)) continue;
     if (/^https?:\/\//.test(t)) continue;
+    if (isByline(t)) continue;
     out.push(t.slice(0, 1200));
     if (out.length >= 40 || out.join(" ").length > 12000) break;
   }
@@ -65,7 +84,7 @@ function pickH1(html: string): string {
   return t ? stripTags(t[1]).slice(0, 200) : "";
 }
 
-function extractBody(html: string): string[] {
+function extractBody(html: string, title = ""): string[] {
   // Prefer semantic containers (Ghost sites use .gh-content/.post-content).
   const zones: string[] = [];
   const zone = (re: RegExp) => {
@@ -104,6 +123,9 @@ function extractBody(html: string): string[] {
     .replace(/<header[\s\S]*?<\/header>/gi, " ")
     .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
     .replace(/<form[\s\S]*?<\/form>/gi, " ")
+    // Byline/author/timestamp/disclosure containers (Yahoo/TheStreet merge
+    // them into the article flow) — remove before paragraph extraction.
+    .replace(/<(div|span|p|time|address)[^>]*(class|id)="[^"]*(byline|by-line|author|dateline|timestamp|publish-date|published-date|article-meta|story-meta|entry-meta|post-meta|affiliate-disclosure|disclosure)[^"]*"[^>]*>[\s\S]*?<\/\1>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, " ");
   const paras: string[] = [];
   const re = /<(p|h2|h3|li)[^>]*>([\s\S]*?)<\/(?:p|h2|h3|li)>/gi;
@@ -112,6 +134,7 @@ function extractBody(html: string): string[] {
     const t = stripTags(m[2]);
     if (t.length < 40) continue;
     if (/^(also read|read more|subscribe|sign up|follow us|advertisement)/i.test(t)) continue;
+    if (isByline(t, title)) continue;
     paras.push(t);
     if (paras.join(" ").length > 12000) break;
   }
@@ -160,7 +183,7 @@ export async function GET(req: NextRequest) {
     // whole-page latin1 mojibake on a single bad byte).
     const html = new TextDecoder("utf-8", { fatal: false }).decode(buf);
     const title = pickH1(html);
-    const paragraphs = extractBody(html);
+    const paragraphs = extractBody(html, title);
     if (!paragraphs.length) throw new Error("no readable text found");
     return NextResponse.json({ url: u.toString(), title, count: paragraphs.length, paragraphs });
   } catch (directErr: unknown) {

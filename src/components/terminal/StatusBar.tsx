@@ -19,6 +19,7 @@ export default function StatusBar({
   onAdd,
   focusLabel,
   ticker,
+  addDisabled,
 }: {
   panelCount: number;
   workspaceSlot: React.ReactNode;
@@ -27,6 +28,7 @@ export default function StatusBar({
   onAdd: () => void;
   focusLabel: string | null;
   ticker?: string;
+  addDisabled?: boolean;
 }) {
   const clock = useClock();
   return (
@@ -55,7 +57,10 @@ export default function StatusBar({
       >
         {LAYOUTS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
       </select>
-      <button className="add-btn" onClick={onAdd} title="Add panel">+ PANEL</button>
+      <button
+        className="add-btn" onClick={onAdd} disabled={addDisabled}
+        title={addDisabled ? "Max 4 panels — close one to add another" : "Add panel"}
+      >+ PANEL</button>
       <span>{clock} IST</span>
     </div>
   );

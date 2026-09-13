@@ -313,7 +313,18 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
               );
             })}
           </ol>
-          {data && items.length === 0 && <p className="muted">WIRE QUIET — RETRY IN A MINUTE.</p>}
+          {data && items.length === 0 && (data.items ?? []).length > 0 && (
+            <p className="muted">
+              NO STORIES MATCH {sent !== "ALL" ? `${sent} + ` : ""}{narrow ? `“${narrow}”` : "FILTERS"} —{" "}
+              <button
+                className="ghost" style={{ marginLeft: 6, padding: "2px 10px" }}
+                onClick={() => { setNarrow(""); setSent("ALL"); setShown(15); }}
+              >
+                CLEAR
+              </button>
+            </p>
+          )}
+          {data && items.length === 0 && (data.items ?? []).length === 0 && <p className="muted">WIRE QUIET — RETRY IN A MINUTE.</p>}
           {shown < items.length && <button className="ghost" style={{ marginTop: 8 }} onClick={() => setShown((s) => s + 15)}>MORE » ({items.length - shown} LEFT)</button>}
         </div>
 
@@ -321,7 +332,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
           <div className="rail-panel">
             <div className="rail-head">Top News</div>
             <div className="rail-sub">Insight | <span className="top-more" onClick={() => setShown((s) => s + 15)}>More »</span></div>
-            {(data?.items ?? []).slice(0, 5).map((n) => (
+            {items.slice(0, 5).map((n) => (
               <div key={n.id} className="rail-link">
                 &gt; {n.link
                   ? <span role="link" tabIndex={0} style={{ cursor: "pointer" }} onClick={() => openArticle(n)}
@@ -329,10 +340,11 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
                   : n.title}
               </div>
             ))}
+            {data && items.length === 0 && <p className="muted" style={{ fontSize: 12 }}>— NO MATCH —</p>}
           </div>
           <div className="rail-panel">
             <div className="rail-sub">First Word | <span className="top-more" onClick={() => setShown((s) => s + 15)}>More »</span></div>
-            {(data?.items ?? []).slice(0, 3).map((n) => (
+            {items.slice(0, 3).map((n) => (
               <div key={n.id} className="rail-first" style={n.link ? { cursor: "pointer" } : undefined}
                 onClick={() => { if (n.link) openArticle(n); }}>
                 <span className="sec">{n.title}</span>

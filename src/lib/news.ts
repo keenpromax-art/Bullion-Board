@@ -51,7 +51,24 @@ async function fetchYahooNews(query: string): Promise<NewsItem[]> {
     const r = await fetch(url, { headers: yahooHeaders(), next: { revalidate: 300 } });
     if (!r.ok) return [];
     const j = await r.json();
-    return (j?.news ?? []).map((n: any, i: number) => {
+    const quotes: string[] = (j?.quotes ?? [])
+      .map((q: any) => String(q?.symbol ?? "").toUpperCase())
+      .filter(Boolean);
+    const quoteSet = new Set(quotes);
+    // Ticker-like queries (no spaces) must match relatedTickers — otherwise
+    // Yahoo returns a generic US lifestyle fallback (Toronto court, HPE,
+    // mosquito maps, hoodies…) that buries the real wire. Free-text queries
+    // (custom search, "Nifty Sensex…") skip this filter.
+    const isTickerLike = !/\s/.test(query.trim());
+    const raw: Array<{ n: any; i: number }> = (j?.news ?? []).map((n: any, i: number) => ({ n, i }));
+    const kept = raw.filter(({ n }) => {
+      if (!isTickerLike) return true;
+      if (quoteSet.size === 0) return false;
+      const rel: string[] = Array.isArray(n.relatedTickers) ? n.relatedTickers : [];
+      if (rel.length === 0) return false;
+      return rel.some((t) => quoteSet.has(String(t).toUpperCase()));
+    });
+    return kept.map(({ n, i }) => {
       const s = scoreSentiment(`${n.title ?? ""}`);
       const ts = (n.providerPublishTime ?? 0) * 1000;
       return {
@@ -212,6 +229,10 @@ export async function getNews(symbol: string, feed: NewsFeed, customQ?: string):
     jobs.push(fetchGoogleRSS(`${base} share price`));
   } else if (feed === "wire") {
     jobs.push(fetchYahooNews(symbol));
+    // Symbol-specific Google keeps <NARROW> working (e.g. SMFG): without
+    // this the wire is only Nifty-market news, so filtering by ticker
+    // always yields 0 ("WIRE QUIET") while the rail shows unfiltered tops.
+    if (base && base.length >= 2) jobs.push(fetchGoogleRSS(`${base} stock`));
     jobs.push(fetchGoogleRSS("Nifty Sensex stock market today"));
     jobs.push(fetchYahooNews("Nifty"));
   } else if (feed === "finshots") {

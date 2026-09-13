@@ -14,6 +14,7 @@ export interface Alert {
 const K = {
   ticker: "iss.activeTicker",
   watchlist: "iss.watchlist",
+  favorites: "iss.favorites",
   portfolio: "iss.portfolio",
   positions: "iss.positions",
   alerts: "iss.alerts",
@@ -56,6 +57,35 @@ export const store = {
   },
   setWatchlist(w: string[]): void {
     write(K.watchlist, w);
+  },
+  getFavorites(): string[] {
+    const raw = read<string[]>(K.favorites, []);
+    // Keep only non-empty strings, de-duped, order-preserved.
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const id of raw) {
+      if (typeof id !== "string" || !id) continue;
+      const key = id.toUpperCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(id);
+    }
+    return out;
+  },
+  setFavorites(ids: string[]): void {
+    write(K.favorites, ids);
+  },
+  toggleFavorite(id: string): string[] {
+    const key = id.toUpperCase();
+    const cur = this.getFavorites();
+    const has = cur.some((x) => x.toUpperCase() === key);
+    const next = has ? cur.filter((x) => x.toUpperCase() !== key) : [...cur, id];
+    write(K.favorites, next);
+    return next;
+  },
+  isFavorite(id: string): boolean {
+    const key = id.toUpperCase();
+    return this.getFavorites().some((x) => x.toUpperCase() === key);
   },
   getPortfolio(): string[] {
     return read<string[]>(K.portfolio, []);
