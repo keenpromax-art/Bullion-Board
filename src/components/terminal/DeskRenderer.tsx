@@ -23,6 +23,7 @@ import { WatchPanel, StratMini, FundaMini, AIMini } from "./MiniDesks";
 import OptionsStrategyDesk from "@/components/OptionsStrategyDesk";
 import { CalcDesks } from "@/components/CalcDesks";
 import { SeasonDesks } from "@/components/SeasonDesks";
+import { BookReader } from "@/components/BookDesks";
 import SettingsDesk from "./SettingsDesk";
 import { analyseChain, calcSuggestion, expiryToDays } from "@/lib/ochain";
 
@@ -51,7 +52,7 @@ export const SYMBOL_LESS = new Set([
   "38", "41", "44", "45", "46", "47", "49", "51", "53",
   "65", "67", "72", "73", "75",
   "101", "102", "104", "107", "108", "109", "110", "111",
-  "114", "SET",
+  "114", "115", "SET",
 ]);
 
 function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
@@ -745,6 +746,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (funcId === "112") return <ANRDesk symbol={sym} />;
   if (funcId === "113") return <CastDesk symbol={sym} />;
   if (funcId === "114") return <NexusDesk />;
+  if (funcId === "115") return <BookReader />;
 
   if (!mod) return <p className="neg">UNKNOWN FUNCTION {funcId}.</p>;
 
