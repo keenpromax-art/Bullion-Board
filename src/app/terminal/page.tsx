@@ -466,6 +466,15 @@ function Inner() {
             if (prev.panels.length >= MAX_PANELS) return prev;
             const sym = prev.panels.find((p) => p.id === prev.focusedId)?.symbol ?? store.getTicker();
             const np: PanelSpec = { id: uid(), funcId: DEFAULT_OVERVIEW, symbol: sym };
+            const idx = prev.panels.findIndex((p) => p.id === prev.focusedId);
+            // Side-by-side 2-up: split the SELECTED side — insert directly
+            // below the focused panel so that side becomes a stack of two
+            // (left selected → 3-up-r, right selected → 3-up-l).
+            if (prev.layout === "2-up-v" && prev.panels.length === 2 && idx >= 0) {
+              const next = [...prev.panels];
+              next.splice(idx + 1, 0, np);
+              return { ...prev, panels: next, focusedId: np.id, layout: idx === 0 ? "3-up-r" : "3-up-l", dirty: true };
+            }
             return { ...prev, panels: [...prev.panels, np], focusedId: np.id, dirty: true };
           });
         }}
