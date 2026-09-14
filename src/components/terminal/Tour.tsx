@@ -114,8 +114,9 @@ export default function Tour({ onDone }: { onDone: () => void }) {
   const last = idx === STEPS.length - 1;
 
   return (
-    <div className="tour-backdrop" role="dialog" aria-modal="true" aria-label="Terminal tour">
-      <div className="tour-card">
+    <>
+      <div className="tour-backdrop" aria-hidden="true" />
+      <div className="tour-card" role="dialog" aria-modal="true" aria-label="Terminal tour">
         <p className="tour-title">{step.title}</p>
         <p className="tour-body">{step.body}</p>
         <div className="tour-dots" aria-hidden>
@@ -132,6 +133,6 @@ export default function Tour({ onDone }: { onDone: () => void }) {
             : <button className="btn" onClick={close} title="Finish and open the dashboard">OPEN DASHBOARD ▸</button>}
         </div>
       </div>
-    </div>
+    </>
   );
 }
