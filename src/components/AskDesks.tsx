@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { streamChat, aiSystem } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { LegInput } from "./QuantDesks";
+import { LineChart, BarChart } from "./charts";
 
 const IDEAS = [
   "HOW DO G20 SUMMITS MOVE THE INDIAN MARKET?",
@@ -17,16 +18,31 @@ interface Ctx {
   tickerLine: string;
   board: string;
   headlines: string[];
+  series: string;
 }
+
+// Downsample to ≤12 points for chart blocks.
+function slim<T>(arr: T[]): T[] {
+  if (arr.length <= 12) return arr;
+  const out: T[] = [];
+  for (let i = 0; i < 12; i++) out.push(arr[Math.floor((i * (arr.length - 1)) / 11)]);
+  return out;
+}
+
+// Live market context for an event question: focused ticker quote, board
+// snapshot (Nifty/Sensex/Bank/VIX/FX/commodities) + fresh headlines +
+// 60D close series the AI may chart (never anything else).
 
 // Live market context for an event question: focused ticker quote, board
 // snapshot (Nifty/Sensex/Bank/VIX/FX/commodities) + fresh headlines.
 async function buildContext(ticker: string, question: string): Promise<Ctx> {
-  const empty: Ctx = { tickerLine: `SEC ${ticker} (QUOTE UNAVAILABLE)`, board: "BOARD UNAVAILABLE", headlines: [] };
+  const empty: Ctx = { tickerLine: `SEC ${ticker} (QUOTE UNAVAILABLE)`, board: "BOARD UNAVAILABLE", headlines: [], series: "(NO SERIES)" };
   try {
-    const [q, m] = await Promise.all([
+    const [q, m, ht, hn] = await Promise.all([
       fetch(`/api/quote?symbol=${encodeURIComponent(ticker)}`).then((r) => r.json()).catch(() => null),
       fetch("/api/market").then((r) => r.json()).catch(() => null),
+      fetch(`/api/history?symbol=${encodeURIComponent(ticker)}&range=3mo&interval=1d`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/history?symbol=${encodeURIComponent("^NSEI")}&range=3mo&interval=1d`).then((r) => r.json()).catch(() => null),
     ]);
     const tickerLine = q && q.regularMarketPrice !== undefined && !q.error
       ? `SEC ${ticker} ${q.shortName ?? ""} @ ₹${q.regularMarketPrice} (${Number(q.regularMarketChangePercent ?? 0).toFixed(2)}%)`
@@ -59,10 +75,101 @@ async function buildContext(ticker: string, question: string): Promise<Ctx> {
         }
       } catch { /* ignore */ }
     }
-    return { tickerLine, board, headlines: feeds.slice(0, 8) };
+    // 60D close series the model may chart (downsampled to ≤12 points).
+    const tc: number[] = ((ht?.bars ?? []) as any[]).map((b) => b.close).filter((v: any) => typeof v === "number" && isFinite(v) && v > 0).slice(-60);
+    const nc: number[] = ((hn?.bars ?? []) as any[]).map((b) => b.close).filter((v: any) => typeof v === "number" && isFinite(v) && v > 0).slice(-60);
+    const f2 = (v: number) => v.toLocaleString("en-IN", { maximumFractionDigits: v < 100 ? 2 : 0 });
+    const series = tc.length >= 12
+      ? `TICKER 60D CLOSES ₹ (oldest→newest, chartable): [${slim(tc).map(f2).join(", ")}]\nNIFTY 60D CLOSES (oldest→newest, chartable): [${slim(nc).map(f2).join(", ")}]`
+      : "(NO SERIES)";
+    return { tickerLine, board, headlines: feeds.slice(0, 8), series };
   } catch {
     return empty;
   }
+}
+
+// ---------- notebook renderer: prose + executable chart/table blocks ----------
+
+const PALETTE = ["#ffa028", "#a1a1aa", "#00d664", "#ff453a", "#00c8ff", "#ffb000"];
+
+function pickColor(name: unknown, i: number): string {
+  const s = String(name ?? "").toUpperCase();
+  if (s.includes("AMBER") || s.includes("ORANGE")) return "#ffa028";
+  if (s.includes("GREY") || s.includes("GRAY")) return "#a1a1aa";
+  if (s.includes("GREEN")) return "#00d664";
+  if (s.includes("RED")) return "#ff453a";
+  if (s.includes("BLUE") || s.includes("CYAN")) return "#00c8ff";
+  if (s.includes("YELLOW")) return "#ffb000";
+  return PALETTE[i % PALETTE.length];
+}
+
+function renderChartBody(body: string, key: number): React.ReactNode {
+  let spec: any = null;
+  try {
+    spec = JSON.parse(body.trim().replace(/^```|```$/g, "").trim());
+  } catch { return null; }
+  const series = Array.isArray(spec?.series) ? spec.series.slice(0, 3) : [];
+  const clean = series
+    .map((s: any, i: number) => ({
+      label: String(s?.label ?? `S${i + 1}`).toUpperCase().slice(0, 18),
+      color: pickColor(s?.color, i),
+      values: Array.isArray(s?.values) ? s.values.slice(0, 12).map((v: any) => (typeof v === "number" && isFinite(v) ? v : null)) : [],
+    }))
+    .filter((s: any) => s.values.some((v: any) => v !== null));
+  if (!clean.length) return null;
+  const labels = Array.isArray(spec?.labels) ? spec.labels.slice(0, 12).map((l: any) => String(l)) : [];
+  const title = String(spec?.title ?? "CHART").toUpperCase().slice(0, 60);
+  return (
+    <div key={key} className="panel">
+      <p className="p-head">{title}</p>
+      {String(spec?.type ?? "line").toLowerCase() === "bar" && clean.length === 1 ? (
+        <BarChart values={clean[0].values.map((v: any) => v ?? 0)} labels={labels.length === clean[0].values.length ? labels : clean[0].values.map((_: any, i: number) => `#${i + 1}`)} height={120} />
+      ) : (
+        <LineChart
+          series={clean} height={150}
+          dates={labels.length === clean[0].values.length ? labels : undefined}
+          yFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 })}
+        />
+      )}
+    </div>
+  );
+}
+
+function renderTableBody(body: string, key: number): React.ReactNode {
+  const rows = body.split("\n").map((l) => l.trim()).filter(Boolean)
+    .map((l) => l.split("|").map((c) => c.trim()).filter((c, i, a) => !(i === 0 && c === "") && !(i === a.length - 1 && c === "")))
+    .filter((r) => r.length > 1 && !/^[-:\s|]+$/.test(r.join("")))
+    .slice(0, 14);
+  if (rows.length < 2) return null;
+  const [head, ...rest] = rows;
+  return (
+    <div key={key} className="scrollx">
+      <table className="plain">
+        <thead><tr>{head.map((h, i) => <th key={i} style={i > 0 ? { textAlign: "right" } : undefined}>{h.toUpperCase().slice(0, 28)}</th>)}</tr></thead>
+        <tbody>
+          {rest.map((r, i) => (
+            <tr key={i}>{r.map((c, j) => <td key={j} style={j > 0 ? { textAlign: "right" } : undefined}>{j === 0 ? <strong>{c.slice(0, 40)}</strong> : c.slice(0, 40)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function renderAnswer(text: string, streaming: boolean): React.ReactNode {
+  const out: React.ReactNode[] = [];
+  const re = /```(chart|table)\s*\n([\s\S]*?)```/g;
+  let last = 0, m: RegExpExecArray | null, k = 0;
+  while ((m = re.exec(text)) !== null) {
+    const prose = text.slice(last, m.index).trim();
+    if (prose) out.push(<pre key={k++} className="ai" style={{ margin: 0 }}>{prose}</pre>);
+    const node = m[1] === "chart" ? renderChartBody(m[2], k++) : renderTableBody(m[2], k++);
+    if (node) out.push(node);
+    last = m.index + m[0].length;
+  }
+  const tail = text.slice(last).trim();
+  if (tail || streaming) out.push(<pre key={k++} className="ai" style={{ margin: 0 }}>{tail}{streaming ? "▊" : ""}</pre>);
+  return <div className="grid" style={{ gap: 10 }}>{out}</div>;
 }
 
 export function AskDesk({ symbol }: { symbol: string }) {
@@ -91,7 +198,7 @@ export function AskDesk({ symbol }: { symbol: string }) {
     try {
       const ctx = await buildContext(tick, question);
       setCtxLine(`${ctx.tickerLine}`);
-      const user = `QUESTION: ${question}\nFOCUS: ${tick}\nLIVE BOARD: ${ctx.board}\nHEADLINES:\n${ctx.headlines.length ? ctx.headlines.map((h, i) => `${i + 1}. ${h}`).join("\n") : "(NO FRESH HEADLINES — SAY SO IF IT MATTERS)"}`;
+      const user = `QUESTION: ${question}\nFOCUS: ${tick}\nLIVE BOARD: ${ctx.board}\n${ctx.series}\nHEADLINES:\n${ctx.headlines.length ? ctx.headlines.map((h, i) => `${i + 1}. ${h}`).join("\n") : "(NO FRESH HEADLINES — SAY SO IF IT MATTERS)"}`;
       let full = "";
       await streamChat(
         [
@@ -145,8 +252,8 @@ export function AskDesk({ symbol }: { symbol: string }) {
       </div>
       {ctxLine && <p className="faint" style={{ fontSize: 11, margin: 0 }}>CTX · {ctxLine}</p>}
       {(answer || busy) && (
-        <div ref={ansRef} style={{ maxHeight: 460, overflowY: "auto" }}>
-          <pre className="ai">{answer}{busy ? "▊" : ""}</pre>
+        <div ref={ansRef} style={{ maxHeight: 560, overflowY: "auto" }}>
+          {renderAnswer(answer, busy)}
         </div>
       )}
       {!answer && !busy && (
