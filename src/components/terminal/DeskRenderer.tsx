@@ -225,15 +225,16 @@ function MacroMini() {
   useEffect(() => {
     let alive = true;
     setLoading(true); setErr("");
-    let url = "/api/macro";
+    let url = "/api/macro?groups=INDIA,GLOBAL";
     try {
       const fk = store.getFredKey();
       const extra = store.getMacroExtra();
       const qs = new URLSearchParams();
+      qs.set("groups", "INDIA,GLOBAL");
       if (fk) qs.set("fkey", fk);
       if (extra.length) qs.set("extra", extra.join(","));
       const s = qs.toString();
-      if (s) url += `?${s}`;
+      if (s) url = `/api/macro?${s}`;
     } catch { /* keyless */ }
     fetch(url).then((r) => r.json()).then((j) => {
       if (!alive) return;

@@ -15,19 +15,35 @@ interface SeriesDef {
 
 const SERIES: SeriesDef[] = [
   { id: "GDP", label: "GDP SAAR", group: "US GROWTH", unit: "$B" },
+  { id: "GNP", label: "GNP SAAR", group: "US GROWTH", unit: "$B" },
   { id: "GACDISA066MSFRBNY", label: "EMPIRE MFG IDX", group: "US GROWTH", unit: "DI", pp: true },
   { id: "RSAFS", label: "RETAIL SALES", group: "US GROWTH", unit: "$M" },
   { id: "INDPRO", label: "IND PRODUCTION", group: "US GROWTH", unit: "IDX" },
+  { id: "HOUST", label: "HOUSING STARTS", group: "US GROWTH", unit: "K" },
+  { id: "PERMIT", label: "BLDG PERMITS", group: "US GROWTH", unit: "K" },
   { id: "PAYEMS", label: "PAYROLLS", group: "US LABOR", unit: "K" },
   { id: "UNRATE", label: "UNEMP RATE", group: "US LABOR", unit: "%", pp: true },
+  { id: "CIVPART", label: "LABOR FORCE PART", group: "US LABOR", unit: "%", pp: true },
+  { id: "EMRATIO", label: "EMPLOY-POP RATIO", group: "US LABOR", unit: "%", pp: true },
   { id: "ICSA", label: "JOBLESS CLAIMS", group: "US LABOR", unit: "K" },
   { id: "CPIAUCSL", label: "CPI", group: "US INFLATION", unit: "IDX" },
   { id: "PCEPILFE", label: "CORE PCE", group: "US INFLATION", unit: "IDX" },
   { id: "PPIACO", label: "PPI", group: "US INFLATION", unit: "IDX" },
   { id: "FEDFUNDS", label: "FED FUNDS", group: "US RATES", unit: "%", pp: true },
+  { id: "SOFR", label: "SOFR", group: "US RATES", unit: "%", pp: true },
   { id: "DGS2", label: "US 2Y", group: "US RATES", unit: "%", pp: true },
   { id: "DGS10", label: "US 10Y", group: "US RATES", unit: "%", pp: true },
+  { id: "DGS30", label: "US 30Y", group: "US RATES", unit: "%", pp: true },
+  { id: "MORTGAGE30US", label: "30Y MORTGAGE", group: "US RATES", unit: "%", pp: true },
   { id: "T10Y2Y", label: "10Y−2Y", group: "US RATES", unit: "PP", pp: true },
+  { id: "M1SL", label: "M1 MONEY", group: "US MONEY", unit: "$B" },
+  { id: "M2SL", label: "M2 MONEY", group: "US MONEY", unit: "$B" },
+  { id: "CAUR", label: "CA UNEMP", group: "US STATES", unit: "%", pp: true },
+  { id: "TXUR", label: "TX UNEMP", group: "US STATES", unit: "%", pp: true },
+  { id: "FLUR", label: "FL UNEMP", group: "US STATES", unit: "%", pp: true },
+  { id: "NYUR", label: "NY UNEMP", group: "US STATES", unit: "%", pp: true },
+  { id: "ILUR", label: "IL UNEMP", group: "US STATES", unit: "%", pp: true },
+  { id: "PAUR", label: "PA UNEMP", group: "US STATES", unit: "%", pp: true },
   { id: "BOPGSTB", label: "TRADE BAL", group: "US EXTERNAL", unit: "$M" },
   { id: "UMCSENT", label: "MICHIGAN SENT", group: "US SENTIMENT", unit: "IDX" },
   { id: "CPALTT01INM659N", label: "INDIA CPI", group: "INDIA", unit: "IDX" },
@@ -39,6 +55,9 @@ const SERIES: SeriesDef[] = [
   { id: "DCOILBRENTEU", label: "BRENT CRUDE", group: "GLOBAL", unit: "$" },
   { id: "DCOILWTICO", label: "WTI CRUDE", group: "GLOBAL", unit: "$" },
   { id: "DTWEXBGS", label: "DOLLAR INDEX", group: "GLOBAL", unit: "IDX" },
+  { id: "DEXUSEU", label: "USD / EUR", group: "GLOBAL", unit: "$", dp: 4 },
+  { id: "DEXJPUS", label: "JPY / USD", group: "GLOBAL", unit: "¥", dp: 2 },
+  { id: "DEXCHUS", label: "CNY / USD", group: "GLOBAL", unit: "¥", dp: 2 },
   { id: "GOLDPMGBD228NLBM", label: "GOLD LONDON", group: "GLOBAL", unit: "$" },
 ];
 
@@ -94,7 +113,11 @@ export async function GET(req: NextRequest) {
     .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 8)
     .filter((id) => !SERIES.some((d) => d.id === id))
     .map((id) => ({ id, label: id, group: "CUSTOM", unit: "" }));
-  const defs = [...SERIES, ...extra];
+  // Optional group pre-filter (e.g. ?groups=INDIA,GLOBAL) so light
+  // consumers like the terminal panel skip the full ~45-series board.
+  const onlyGroups = (req.nextUrl.searchParams.get("groups") || "")
+    .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+  const defs = [...SERIES.filter((d) => !onlyGroups.length || onlyGroups.includes(d.group.toUpperCase())), ...extra];
   const rows = await Promise.all(
     defs.map(async (def) => {
       try {
