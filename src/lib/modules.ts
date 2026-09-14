@@ -34,7 +34,6 @@ export const MODULES: ModuleInfo[] = [
   m("18", "run_institutional_dcf", "Institutional DCF", "Valuation", "WACC build, historical margins, projections, sensitivity grid, Monte-Carlo, scenarios, Excel."),
   m("19", "run_institutional_lbo", "Institutional LBO", "Valuation", "Sources & uses, debt tranches, projections, IRR/MOIC, value bridge, sensitivity."),
   m("20", "run_historical_financials_4y", "Historical Financials (4Y)", "Fundamental", "4-year ratios, growth, DuPont, quality, capital efficiency, Excel export."),
-  m("21", "run_groww_intraday", "Groww Intraday Scanner", "Screener", "Intraday momentum / 52-week positioning scan."),
   m("22", "run_risk_assessment", "Risk Assessment", "Risk", "Kelly sizing, MA-crossover trade stats, ATR sizing, risk dashboard, AI chat."),
   m("23", "run_rolling_risk", "Rolling Risk", "Risk", "Rolling Sortino / beta / drawdown term-structure."),
   m("24", "run_garch", "GARCH Volatility", "Risk", "GARCH(1,1) fit, vol forecast, regime note."),
@@ -51,7 +50,7 @@ export const MODULES: ModuleInfo[] = [
   m("35", "run_sector_analysis", "Sector Analysis", "Market", "Breadth, RS ratio/momentum, beta, sector rotation heatmap, AI chat."),
   m("36", "run_advanced_greeks", "Advanced Greeks", "Options", "Vanna/vomma/charm/speed, chain scoring, intraday scanner."),
   m("37", "run_news_events_hub", "News & Events Hub", "News", "Yahoo + RSS + GoogleNews aggregation, dedup, sentiment, AI analyst.", true),
-  m("38", "run_global_macro_dashboard", "Global Macro Dashboard", "Market", "FRED series, country panels, alerts, heatmap, correlation, scorecard, recession monitor."),
+  m("38", "run_global_macro_dashboard", "Global Macro Dashboard", "Market", "FRED indicator boards, global economic matrix, ECFC forecasts with country graphs, ECO calendar."),
   m("39", "run_shareholding_scraper", "Ownership", "Fundamental", "Holder mix, quarterly trend, full ledger with QoQ deltas."),
   m("40", "run_dividend_scanner", "Dividends", "Fundamental", "Yield, growth, full payout history to IPO, splits, yield board."),
   m("41", "run_large_deals_scanner", "Large Deals Scanner", "Screener", "Bulk/block deal feed scan with sector tagging."),
@@ -81,12 +80,10 @@ export const MODULES: ModuleInfo[] = [
   m("66", "run_openrouter_chat", "OpenRouter Chat", "AI", "Multi-persona streaming chat with sessions, models, stats, export."),
   m("67", "run_workflow_scanner", "Workflow Scanner", "Screener", "Google-Sheets-style universe: strict filter, oversold RSI, momentum, Donchian breakout, custom builder, AI."),
   m("68", "run_strategy_tester", "Strategy Tester", "Backtest", "Multi-strategy tournament: indicators × parameters, leaderboard, trade log, AI advisor.", true),
-  m("69", "run_multi_strategy_arena", "Multi-Strategy Arena", "Backtest", "EliteQuantArena: capital/period/ticker, consensus signal, next-trade plan, exports.", true),
   m("70", "run_options_greeks_recommender", "Options Strategy Recommender", "Options", "Chain → bias detector → 12-strategy payoff engine, top-3 + cards + chart."),
   m("71", "run_md_task_executor", "Markdown Task Executor", "AI", "Prompt-template runner with web context, tools, exec log, follow-ups."),
   m("72", "run_editorials_reader", "Editorials", "News", "Opinion and editorial pages from major outlets, inline reader + AI brief."),
   m("73", "run_prediction_market_oracle", "Prediction Market Oracle", "Market", "Polymarket live markets, edge/Kelly/EV, sentiment, portfolio review, AI chat."),
-  m("74", "run_swing_trading_oracle", "Swing Trading Oracle", "Screener", "Market regime + sector rotation + ranked swing scan, deep-dive, options setup, watchlist, AI."),
   m("75", "run_drawdown_scanner", "Drawdown Scanner", "Screener", "52-week dip scan with RSI, breadth, sortable universe."),
 ];
 
@@ -114,5 +111,15 @@ export const TERMINAL_DESKS: ModuleInfo[] = [
 MODULES.push(...TERMINAL_DESKS);
 
 export const MODULE_MAP: Record<string, ModuleInfo> = Object.fromEntries(MODULES.map((x) => [x.id, x]));
+
+// Retired function IDs fold into their surviving equivalent, so old deep
+// links, saved workspaces, muscle-memory codes (GI/SWING/ARENA) and numeric
+// IDs keep working: #21 momentum + #74 swing live inside #67's all-boards
+// scanner, #69 was byte-identical to #68's backtest.
+export const MERGED_IDS: Record<string, string> = { "21": "67", "69": "68", "74": "67" };
+
+export function resolveFuncId(id: string): string {
+  return MERGED_IDS[id] ?? id;
+}
 
 export const CATEGORIES: string[] = Array.from(new Set(MODULES.map((x) => x.category)));

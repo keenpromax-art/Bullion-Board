@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MODULE_MAP, MODULES, NEXUS_CHAT_URL } from "@/lib/modules";
+import { MODULE_MAP, MODULES, NEXUS_CHAT_URL, resolveFuncId } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
 import { store } from "@/lib/store";
 import { chatComplete } from "@/lib/ai";
@@ -21,6 +21,7 @@ import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/
 import { Histogram, EquityDrawdown, AreaChart, HBars } from "@/components/charts";
 import { WatchPanel, StratMini, FundaMini, AIMini } from "./MiniDesks";
 import OptionsStrategyDesk from "@/components/OptionsStrategyDesk";
+import SettingsDesk from "./SettingsDesk";
 import { analyseChain, calcSuggestion, expiryToDays } from "@/lib/ochain";
 
 // Central desk dispatcher for Panel.tsx. Renders the SAME desk components
@@ -34,22 +35,21 @@ const NEWS_FEED: Record<string, string> = {
   "41": "wire", "65": "wire", "72": "editorials",
 };
 const NEWS_INITQ: Record<string, string> = { "41": "BULK DEAL BLOCK DEAL", "65": "IPO GMP LISTING" };
-const SCREENER_KIND: Record<string, string> = { "21": "momentum", "67": "all", "74": "swing", "75": "dip" };
+const SCREENER_KIND: Record<string, string> = { "67": "all", "75": "dip" };
 const BACKTEST_CFG: Record<string, { strat: string; title: string }> = {
   "30": { strat: "mr", title: "MEAN REVERSION LAB" },
   "68": { strat: "ma", title: "STRATEGY TESTER" },
-  "69": { strat: "ma", title: "MULTI-STRATEGY ARENA" },
 };
-const MARKET_IDS = new Set(["38", "53"]);
+const MARKET_IDS = new Set(["53"]);
 
 // Desks where a ticker is meaningless: news wires, market/macro boards,
 // screeners, readers, portfolio-style tools. Panels and headers hide the
 // symbol chrome for these (data flow untouched — symbol stays in spec).
 export const SYMBOL_LESS = new Set([
-  "21", "38", "41", "44", "45", "46", "47", "49", "51", "53",
-  "65", "67", "72", "73", "74", "75",
+  "38", "41", "44", "45", "46", "47", "49", "51", "53",
+  "65", "67", "72", "73", "75",
   "101", "102", "104", "107", "108", "109", "110", "111",
-  "114",
+  "114", "SET",
 ]);
 
 function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
@@ -112,7 +112,9 @@ function DirectoryMini({ symbol, onPickHere, onPickNew }: {
   });
   return (
     <div className="grid" style={{ gap: 8 }}>
-      <div className="toolbar"><input className="box" value={q} onChange={(e) => setQ(e.target.value.toUpperCase())} placeholder="FILTER: NAME, FNC…" /></div>
+      <div className="toolbar"><input className="box" value={q} onChange={(e) => setQ(e.target.value.toUpperCase())} placeholder="FILTER: NAME, FNC…" />
+        <button className="ghost" onClick={() => onPickHere("SET")} title="Open settings — API key · model · FRED">⚙ SET</button>
+      </div>
       <FunctionDirectory
         ticker={symbol || "RELIANCE.NS"} modules={mods} total={MODULES.filter((m) => !m.hidden).length}
         onPickHere={(m) => onPickHere(m.id)}
@@ -616,7 +618,8 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   onOpenNew?: (funcId: string, symbol: string) => void;
 }) {
   const sym = symbol || "RELIANCE.NS";
-  const mod = MODULE_MAP[funcId];
+  const id = resolveFuncId(funcId); // retired IDs (21/69/74) fold into survivors
+  const mod = MODULE_MAP[id];
   const go = onOpen ?? (() => {});
   const full = onExpand ?? (() => {});
 
@@ -630,6 +633,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
 
   if (funcId === "DIR") return <DirectoryMini symbol={sym} onPickHere={(id) => go(id, sym)} onPickNew={onOpenNew ? (id) => onOpenNew(id, sym) : undefined} />;
   if (funcId === "NOTE") return <NotesMini />;
+  if (funcId === "SET") return <SettingsDesk />;
   // Terminal-native hosted routes: light minis for the two heaviest,
   // isolated iframes for the rest (no viewport assumptions, no rewrites).
   if (funcId === "110") return <OChainMini symbol={sym} />;
@@ -648,7 +652,8 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (funcId === "114") return <NexusDesk />;
 
   if (!mod) return <p className="neg">UNKNOWN FUNCTION {funcId}.</p>;
-  const id = funcId;
+
+  if (id === "38") return <FrameDesk src="/macro" label="GLOBAL MACRO DASHBOARD" />;
 
   if (NEWS_FEED[id]) return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><NewsDesk symbol={sym} feed={NEWS_FEED[id]} title={mod.label.toUpperCase()} initialQ={NEWS_INITQ[id]} /></div>;
   if (id === "35") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><SectorDesk symbol={sym} /></div>;

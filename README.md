@@ -1,8 +1,9 @@
 # Bullion Board — NSE Quant Terminal
 
 Bloomberg-style web terminal for Indian equities: a multi-panel quant
-workspace with **70+ analytics desks** covering technicals, fundamentals,
-options, risk, ML, screeners, macro, news and AI analysis — all free data,
+workspace with **85 analytics desks** covering technicals, fundamentals,
+options, risk, ML, screeners, macro, news and AI analysis — plus an embedded
+**CFA study app** (book library, PDF reader, tutoring chat) — all free data,
 no API keys required to start. Built with Next.js 14 + React 18 +
 TypeScript. Vercel-ready.
 
@@ -16,11 +17,14 @@ TypeScript. Vercel-ready.
 - Cross-asset ticker tape (NSE leaders, Nifty/Sensex/Bank-Nifty, S&P/Nasdaq,
   gold/silver/crude, USD-INR, BTC/ETH) with price + absolute/percentage
   change; F1–F12 function-key bar; live feed indicator + IST clock.
-- Saveable workspace layouts, panel duplicate/detach/maximize, full keyboard
-  operation. Ships an Equity Overview preset; every desk opens in a panel.
+- Saveable workspace layouts (`1-up | 2-up | 2-H | 3-R | 3-L | 4-up`),
+  Linux-style virtual desktops (up to 6, autosaved together), panel
+  duplicate/detach/maximize, full keyboard operation. Ships an Equity
+  Overview preset; every desk opens in a panel.
 - Desk chat (AI) fitted into the command bar; per-desk AI analyst everywhere.
+  The ✎ CFA launcher opens the study app in place.
 
-## Quant desks (70+ modules, `/module/[id]`)
+## Quant desks (71 modules, `/module/[id]`)
 
 - **Technical** — indicator suite (RSI/MACD/ADX/Stochastic/Bollinger/ATR/MFI),
   institutional multi-panel chart suite, comparison lab, pro scorecard with
@@ -67,25 +71,37 @@ Finshots reader, Livemint wire, multi-source market wire with sentiment,
 NBFC scanner, editorials, Wikipedia + scripture terminals with AI
 explain/quiz modes, sentiment scoring and AI briefs.
 
-## Terminal desks
+## Terminal desks (14: `101`–`114`)
 
 Portfolio blotter with live P&L, price alerts with browser notifications,
 multi-security compare, correlation matrix, 10Y seasonality heatmaps, OHLC
 history + corporate actions browser, breadth/movers, desk calculators (SIP,
-CAGR, Kelly, pivots, Fibonacci, YTM), pre-market opening desk, analyst
-ratings consensus, capital-structure/WACC desk, notes.
+CAGR, Kelly, pivots, Fibonacci, YTM), pre-market opening desk, NSE option
+chain (`OC`), macro indicators (`IND`), analyst ratings consensus,
+capital-structure/WACC desk (`CAST`), Nexus CFA study app (`NEXUS`, see below),
+notes.
+
+## Study — Nexus Chat CFA app (`NEXUS` / `114`)
+
+Embedded CFA study app (hosted, rendered inside a panel or deep-link page):
+book library with topic browser + AI-generated tables of contents, PDF
+library reader, tutoring chat with study modes, notes. One-click ✎ CFA
+launcher in the command bar; `OPEN FULL →` jumps to the standalone site.
 
 ## AI (optional, key in `/settings`, never bundled)
 
 Per-desk analyst + global desk chat via OpenRouter (free models available),
-multi-session with export, live quote context attached automatically.
+multi-session with export, live quote context attached automatically. Works
+out of the box on the server key; paste your own key or model in `/settings`
+to override it in that browser only.
 
 ## Data & privacy
 
 - Market data: Yahoo Finance (no key). Macro: FRED keyless feeds
   (key only unlocks series search titles). Nothing is stored server-side —
   watchlists, portfolios, notes and prefs live in your browser localStorage,
-  so it runs on serverless hosting as-is.
+  so it runs on serverless hosting as-is. `/settings` exports/imports a
+  backup file (optionally with keys) to carry everything to another device.
 
 ## Run locally
 
@@ -145,6 +161,9 @@ git push -u origin main
 - `GET /api/ochain/chain?symbol=NIFTY&expiry=…&mode=Index` — live option chain
 - `GET /api/macro/forecasts?country=india` — ECFC history (+ SEP for US)
 - `GET /api/macro/matrix?asof=…` — 9-country macro snapshot
+- `GET /api/market` — cross-asset board snapshot (see also `/api/breadth`)
+- `GET /api/news?symbol=RELIANCE.NS&feed=wire` — RSS wire with sentiment
+- `GET /api/screener?kind=momentum` — Nifty-50 scans (`momentum`, `dip`, `swing`, `all`)
 - `POST /api/ai/chat` — `{ messages, model, apiKey }` → `{ text }` (streams with `stream: true`)
 
 ## Layout

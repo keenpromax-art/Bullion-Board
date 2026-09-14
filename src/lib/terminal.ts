@@ -2,7 +2,7 @@
 // Every module gets a short FNC mnemonic (like GP, FA, DCF). The command bar
 // accepts `TICKER FNC`, `FNC`, `TICKER`, e.g. `RELIANCE GP <GO>`.
 
-import { MODULE_MAP } from "./modules";
+import { MODULE_MAP, MERGED_IDS } from "./modules";
 import { normalizeTicker } from "./utils";
 
 export const FUNC_CODES: Record<string, string> = {
@@ -75,5 +75,7 @@ export function parseCommand(raw: string): ParsedCommand {
     }
     if (!unknown) unknown = tok;
   }
+  // Retired IDs (21/69/74) fold into their surviving equivalents.
+  if (funcId) funcId = MERGED_IDS[funcId] ?? funcId;
   return { ticker, funcId, unknown };
 }

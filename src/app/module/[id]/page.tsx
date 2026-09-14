@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MODULE_MAP, NEXUS_CHAT_URL } from "@/lib/modules";
+import { MODULE_MAP, NEXUS_CHAT_URL, resolveFuncId } from "@/lib/modules";
 import { normalizeTicker, fmtINR, fmtPct, fmtNum } from "@/lib/utils";
 import { funcCode } from "@/lib/terminal";
 import { chatComplete } from "@/lib/ai";
@@ -32,15 +32,13 @@ const NEWS_INITQ: Record<string, string> = {
   "65": "IPO GMP LISTING",
 };
 const SCREENER_KIND: Record<string, string> = {
-  "21": "momentum", "67": "all",
-  "74": "swing", "75": "dip",
+  "67": "all", "75": "dip",
 };
 const BACKTEST_CFG: Record<string, { strat: string; title: string }> = {
   "30": { strat: "mr", title: "MEAN REVERSION LAB" },
   "68": { strat: "ma", title: "STRATEGY TESTER" },
-  "69": { strat: "ma", title: "MULTI-STRATEGY ARENA" },
 };
-const MARKET_IDS = new Set(["38", "53"]);
+const MARKET_IDS = new Set(["53"]);
 
 function KV({ k, v, cls }: { k: string; v: string; cls?: string }) {
   return <div className="kv"><span className="muted">{k}</span><strong className={cls}>{v}</strong></div>;
@@ -129,6 +127,17 @@ function Inner({ id }: { id: string }) {
   useEffect(() => { setSymbol(symParam); }, [symParam, id]);
   useEffect(() => { store.setTicker(symbol); }, [symbol]);
 
+  // Retired IDs (21/69/74) fold into their survivors, preserving symbol+task.
+  const target = resolveFuncId(id);
+  useEffect(() => {
+    if (target !== id) {
+      const qs = new URLSearchParams();
+      if (symbol) qs.set("symbol", symbol);
+      if (task) qs.set("task", task);
+      router.replace(qs.toString() ? `/module/${target}?${qs.toString()}` : `/module/${target}`);
+    }
+  }, [target, id, router, symbol, task]);
+
   // Terminal-native desks live on their own routes — bounce there (keep symbol+task).
   useEffect(() => {
     if (mod && mod.route !== `/module/${id}`) {
@@ -139,6 +148,7 @@ function Inner({ id }: { id: string }) {
     }
   }, [mod, id, router, symbol, task]);
 
+  if (target !== id) return <main className="container"><p className="muted">MERGED INTO #{target} — REDIRECTING…</p></main>;
   if (!mod) return <main className="container"><p>UNKNOWN FUNCTION.</p><a href="/">← DIRECTORY</a></main>;
   const status = `${code} ${mod.label.toUpperCase()}`;
 
@@ -157,6 +167,26 @@ function Inner({ id }: { id: string }) {
             style={{ width: "100%", height: "calc(100dvh - 260px)", minHeight: 480, border: "1px solid var(--grid)", borderRadius: 3, background: "#000" }}
             allow="clipboard-read; clipboard-write; fullscreen"
             allowFullScreen
+            loading="lazy"
+          />
+        </div>
+      </Shell>
+    );
+  }
+
+  if (id === "38") {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <div className="panel">
+          <p className="p-head">Global Macro Dashboard — {code} &lt;GO&gt; · hosted desk</p>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+            FRED BOARDS + ECMX MATRIX + ECFC FORECASTS + ECO CALENDAR ·{" "}
+            <a href="/macro">OPEN FULL →</a>
+          </div>
+          <iframe
+            src="/macro"
+            title="Global Macro Dashboard"
+            style={{ width: "100%", height: "calc(100dvh - 260px)", minHeight: 480, border: "1px solid var(--grid)", borderRadius: 3, background: "#000" }}
             loading="lazy"
           />
         </div>

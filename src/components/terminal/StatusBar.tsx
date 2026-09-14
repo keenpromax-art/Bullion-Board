@@ -29,6 +29,7 @@ export default function StatusBar({
   onDeskRename,
   onDeskClose,
   deskAddDisabled,
+  onSettings,
 }: {
   panelCount: number;
   workspaceSlot: React.ReactNode;
@@ -45,6 +46,7 @@ export default function StatusBar({
   onDeskRename: (i: number) => void;
   onDeskClose: (i: number) => void;
   deskAddDisabled?: boolean;
+  onSettings?: () => void;
 }) {
   const clock = useClock();
   return (
@@ -98,6 +100,13 @@ export default function StatusBar({
         className="add-btn" onClick={onAdd} disabled={addDisabled}
         title={addDisabled ? "Max 4 panels — close one to add another" : "Add panel"}
       >+ PANEL</button>
+      {onSettings && (
+        <button
+          className="add-btn" onClick={onSettings}
+          title="Open settings desk (SET) — API key · model · FRED"
+          aria-label="Open settings"
+        >⚙ SET</button>
+      )}
       <span>{clock} IST</span>
     </div>
   );

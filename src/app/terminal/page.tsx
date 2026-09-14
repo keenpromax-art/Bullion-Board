@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { MODULE_MAP } from "@/lib/modules";
+import { MODULE_MAP, resolveFuncId } from "@/lib/modules";
 import { normalizeTicker } from "@/lib/utils";
 import { store } from "@/lib/store";
 import CommandLine from "@/components/terminal/CommandLine";
@@ -79,7 +79,7 @@ function Inner() {
     const qFunc = sp.get("func");
     if (qSym || qFunc) {
       const sym = qSym ? normalizeTicker(qSym) : (s.panels.find((p) => p.id === s.focusedId)?.symbol ?? store.getTicker());
-      const fid = qFunc && (MODULE_MAP[qFunc] || qFunc === "DIR" || qFunc === "NOTE") ? qFunc : null;
+      const fid = qFunc && (MODULE_MAP[resolveFuncId(qFunc)] || qFunc === "DIR" || qFunc === "NOTE" || qFunc === "SET") ? resolveFuncId(qFunc) : null;
       if (fid || qSym) {
         const np: PanelSpec = { id: uid(), funcId: fid ?? DEFAULT_OVERVIEW, symbol: sym, task: sp.get("task") };
         if (s.panels.length >= MAX_PANELS) {
@@ -470,6 +470,20 @@ function Inner() {
           });
         }}
         addDisabled={state.panels.length >= MAX_PANELS}
+        onSettings={() => {
+          patchActive((prev) => {
+            if (!prev) return prev;
+            if (!prev.focusedId) {
+              const p: PanelSpec = { id: uid(), funcId: "SET", symbol: "" };
+              return { ...prev, panels: [p], focusedId: p.id, dirty: true };
+            }
+            return {
+              ...prev,
+              panels: prev.panels.map((p) => (p.id === prev.focusedId ? { ...p, funcId: "SET", task: null } : p)),
+              dirty: true,
+            };
+          });
+        }}
         focusLabel={focusStatus}
         ticker={focusTicker}
         desks={shell.names}

@@ -30,8 +30,9 @@ export const FUNCTION_KEY_MAP: Record<string, FunctionKeyDef> = Object.fromEntri
 );
 
 // Pseudo-ids used only by the workspace shell (not in modules.ts).
-// DIR = function directory/dashboard, NOTE = notes panel.
+// DIR = function directory/dashboard, NOTE = notes panel, SET = settings desk.
 export const PSEUDO_DESKS: Record<string, { label: string; category: string }> = {
   DIR: { label: "Function Directory", category: "Terminal" },
   NOTE: { label: "Notes", category: "Terminal" },
+  SET: { label: "Settings", category: "Terminal" },
 };

@@ -557,6 +557,22 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-minirow input { flex: 1; background: transparent; border: none; outline: none; color: var(--sec); font-family: var(--mono); font-size: 12px; text-transform: uppercase; caret-color: var(--amber); }
 .term-minirow input::placeholder { color: var(--faint); }
 .term-mini-err { flex: 0 0 auto; padding: 4px 10px; font-size: 11px; color: var(--red); border-bottom: 1px solid var(--grid); }
+/* per-panel quick settings: collapsed strip below the body + expandable form */
+.term-panel-foot { flex: 0 0 auto; border-top: 1px solid var(--grid); background: #000; }
+.term-settings-toggle {
+  width: 100%; display: flex; gap: 8px; align-items: center;
+  background: none; border: none; cursor: pointer; padding: 6px 10px;
+  color: var(--sub); font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+}
+.term-settings-toggle:hover { color: var(--amber); background: rgba(255,160,40,0.06); }
+.term-settings-toggle.open { color: var(--amber); }
+.term-settings-toggle:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+.term-settings-sum { margin-left: auto; color: var(--faint); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
+.term-settings-toggle:hover .term-settings-sum, .term-settings-toggle.open .term-settings-sum { color: var(--amber); }
+.term-panel-settings { padding: 10px 12px 12px 12px; border-top: 1px solid var(--grid); max-height: 46vh; overflow-y: auto; background: var(--panel); }
+.term-settings .box { width: 100%; }
+.term-settings .toolbar .btn { padding: 7px 14px; font-size: 12px; }
 .term-menu { position: absolute; top: 28px; right: 0; z-index: 30; background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; display: grid; min-width: 230px; box-shadow: 0 18px 50px rgba(0,0,0,0.7); }
 /* directory row menu: same look, fixed at the cursor */
 .dir-menu { position: fixed; z-index: 80; background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; display: grid; min-width: 230px; max-width: calc(100vw - 16px); box-shadow: 0 18px 50px rgba(0,0,0,0.7); }

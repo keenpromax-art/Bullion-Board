@@ -2,8 +2,9 @@
 // READ-ONLY over src/lib/modules.ts registry + src/lib/terminal.ts codes.
 // Does NOT touch any math/data logic — navigation only.
 
-import { MODULES, MODULE_MAP } from "../modules";
+import { MODULES, MODULE_MAP, MERGED_IDS } from "../modules";
 import { CODE_TO_ID, FUNC_CODES, funcCode, parseCommand as baseParse } from "../terminal";
+import { PSEUDO_DESKS } from "./functionKeyMap";
 import { normalizeTicker } from "../utils";
 
 export type SpecialCommand = "MENU" | "CANCEL" | "HELP" | null;
@@ -30,6 +31,10 @@ export interface TerminalCommand {
 const PSEUDO_CODES: Record<string, string> = {
   DIR: "DIR",
   NOTE: "NOTE",
+  SET: "SET",
+  CFG: "SET",
+  CONFIG: "SET",
+  SETTINGS: "SET",
   OCH: "110",
   OC: "110",
   IND: "111",
@@ -72,8 +77,9 @@ export function parseTerminalCommand(raw: string, shiftNew = false): TerminalCom
 export function resolveFuncId(input: string): string | null {
   const t = input.trim().toUpperCase();
   if (!t) return null;
+  if (MERGED_IDS[t]) return MERGED_IDS[t]; // retired id directly
   if (MODULE_MAP[t]) return t; // numeric id directly
-  if (CODE_TO_ID[t]) return CODE_TO_ID[t];
+  if (CODE_TO_ID[t]) return MERGED_IDS[CODE_TO_ID[t]] ?? CODE_TO_ID[t];
   if (PSEUDO_CODES[t]) return PSEUDO_CODES[t];
   return null;
 }
@@ -115,6 +121,21 @@ export function suggestFunctions(query: string, limit = 8): FuncSuggestion[] {
       .slice(0, limit);
   }
   const scored: Array<{ s: FuncSuggestion; score: number }> = [];
+  // Workspace pseudo-desks (DIR/NOTE/SET) live outside modules.ts but must
+  // still autocomplete — e.g. typing SET offers the settings desk instead
+  // of Enter completing to a fuzzy module match.
+  for (const [id, pseudo] of Object.entries(PSEUDO_DESKS)) {
+    const label = pseudo.label.toUpperCase();
+    const sCode = fuzzyScore(id, q);
+    const sLabel = fuzzyScore(label.replace(/[^A-Z0-9]/g, ""), q.replace(/[^A-Z0-9]/g, ""));
+    const best = Math.max(sCode + 8, sLabel);
+    if (best > 0 || id.startsWith(q) || label.includes(q)) {
+      scored.push({
+        s: { id, code: id, label: pseudo.label, category: pseudo.category, description: "Workspace panel" },
+        score: best + (id === q ? 60 : 0),
+      });
+    }
+  }
   for (const m of MODULES) {
     if (m.hidden) continue;
     const code = (FUNC_CODES[m.id] ?? m.id).toUpperCase();
