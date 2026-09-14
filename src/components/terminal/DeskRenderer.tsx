@@ -200,20 +200,89 @@ function OChainMini({ symbol }: { symbol: string }) {
   );
 }
 
+function MacroSpark({ data }: { data: number[] }) {
+  if (!data || data.length < 2) return <span className="faint">—</span>;
+  const mn = Math.min(...data), mx = Math.max(...data);
+  const up = data[data.length - 1] >= data[0];
+  const pts = data.map((v, i) => `${((i / (data.length - 1)) * 96).toFixed(1)},${(24 - 2 - ((v - mn) / (mx - mn || 1)) * 20).toFixed(1)}`).join(" ");
+  return (
+    <svg width={96} height={24} style={{ display: "block" }} aria-hidden>
+      <polyline points={pts} fill="none" stroke={up ? "#00d664" : "#ff453a"} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 function MacroMini() {
   const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [asof, setAsof] = useState("");
   useEffect(() => {
     let alive = true;
-    fetch("/api/macro").then((r) => r.json()).then((j) => { if (alive) setRows((j.rows ?? []).filter((r: any) => r.ok).slice(0, 10)); }).catch(() => {});
+    setLoading(true); setErr("");
+    let url = "/api/macro";
+    try {
+      const fk = store.getFredKey();
+      const extra = store.getMacroExtra();
+      const qs = new URLSearchParams();
+      if (fk) qs.set("fkey", fk);
+      if (extra.length) qs.set("extra", extra.join(","));
+      const s = qs.toString();
+      if (s) url += `?${s}`;
+    } catch { /* keyless */ }
+    fetch(url).then((r) => r.json()).then((j) => {
+      if (!alive) return;
+      setRows((j.rows ?? []).filter((r: any) => r.ok));
+      setAsof(j.rows?.find?.((r: any) => r.ok)?.date ?? "");
+    }).catch((e) => { if (alive) setErr(e.message); })
+      .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, []);
+  let lastGroup = "";
   return (
-    <div className="grid" style={{ gap: 8 }}>
-      {rows.length === 0 && <p className="muted">PULLING MACRO…</p>}
-      {rows.map((r: any) => (
-        <div key={r.id} className="kv"><span className="muted">{r.label} <span className="faint">{r.unit}</span></span><strong>{r.latest} <span className={(r.chgSign ?? 0) >= 0 ? "pos" : "neg"}>{r.chg}</span></strong></div>
-      ))}
-      <a href="/macro" style={{ fontSize: 12 }}>FULL MACRO DESK →</a>
+    <div className="grid" style={{ gap: 4 }}>
+      {loading && rows.length === 0 && <p className="muted">PULLING MACRO…</p>}
+      {err && <p className="neg">ERR: {err}</p>}
+      {!loading && !err && rows.length === 0 && <p className="muted">NO MACRO ROWS — RETRY.</p>}
+      {rows.map((r: any) => {
+        const showGroup = r.group !== lastGroup;
+        lastGroup = r.group;
+        const open = openId === r.id;
+        return (
+          <div key={r.id}>
+            {showGroup && <p className="p-head" style={{ margin: "6px 0 2px 0" }}>{r.group}</p>}
+            <div
+              className="kv" role="button" tabIndex={0}
+              onClick={() => setOpenId(open ? null : r.id)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenId(open ? null : r.id); } }}
+              title={`${r.label} — CLICK FOR AS-OF / YOY / TREND`}
+              style={{ cursor: "pointer" }}
+            >
+              <span className="muted">{r.label} <span className="faint">{r.unit}</span></span>
+              <strong>{r.latest} <span className={(r.chgSign ?? 0) >= 0 ? "pos" : "neg"}>{r.chg}</span></strong>
+            </div>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", padding: "2px 0 4px 0" }}>
+              <span className="faint" style={{ fontSize: 10.5 }}>AS OF {r.date ?? "—"} · YOY <span className="muted">{r.yoy ?? "—"}</span></span>
+              <MacroSpark data={r.spark ?? []} />
+            </div>
+            {open && (
+              <div className="panel" style={{ padding: "8px 10px", margin: "0 0 6px 0" }}>
+                <div className="kv"><span className="muted">PREV Δ</span><strong className={(r.chgSign ?? 0) >= 0 ? "pos" : "neg"}>{r.chg}</strong></div>
+                <div className="kv"><span className="muted">YOY</span><strong>{r.yoy ?? "—"} <span className="faint" style={{ fontWeight: 400 }}>{r.yoyDate ? `VS ${r.yoyDate}` : ""}</span></strong></div>
+                <div className="kv"><span className="muted">AS OF</span><strong>{r.date ?? "—"}</strong></div>
+                {r.title && <div className="kv"><span className="muted">SERIES</span><strong style={{ fontSize: 11 }}>{r.title}</strong></div>}
+                {r.freq && <div className="kv"><span className="muted">FREQ</span><strong>{r.freq}{r.seasonal ? ` · ${r.seasonal}` : ""}</strong></div>}
+                <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>{r.group} · 24-OBS TREND · CLICK ROW TO COLLAPSE</p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 4 }}>
+        <span className="faint" style={{ fontSize: 10.5 }}>{rows.length} LIVE{asof ? ` · AS OF ${asof}` : ""}</span>
+        <a href="/macro" style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}>FULL MACRO DESK →</a>
+      </div>
     </div>
   );
 }
