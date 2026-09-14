@@ -676,6 +676,12 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
   box-shadow: 0 18px 50px rgba(0,0,0,0.7); padding: 12px 14px; text-transform: none;
 }
 .set-drop .p-head { margin-bottom: 10px; }
+/* status cells: always 3-up in the narrow drop-up (the global 6-col
+   grid would squeeze labels like SERVER/OVERRIDE into wraps) */
+.set-drop .cells { grid-template-columns: repeat(3, minmax(0, 1fr)); background: none; border: none; gap: 8px; }
+.set-drop .cell { border: 1px solid var(--grid); border-radius: 3px; background: var(--panel-2); }
+.set-drop .cell .val { font-size: 13px !important; }
+.set-drop .cell .sub { white-space: nowrap; }
 
 /* workspace switcher dropdown rows */
 .ws-drop { position: absolute; top: 110%; left: 0; z-index: 35; width: min(420px, 92vw); background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; box-shadow: 0 18px 50px rgba(0,0,0,0.7); max-height: 60vh; overflow-y: auto; padding-bottom: 6px; }
