@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { LineChart, BarChart, Donut, HBars } from "./charts";
+import { LegInput } from "./QuantDesks";
 import { sectorOf, SECTORS } from "@/lib/sectors";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
@@ -70,11 +71,11 @@ export function ANRDesk({ symbol }: { symbol: string }) {
   const tg = data.targets ?? {};
   const nTot = (latest.strongBuy ?? 0) + (latest.buy ?? 0) + (latest.hold ?? 0) + (latest.sell ?? 0) + (latest.strongSell ?? 0);
   const parts = [
-    { label: `STRONG BUY ${latest.strongBuy ?? 0}`, value: latest.strongBuy ?? 0, color: REC_COLORS[0] },
-    { label: `BUY ${latest.buy ?? 0}`, value: latest.buy ?? 0, color: REC_COLORS[1] },
-    { label: `HOLD ${latest.hold ?? 0}`, value: latest.hold ?? 0, color: REC_COLORS[2] },
-    { label: `SELL ${latest.sell ?? 0}`, value: latest.sell ?? 0, color: REC_COLORS[3] },
-    { label: `STRONG SELL ${latest.strongSell ?? 0}`, value: latest.strongSell ?? 0, color: REC_COLORS[4] },
+    { label: "STRONG BUY", value: latest.strongBuy ?? 0, color: REC_COLORS[0] },
+    { label: "BUY", value: latest.buy ?? 0, color: REC_COLORS[1] },
+    { label: "HOLD", value: latest.hold ?? 0, color: REC_COLORS[2] },
+    { label: "SELL", value: latest.sell ?? 0, color: REC_COLORS[3] },
+    { label: "STRONG SELL", value: latest.strongSell ?? 0, color: REC_COLORS[4] },
   ];
   const buyPctOf = (r: any) => {
     const tot = (r.strongBuy ?? 0) + (r.buy ?? 0) + (r.hold ?? 0) + (r.sell ?? 0) + (r.strongSell ?? 0);
@@ -196,25 +197,26 @@ export function ANRDesk({ symbol }: { symbol: string }) {
           <div className="cell">
             <div className="lbl">Consensus</div>
             <div className={`val ${data.pctBuy >= 60 ? "pos" : data.pctBuy < 40 ? "neg" : ""}`} style={{ fontSize: 19 }}>{data.consensus}</div>
-            <div className="sub">{data.pctBuy}% buy · street: {data.streetKey ?? "—"}{contra ? <span className="badge bad" style={{ marginLeft: 6 }}>⚠ {contra}</span> : null}</div>
+            <div className="sub">{data.pctBuy}% buy · {data.streetKey ?? "—"}</div>
+            {contra ? <div style={{ marginTop: 6 }}><span className="badge bad">⚠ {contra}</span></div> : null}
           </div>
-          <div className="cell"><div className="lbl">Buy split</div><div className="val" style={{ fontSize: 15 }}>{latest.strongBuy ?? 0} SB / {latest.buy ?? 0} B</div><div className="sub">hold {latest.hold ?? 0} · sell {(latest.sell ?? 0) + (latest.strongSell ?? 0)} of {nTot}</div></div>
-          <div className="cell"><div className="lbl">Rev 30D mom</div><div className={`val ${(revMom) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 15 }}>{revMom >= 0 ? "+" : "−"}{Math.abs(revMom)}</div><div className="sub"><span className="pos">+{est1y.up30d ?? 0}</span> up / <span className="neg">−{est1y.down30d ?? 0}</span> down · leads price</div></div>
+          <div className="cell"><div className="lbl">Buy split</div><div className="val" style={{ fontSize: 15 }}>{latest.strongBuy ?? 0} SB / {latest.buy ?? 0} B</div><div className="sub">H {latest.hold ?? 0} · S {(latest.sell ?? 0) + (latest.strongSell ?? 0)} · N {nTot}</div></div>
+          <div className="cell"><div className="lbl">Rev 30D mom</div><div className={`val ${(revMom) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 15 }}>{revMom >= 0 ? "+" : "−"}{Math.abs(revMom)}</div><div className="sub"><span className="pos">+{est1y.up30d ?? 0}</span>/<span className="neg">−{est1y.down30d ?? 0}</span> · leads px</div></div>
           <div className="cell"><div className="lbl">Target mean</div><div className={`val ${(tg.upsidePct ?? 0) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 17 }}>{tg.mean ? rs(tg.mean) : "—"}</div><div className="sub">{tg.upsidePct !== null && tg.upsidePct !== undefined ? `${tg.upsidePct >= 0 ? "+" : ""}${tg.upsidePct}% upside` : "no target"}</div></div>
-          <div className="cell"><div className="lbl">Target range</div><div className="val" style={{ fontSize: 14 }}>{tg.low && tg.high ? `${rs(tg.low)} – ${rs(tg.high)}` : "—"}</div><div className="sub">{tg.dispersionPct !== null && tg.dispersionPct !== undefined ? `range ÷ mean ${tg.dispersionPct}% · comparable across names` : `med ${tg.median ? rs(tg.median) : "—"}`}</div></div>
-          <div className="cell"><div className="lbl">Conviction</div><div className={`val ${conviction >= 70 ? "pos" : conviction < 50 ? "neg" : ""}`} style={{ fontSize: 17 }} title="50% buy skew + 25% upside (−20…+50 scaled) + 25% 30-day revision momentum (−10…+10 scaled)">{conviction}/100</div><div className="sub">{conviction >= 70 ? "strong" : conviction >= 50 ? "moderate" : "weak"} · 50% buy · 25% upside · 25% revs</div></div>
+          <div className="cell"><div className="lbl">Target range</div><div className="val" style={{ fontSize: 14, whiteSpace: "nowrap" }}>{tg.low && tg.high ? `${rs(tg.low)}–${rs(tg.high)}` : "—"}</div><div className="sub">{tg.dispersionPct !== null && tg.dispersionPct !== undefined ? `disp ${tg.dispersionPct}%` : `med ${tg.median ? rs(tg.median) : "—"}`}</div></div>
+          <div className="cell"><div className="lbl">Conviction</div><div className={`val ${conviction >= 70 ? "pos" : conviction < 50 ? "neg" : ""}`} style={{ fontSize: 17 }} title="50% buy skew + 25% upside (−20…+50 scaled) + 25% 30-day revision momentum (−10…+10 scaled)">{conviction}/100</div><div className="sub">{conviction >= 70 ? "strong" : conviction >= 50 ? "moderate" : "weak"} · 50/25/25 mix</div></div>
           <div className="cell"><div className="lbl">Fwd PE / Trail</div><div className="val">{s.forwardPE?.toFixed(1) ?? "—"} / {s.trailingPE?.toFixed(1) ?? "—"}</div><div className="sub">PEG {peg !== null && isFinite(peg) ? peg.toFixed(2) : "—"}</div></div>
           <div className="cell"><div className="lbl">P/B</div><div className="val">{s.priceToBook?.toFixed(2) ?? "—"}</div><div className="sub">book {s.bookValue?.toFixed(1) ?? "—"}</div></div>
           <div className="cell"><div className="lbl">EPS est {e.endDate || ""}</div><div className="val" style={{ fontSize: 15 }}>{e.epsAvg ?? "—"}</div><div className="sub">lo {e.epsLow ?? "—"} · hi {e.epsHigh ?? "—"}</div></div>
           <div className="cell"><div className="lbl">EPS growth</div><div className={`val ${e.growthPct >= 0 ? "pos" : "neg"}`}>{e.growthPct !== null && e.growthPct !== undefined ? `${e.growthPct >= 0 ? "+" : ""}${e.growthPct}%` : "—"}</div><div className="sub">{e.nAnalysts ?? "—"} analysts</div></div>
         </div>
-        <div className="grid grid-2" style={{ marginTop: 10 }}>
+        <div className="duo" style={{ marginTop: 10 }}>
           <div>
             <p className="p-head">Recommendation split — counts (hover slices)</p>
             <Donut slices={parts} unit="" />
           </div>
           <div>
-            <p className="p-head">Buy % by vintage — bars · now {buySeries.length ? buySeries[buySeries.length - 1].toFixed(0) : "—"}% ({buyDelta >= 0 ? "+" : "−"}{Math.abs(buyDelta).toFixed(0)}pp vs {chrono[0]?.period ?? "—"})</p>
+            <p className="p-head">Buy% by vintage · now {buySeries.length ? buySeries[buySeries.length - 1].toFixed(0) : "—"}% ({buyDelta >= 0 ? "+" : "−"}{Math.abs(buyDelta).toFixed(0)}pp)</p>
             <BarChart values={buySeries} labels={chrono.map((r: any) => r.period)} height={140} posColor={trendUp ? "#00d664" : "#ff453a"} negColor="#ff453a" />
           </div>
         </div>
@@ -346,16 +348,18 @@ export function ANRDesk({ symbol }: { symbol: string }) {
       <div className="panel">
         <p className="p-head">Conviction compare — {symbol} vs 2 names</p>
         <div className="toolbar">
-          <input
-            className="box" value={cmpA} onChange={(e) => setCmpA(e.target.value.toUpperCase())}
-            placeholder={(() => { try { const k = sectorOf(symbol); const ms = k ? SECTORS[k].tickers.filter((x) => x !== symbol.toUpperCase()).slice(0, 2) : []; return ms[0] ?? "NAME 1…"; } catch { return "NAME 1…"; } })()}
-            style={{ maxWidth: 170 }} spellCheck={false} autoComplete="off"
-          />
-          <input
-            className="box" value={cmpB} onChange={(e) => setCmpB(e.target.value.toUpperCase())}
-            placeholder={(() => { try { const k = sectorOf(symbol); const ms = k ? SECTORS[k].tickers.filter((x) => x !== symbol.toUpperCase()).slice(0, 2) : []; return ms[1] ?? "NAME 2…"; } catch { return "NAME 2…"; } })()}
-            style={{ maxWidth: 170 }} spellCheck={false} autoComplete="off"
-          />
+          <div style={{ maxWidth: 190, flex: 1, display: "flex" }}>
+            <LegInput
+              value={cmpA} onChange={setCmpA} onRun={runCompare}
+              label={(() => { try { const k = sectorOf(symbol); const ms = k ? SECTORS[k].tickers.filter((x) => x !== symbol.toUpperCase()).slice(0, 2) : []; return ms[0] ?? "NAME 1…"; } catch { return "NAME 1…"; } })()}
+            />
+          </div>
+          <div style={{ maxWidth: 190, flex: 1, display: "flex" }}>
+            <LegInput
+              value={cmpB} onChange={setCmpB} onRun={runCompare}
+              label={(() => { try { const k = sectorOf(symbol); const ms = k ? SECTORS[k].tickers.filter((x) => x !== symbol.toUpperCase()).slice(0, 2) : []; return ms[1] ?? "NAME 2…"; } catch { return "NAME 2…"; } })()}
+            />
+          </div>
           <button className="btn" onClick={runCompare} disabled={cmpLoading}>{cmpLoading ? "LOADING…" : "COMPARE"}</button>
           <span className="faint" style={{ fontSize: 11 }}>SAME 50/25/25 CONVICTION MATH BOTH SIDES</span>
         </div>

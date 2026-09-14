@@ -114,7 +114,7 @@ export function MLDossier({ id, closes }: { id: string; closes: number[] }) {
 interface LegRow { symbol: string; name: string; exch: string; type: string }
 
 // Company autofill for pair legs: instant watchlist matches + live lookup.
-function LegInput({ value, onChange, onRun, label }: {
+export function LegInput({ value, onChange, onRun, label }: {
   value: string; onChange: (v: string) => void; onRun: () => void; label: string;
 }) {
   const [rows, setRows] = useState<LegRow[]>([]);
