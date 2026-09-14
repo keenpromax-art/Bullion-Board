@@ -13,7 +13,7 @@ import { SectorDesk } from "@/components/SectorDesks";
 import { StatementsTerminal } from "@/components/StatementsTerminal";
 import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk, LinkerDesk } from "@/components/FundaDesks";
-import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk } from "@/components/QuantDesks";
+import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk } from "@/components/QuantDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ANRDesk, CastDesk } from "@/components/CapitalDesks";
@@ -764,7 +764,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (id === "38") return <FrameDesk src="/macro" label="GLOBAL MACRO DASHBOARD" />;
 
   if (NEWS_FEED[id]) return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><NewsDesk symbol={sym} feed={NEWS_FEED[id]} title={mod.label.toUpperCase()} initialQ={NEWS_INITQ[id]} /></div>;
-  if (id === "35") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><SectorDesk symbol={sym} /></div>;
+  if (id === "35") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><SectorDesk symbol={sym} onOpen={onOpen ? (f, s) => onOpen(f, s) : undefined} /></div>;
   if (MARKET_IDS.has(id)) return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><MarketDesk /></div>;
   if (SCREENER_KIND[id]) return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><ScreenerDesk kind={SCREENER_KIND[id]} /></div>;
   if (id === "40") return <DVDesk symbol={sym} />;
@@ -776,6 +776,10 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (id === "19") return <LBODesk symbol={sym} />;
   if (id === "64") return <LinkerDesk symbol={sym} />;
   if (id === "6") return <MertonDesk symbol={sym} />;
+  if (id === "9") return <ForecastDesk symbol={sym} />;
+  if (id === "10") return <ArimaLstmDesk symbol={sym} />;
+  if (id === "24") return <GarchDesk symbol={sym} />;
+  if (id === "26") return <VolFrameworkDesk symbol={sym} />;
   if (id === "8") return <DayDesk symbol={sym} />;
   if (id === "27" || id === "48") return <PairDesk symbol={sym} />;
   if (id === "28") return <FactorDesk symbol={sym} />;

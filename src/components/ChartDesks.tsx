@@ -855,20 +855,29 @@ export function ReturnsDesk({ symbol }: { symbol: string }) {
 export function FrontierPanel({ symbols, title }: { symbols: string[]; title: string }) {
   const [pts, setPts] = useState<Array<{ vol: number; ret: number; w: number[] }> | null>(null);
   const [assets, setAssets] = useState<Array<{ s: string; ret: number; vol: number }> | null>(null);
+  const [corr, setCorr] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [nonce, setNonce] = useState(0);
+  const [rf, setRf] = useState(6);
+  const [blend, setBlend] = useState(100);
+  const [aiOut, setAiOut] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    setLoading(true); setErr(""); setPts(null); setAssets(null); setCorr(null); setAiOut("");
     (async () => {
       try {
         const all = await Promise.all(
           symbols.map(async (s) => {
             const r = await fetch(`/api/history?symbol=${encodeURIComponent(s)}&range=1y&interval=1d`);
             const j = await r.json();
-            const c: number[] = (j.bars ?? []).map((b: any) => b.close);
+            if (!r.ok) throw new Error(j.error || `history ${r.status}`);
+            const c: number[] = (j.bars ?? []).map((b: any) => b.close).filter((v: any) => typeof v === "number" && isFinite(v) && v > 0);
+            if (c.length < 60) throw new Error(`SHORT HISTORY ${s}`);
             const lr: number[] = [];
-            for (let i = 1; i < c.length; i++) lr.push(c[i] > 0 && c[i - 1] > 0 ? Math.log(c[i] / c[i - 1]) : 0);
+            for (let i = 1; i < c.length; i++) lr.push(Math.log(c[i] / c[i - 1]));
             return { s, lr };
           })
         );
@@ -876,7 +885,7 @@ export function FrontierPanel({ symbols, title }: { symbols: string[]; title: st
         const R = all.map((a) => a.lr.slice(-n));
         const k = R.length;
         const mu = R.map((r) => (r.reduce((a, b) => a + b, 0) / r.length) * 252 * 100);
-        const cov: number[][] = R.map((a, i) =>
+        const cov: number[][] = R.map((a) =>
           R.map((b) => {
             const ma = a.reduce((s, v) => s + v, 0) / a.length;
             const mb = b.reduce((s, v) => s + v, 0) / b.length;
@@ -885,6 +894,11 @@ export function FrontierPanel({ symbols, title }: { symbols: string[]; title: st
             return (c / (a.length - 1)) * 252 * 10000;
           })
         );
+        // Avg pairwise correlation (the diversification dial for k>2).
+        let cs = 0, cn = 0;
+        for (let a = 0; a < k; a++) for (let b = a + 1; b < k; b++) {
+          if (cov[a][a] > 0 && cov[b][b] > 0) { cs += cov[a][b] / Math.sqrt(cov[a][a] * cov[b][b]); cn++; }
+        }
         const out: Array<{ vol: number; ret: number; w: number[] }> = [];
         const step = k <= 2 ? 0.02 : 0.1;
         const rec = (idx: number, left: number, cur: number[]) => {
@@ -907,17 +921,42 @@ export function FrontierPanel({ symbols, title }: { symbols: string[]; title: st
             ret: mu[i],
             vol: Math.sqrt(Math.max(cov[i][i], 0)),
           })));
+          setCorr(cn ? cs / cn : null);
         }
-      } catch { if (alive) setPts([]); }
+      } catch (e) {
+        if (alive) { setPts([]); setErr(e instanceof Error ? e.message : "fetch failed"); }
+      }
       finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbols.join("|")]);
+  }, [symbols.join("|"), nonce]);
+
+  async function askAI(bestW: number[], bestRet: number, bestVol: number, bestSh: number) {
+    setAiLoading(true); setAiOut("");
+    try {
+      const { chatComplete, aiSystem, NO_INVENT } = await import("@/lib/ai");
+      const { store } = await import("@/lib/store");
+      const txt = await chatComplete([
+        { role: "system", content: aiSystem.frontier() },
+        {
+          role: "user",
+          content: `PORT ${assets?.map((a, i) => `${a.s.replace(".NS", "")} R${a.ret.toFixed(1)}/V${a.vol.toFixed(1)}`).join(" ")} CORR ${corr === null ? "?" : corr.toFixed(2)} RF ${rf}% ` +
+            `MAXSHARPE ${bestSh.toFixed(2)} W[${bestW.map((x) => (x * 100).toFixed(0)).join("/")}] R${bestRet.toFixed(1)}/V${bestVol.toFixed(1)} ` +
+            `BLEND ${blend}% SHARPE. TASK: ALLOCATION VERDICT + WHY + 2 RISKS. ${NO_INVENT}`,
+        },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(txt);
+    } catch (e: any) {
+      setAiOut(`AI ERR: ${e.message}`);
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   if (loading || !pts) return <div className="panel"><p className="muted">OPTIMISING {title}…</p></div>;
-  if (!pts.length || !assets) return <div className="panel"><p className="neg">FRONTIER FAILED.</p></div>;
-  const RF = 6;
+  if (!pts.length || !assets) return <div className="panel"><p className="neg">FRONTIER FAILED{err ? `: ${err}` : "."} <button className="ghost" style={{ marginLeft: 6 }} onClick={() => setNonce((n) => n + 1)}>RETRY</button></p></div>;
+  const RF = rf;
   const scored = pts.map((p) => ({ ...p, sh: p.vol > 0 ? (p.ret - RF) / p.vol : -Infinity }));
   const best = scored.reduce((a, b) => (b.sh > a.sh ? b : a));
   const minV = pts.reduce((a, b) => (b.vol < a.vol ? b : a));
@@ -925,18 +964,41 @@ export function FrontierPanel({ symbols, title }: { symbols: string[]; title: st
   const vMx = Math.max(...pts.map((p) => p.vol));
   const rMn = Math.min(...pts.map((p) => p.ret));
   const rMx = Math.max(...pts.map((p) => p.ret));
+  // Efficient envelope: max return per vol bucket (the actual frontier).
+  const NB = 24;
+  const env: Array<{ vol: number; ret: number }> = [];
+  for (let i = 0; i < NB; i++) {
+    const lo = vMn + ((vMx - vMn) * i) / NB, hi = vMn + ((vMx - vMn) * (i + 1)) / NB;
+    const inB = pts.filter((p) => p.vol >= lo && p.vol <= hi);
+    if (inB.length) {
+      const top = inB.reduce((a, b) => (b.ret > a.ret ? b : a));
+      env.push({ vol: top.vol, ret: top.ret });
+    }
+  }
+  env.sort((a, b) => a.vol - b.vol);
+  // Blend slider: min-vol ↔ max-sharpe interpolation.
+  const t = blend / 100;
+  const blendW = best.w.map((w, i) => t * w + (1 - t) * minV.w[i]);
+  let blendRet = 0;
+  for (let i = 0; i < blendW.length; i++) blendRet += blendW[i] * (assets[i] ? assets[i].ret : 0);
   const X = 640, H = 260;
-  const px = (v: number) => 40 + ((v - vMn) / (vMx - vMn || 1)) * (X - 60);
-  const py = (r: number) => H - 24 - ((r - rMn) / (rMx - rMn || 1)) * (H - 48);
-  const wline = (w: number[], tag: string) => `${tag} ` + w.map((x, i) => `${assets[i].s.replace(".NS", "")} ${(x * 100).toFixed(0)}%`).join(" · ");
+  const px = (v: number) => 44 + ((v - vMn) / (vMx - vMn || 1)) * (X - 84);
+  const py = (r: number) => H - 26 - ((r - rMn) / (rMx - rMn || 1)) * (H - 52);
+  const wline = (w: number[]) => w.map((x, i) => `${assets[i].s.replace(".NS", "")} ${(x * 100).toFixed(0)}%`).join(" · ");
+  const isBench = (s: string) => !s.endsWith(".NS");
+  const lblX = (v: number) => (px(v) > X - 76 ? "end" : "start");
+  const lblDx = (v: number) => (px(v) > X - 76 ? -7 : 7);
 
   return (
     <div className="grid">
       <div className="panel panel-glow">
-        <p className="p-head">{title} — {pts.length} portfolios · RF 6%</p>
+        <p className="p-head">{title} — {pts.length} portfolios · LONG-ONLY · RF {RF}%{corr !== null ? ` · CORR ${corr.toFixed(2)}` : ""}</p>
         <svg viewBox={`0 0 ${X} ${H}`} style={{ width: "100%", height: H }} preserveAspectRatio="none">
-          {pts.map((p, i) => <circle key={i} cx={px(p.vol)} cy={py(p.ret)} r="5" fill="#5b5b62" opacity="0.6"><title>VOL {p.vol.toFixed(1)}% · RET {p.ret.toFixed(1)}%</title></circle>)}
-          {assets.map((a) => <g key={a.s}><circle cx={px(a.vol)} cy={py(a.ret)} r="4" fill="#8f7bff"><title>{a.s} · VOL {a.vol.toFixed(1)}% · RET {a.ret.toFixed(1)}%</title></circle><text x={px(a.vol) + 6} y={py(a.ret) + 4} fontSize="10" fill="#a1a1aa">{a.s.replace(".NS", "")}</text></g>)}
+          {env.length > 1 && (
+            <polyline points={env.map((e) => `${px(e.vol).toFixed(1)},${py(e.ret).toFixed(1)}`).join(" ")} fill="none" stroke="#ffa028" strokeWidth="1.6" opacity="0.85" />
+          )}
+          {pts.map((p, i) => <circle key={i} cx={px(p.vol)} cy={py(p.ret)} r="3.5" fill="#5b5b62" opacity="0.6"><title>VOL {p.vol.toFixed(1)}% · RET {p.ret.toFixed(1)}%</title></circle>)}
+          {assets.map((a) => <g key={a.s}><circle cx={px(a.vol)} cy={py(a.ret)} r="4" fill={isBench(a.s) ? "#a1a1aa" : "#ffb000"}><title>{a.s} · VOL {a.vol.toFixed(1)}% · RET {a.ret.toFixed(1)}%</title></circle><text x={px(a.vol) + lblDx(a.vol)} y={py(a.ret) + 4} fontSize="10" fill={isBench(a.s) ? "#a1a1aa" : "#ffb000"} textAnchor={lblX(a.vol)}>{a.s.replace(".NS", "")}</text></g>)}
           <circle cx={px(minV.vol)} cy={py(minV.ret)} r="5" fill="none" stroke="#00d664" strokeWidth="2"><title>MIN VOL · VOL {minV.vol.toFixed(1)}% · RET {minV.ret.toFixed(1)}%</title></circle>
           <circle cx={px(best.vol)} cy={py(best.ret)} r="5" fill="#ffa028"><title>MAX SHARPE {best.sh.toFixed(2)} · VOL {best.vol.toFixed(1)}% · RET {best.ret.toFixed(1)}%</title></circle>
         </svg>
@@ -944,20 +1006,64 @@ export function FrontierPanel({ symbols, title }: { symbols: string[]; title: st
           <span>← VOL {vMn.toFixed(0)}% … {vMx.toFixed(0)}% →</span>
           <span>RET {rMn.toFixed(0)}% … {rMx.toFixed(0)}% ↑</span>
         </div>
-        <div className="pills" style={{ marginTop: 8 }}>
-          <span className="badge" style={{ color: "#ffa028" }}>● MAX SHARPE {best.sh.toFixed(2)}</span>
-          <span className="badge ok">○ MIN VOL</span>
-          <span className="badge">● GRID</span>
+        <div className="toolbar" style={{ marginTop: 8 }}>
+          <div className="pills">
+            <span className="badge" style={{ color: "#ffa028" }}>● MAX SHARPE {best.sh.toFixed(2)}</span>
+            <span className="badge ok">○ MIN VOL</span>
+            <span className="badge">● GRID</span>
+            <span className="badge">— ENVELOPE</span>
+          </div>
+        </div>
+        <div className="toolbar" style={{ marginTop: 8 }}>
+          <span className="faint" style={{ fontSize: 11 }}>BLEND MIN-VOL ↔ MAX-SHARPE</span>
+          <input
+            type="range" min={0} max={100} value={blend} onChange={(e) => setBlend(Number(e.target.value))}
+            aria-label="Blend min-vol to max-sharpe" style={{ flex: 1, accentColor: "#ffa028" }}
+          />
+          <span className="sec" style={{ fontSize: 12 }}>{blend}% SHARPE · R{blendRet.toFixed(1)}% · {wline(blendW)}</span>
+        </div>
+        <div className="toolbar" style={{ marginTop: 8 }}>
+          <span className="faint" style={{ fontSize: 11 }}>RF %</span>
+          <input
+            className="box" value={rf} inputMode="decimal" style={{ maxWidth: 76, padding: "4px 8px" }}
+            onChange={(e) => { const v = parseFloat(e.target.value); if (isFinite(v)) setRf(Math.min(20, Math.max(0, v))); }}
+            aria-label="Risk-free rate percent"
+          />
+        </div>
+      </div>
+      <div className="duo">
+        <div className="panel">
+          <table className="plain">
+            <thead><tr><th>PORT</th><th style={{ textAlign: "right" }}>RET %</th><th style={{ textAlign: "right" }}>VOL %</th><th style={{ textAlign: "right" }}>SHARPE</th><th>WEIGHTS</th></tr></thead>
+            <tbody>
+              <tr className="active"><td><strong className="sec">MAX SHARPE</strong></td><td style={{ textAlign: "right" }}>{best.ret.toFixed(1)}</td><td style={{ textAlign: "right" }}>{best.vol.toFixed(1)}</td><td style={{ textAlign: "right" }}>{best.sh.toFixed(2)}</td><td className="faint" style={{ fontSize: 11.5 }}>{wline(best.w)}</td></tr>
+              <tr><td><strong>MIN VOL</strong></td><td style={{ textAlign: "right" }}>{minV.ret.toFixed(1)}</td><td style={{ textAlign: "right" }}>{minV.vol.toFixed(1)}</td><td style={{ textAlign: "right" }}>{minV.vol > 0 ? ((minV.ret - RF) / minV.vol).toFixed(2) : "—"}</td><td className="faint" style={{ fontSize: 11.5 }}>{wline(minV.w)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="panel">
+          <p className="p-head">Assets — 1Y ann.</p>
+          <table className="plain">
+            <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>RET %</th><th style={{ textAlign: "right" }}>VOL %</th><th style={{ textAlign: "right" }}>SHARPE</th></tr></thead>
+            <tbody>
+              {assets.map((a) => (
+                <tr key={a.s}>
+                  <td><strong className={isBench(a.s) ? "" : "sec"}>{a.s.replace(".NS", "")}</strong></td>
+                  <td style={{ textAlign: "right" }} className={a.ret >= 0 ? "pos" : "neg"}>{a.ret >= 0 ? "+" : ""}{a.ret.toFixed(1)}</td>
+                  <td style={{ textAlign: "right" }}>{a.vol.toFixed(1)}</td>
+                  <td style={{ textAlign: "right" }}>{a.vol > 0 ? ((a.ret - RF) / a.vol).toFixed(2) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
       <div className="panel">
-        <table className="plain">
-          <thead><tr><th>PORT</th><th style={{ textAlign: "right" }}>RET %</th><th style={{ textAlign: "right" }}>VOL %</th><th>WEIGHTS</th></tr></thead>
-          <tbody>
-            <tr><td><strong className="sec">MAX SHARPE</strong></td><td style={{ textAlign: "right" }}>{best.ret.toFixed(1)}</td><td style={{ textAlign: "right" }}>{best.vol.toFixed(1)}</td><td className="faint" style={{ fontSize: 11.5 }}>{wline(best.w, "")}</td></tr>
-            <tr><td><strong>MIN VOL</strong></td><td style={{ textAlign: "right" }}>{minV.ret.toFixed(1)}</td><td style={{ textAlign: "right" }}>{minV.vol.toFixed(1)}</td><td className="faint" style={{ fontSize: 11.5 }}>{wline(minV.w, "")}</td></tr>
-          </tbody>
-        </table>
+        <p className="p-head">AI analyst — FR</p>
+        <div className="toolbar">
+          <button className="btn" onClick={() => askAI(best.w, best.ret, best.vol, best.sh)} disabled={aiLoading}>{aiLoading ? "RUNNING…" : "RUN AI"}</button>
+        </div>
+        {aiOut && <pre className="ai" style={{ marginTop: 10 }}>{aiOut}</pre>}
       </div>
     </div>
   );

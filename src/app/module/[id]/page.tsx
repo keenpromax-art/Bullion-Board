@@ -15,7 +15,7 @@ import { SectorDesk } from "@/components/SectorDesks";
 import { StatementsTerminal } from "@/components/StatementsTerminal";
 import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk } from "@/components/FundaDesks";
-import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk } from "@/components/QuantDesks";
+import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk } from "@/components/QuantDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
@@ -310,6 +310,38 @@ function Inner({ id }: { id: string }) {
     return (
       <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
         <MertonDesk symbol={symbol} />
+      </Shell>
+    );
+  }
+
+  if (id === "9") {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <ForecastDesk symbol={symbol} />
+      </Shell>
+    );
+  }
+
+  if (id === "10") {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <ArimaLstmDesk symbol={symbol} />
+      </Shell>
+    );
+  }
+
+  if (id === "26") {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <VolFrameworkDesk symbol={symbol} />
+      </Shell>
+    );
+  }
+
+  if (id === "24") {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <GarchDesk symbol={symbol} />
       </Shell>
     );
   }

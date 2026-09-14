@@ -22,9 +22,10 @@ interface SectorData {
 
 const PERIODS = ["1M", "3M", "6M", "1Y"] as const;
 const short = (s: string) => s.replace(".NS", "");
+const fmtM = (v: unknown) => (typeof v === "number" && isFinite(v) ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—");
 const momKey: Record<string, keyof SectorRow> = { "1M": "m21", "3M": "m63", "6M": "m126", "1Y": "m252" };
 
-function useSector(sector: string, period: string) {
+function useSector(sector: string, period: string, nonce: number) {
   const [data, setData] = useState<SectorData | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,7 +41,7 @@ function useSector(sector: string, period: string) {
       .catch((e) => { if (alive) setErr(e.message); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [sector, period]);
+  }, [sector, period, nonce]);
   return { data, err, loading };
 }
 
@@ -121,18 +122,33 @@ function Quad({ rows, hot }: { rows: SectorRow[]; hot: string }) {
   );
 }
 
-export function SectorDesk({ symbol }: { symbol: string }) {
+export function SectorDesk({ symbol, onOpen }: { symbol: string; onOpen?: (funcId: string, symbol: string) => void }) {
   const auto = sectorOf(symbol) ?? "6";
   const [sector, setSector] = useState(auto);
   const [period, setPeriod] = useState<string>("1Y");
+  const [nonce, setNonce] = useState(0);
   useEffect(() => { setSector(sectorOf(symbol) ?? "6"); }, [symbol]);
-  const { data, err, loading } = useSector(sector, period);
+  const { data, err, loading } = useSector(sector, period, nonce);
   const mk = momKey[period] ?? "m252";
 
   const ranked = useMemo(() => {
     if (!data) return [];
     return [...data.rows].sort((a, b) => (b[mk] as number | null ?? -Infinity) - (a[mk] as number | null ?? -Infinity));
   }, [data, mk]);
+
+  // Hot-ticker rotation read + sector dispersion.
+  const hot = data?.rows.find((r) => r.sym === symbol) ?? null;
+  const hotRank = hot ? ranked.findIndex((r) => r.sym === symbol) + 1 : null;
+  const hotQuad = !hot || hot.rsr === null || hot.rsm === null ? null
+    : hot.rsr >= 100 && hot.rsm >= 100 ? "LEADING" : hot.rsr >= 100 ? "WEAKENING" : hot.rsm >= 100 ? "IMPROVING" : "LAGGING";
+  const momVals = ranked.map((r) => r[mk] as number | null).filter((v): v is number => v !== null);
+  const spread = momVals.length >= 2 ? Math.max(...momVals) - Math.min(...momVals) : null;
+  const lead = ranked[0] ?? null, lag = ranked.length ? ranked[ranked.length - 1] : null;
+
+  function openPeer(sym: string) {
+    if (onOpen) onOpen("1", sym);
+    else window.location.href = `/module/1?symbol=${encodeURIComponent(sym)}`;
+  }
 
   return (
     <div className="grid">
@@ -151,7 +167,7 @@ export function SectorDesk({ symbol }: { symbol: string }) {
           </div>
           {loading && <span className="muted">SCANNING SECTOR…</span>}
         </div>
-        {err && <p className="neg">ERR: {err}</p>}
+        {err && <p className="neg">ERR: {err} <button className="ghost" style={{ marginLeft: 6 }} onClick={() => setNonce((n) => n + 1)}>RETRY</button></p>}
         {data && (
           <div className="cells" style={{ marginTop: 10 }}>
             <div className="cell"><div className="lbl">Sector {data.period}</div><div className={`val ${(data.secTotal ?? 0) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 16 }}>{data.secTotal !== null ? `${data.secTotal >= 0 ? "+" : ""}${data.secTotal.toFixed(2)}%` : "—"}</div><div className="sub">eq-weight {data.count} sec</div></div>
@@ -159,14 +175,22 @@ export function SectorDesk({ symbol }: { symbol: string }) {
             <div className="cell"><div className="lbl">Excess</div><div className={`val ${(data.excess ?? 0) >= 0 ? "pos" : "neg"}`} style={{ fontSize: 16 }}>{data.excess !== null ? `${data.excess >= 0 ? "+" : ""}${data.excess.toFixed(2)}pp` : "—"}</div><div className="sub">sector − nifty</div></div>
             <div className="cell"><div className="lbl">Breadth 50D</div><div className="val" style={{ fontSize: 16 }}>{data.breadth.b50 !== null ? `${data.breadth.b50.toFixed(0)}%` : "—"}</div><div className="sub">above MA50</div></div>
             <div className="cell"><div className="lbl">Breadth 200D</div><div className="val" style={{ fontSize: 16 }}>{data.breadth.b200 !== null ? `${data.breadth.b200.toFixed(0)}%` : "—"}</div><div className="sub">above MA200</div></div>
-            <div className="cell"><div className="lbl">Avg beta 60D</div><div className="val" style={{ fontSize: 16 }}>{data.avgBeta ?? "—"}</div><div className="sub">vs nifty</div></div>
+            <div className="cell"><div className="lbl">Avg beta 60D</div><div className="val" style={{ fontSize: 16 }}>{data.avgBeta !== null && data.avgBeta !== undefined ? Number(data.avgBeta).toFixed(2) : "—"}</div><div className="sub">vs nifty</div></div>
           </div>
+        )}
+        {data && (
+          <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0 0" }}>
+            {hotQuad && hot ? <><span className={hotQuad === "LEADING" ? "pos" : hotQuad === "LAGGING" ? "neg" : "sec"}>{short(symbol)}: {hotQuad}</span> · RANK {hotRank}/{ranked.length} · RS {hot.rsr !== null ? hot.rsr.toFixed(1) : "—"}/{hot.rsm !== null ? hot.rsm.toFixed(1) : "—"}</> : <>{short(symbol)}: NO ROTATION READ</>}
+            {lead && lag && lead.sym !== lag.sym && (
+              <> · <span className="pos">▲ {short(lead.sym)} {fmtM(lead[mk])}</span> · <span className="neg">▼ {short(lag.sym)} {fmtM(lag[mk])}</span>{spread !== null ? <> · SPREAD {spread.toFixed(1)}pp</> : null}</>
+            )}
+          </p>
         )}
       </div>
 
       {data && (
         <>
-          <div className="grid grid-2">
+          <div className="duo">
             <div className="panel">
               <p className="p-head">Sector vs Nifty — {data.period} cumulative %</p>
               <Curve sec={data.curve.sector} nif={data.curve.nifty} dates={data.curve.dates} />
@@ -193,14 +217,21 @@ export function SectorDesk({ symbol }: { symbol: string }) {
           </div>
 
           <div className="panel" style={{ overflowX: "auto" }}>
-            <p className="p-head">Peer board — {data.count} securities · click opens desk</p>
+            <p className="p-head">Peer board — {data.count} securities · {onOpen ? "CLICK OPENS IN THIS PANEL" : "CLICK OPENS DESK"}</p>
             <table className="plain">
               <thead><tr><th>#</th><th>SEC</th><th style={{ textAlign: "right" }}>PX ₹</th><th style={{ textAlign: "right" }}>DAY %</th><th style={{ textAlign: "right" }}>1M</th><th style={{ textAlign: "right" }}>3M</th><th style={{ textAlign: "right" }}>6M</th><th style={{ textAlign: "right" }}>1Y</th><th style={{ textAlign: "right" }}>VOL</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>RS</th><th style={{ textAlign: "right" }}>TREND</th></tr></thead>
               <tbody>
                 {ranked.map((r, i) => (
-                  <tr key={r.sym} style={r.sym === symbol ? { background: "rgba(255,160,40,0.07)" } : undefined}>
+                  <tr
+                    key={r.sym}
+                    style={{ cursor: "pointer", ...(r.sym === symbol ? { background: "rgba(255,160,40,0.07)" } : undefined) }}
+                    onClick={() => openPeer(r.sym)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPeer(r.sym); } }}
+                    tabIndex={0}
+                    title={`${short(r.sym)} — OPEN TECHNICALS ${onOpen ? "HERE" : "IN FULL PAGE"}`}
+                  >
                     <td className="faint">{i + 1}</td>
-                    <td><a href={`/module/1?symbol=${r.sym}`}><span className="sec">{r.sym === symbol ? "◆ " : ""}{short(r.sym)}</span></a></td>
+                    <td><span className="sec">{r.sym === symbol ? "◆ " : ""}{short(r.sym)}</span></td>
                     <td style={{ textAlign: "right" }}>{r.price.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
                     <td style={{ textAlign: "right" }}>{r.day !== null ? <span className={r.day >= 0 ? "pos" : "neg"}>{r.day >= 0 ? "+" : ""}{r.day.toFixed(2)}</span> : "—"}</td>
                     {([r.m21, r.m63, r.m126, r.m252] as Array<number | null>).map((v, j) => (
