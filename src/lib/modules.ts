@@ -106,8 +106,7 @@ export const TERMINAL_DESKS: ModuleInfo[] = [
   t("112", "ANR", "Analyst Ratings", "Street consensus, buy split, estimates, key stats.", "/analyst"),
   t("113", "CAST", "Capital Structure", "Equity vs debt stack, WACC build, leverage path, debt tranches.", "/capital"),
   t("114", "NEXUS", "Nexus Chat — CFA Study", "CFA study chat with book + PDF library, modes and notes. Hosted app inside panel.", "/module/114"),
-  t("115", "BOOK", "Book Reader", "PDF book library with per-book page memory — upload once, resume anywhere.", "/module/115"),
-  t("116", "ASK", "Event Lab", "Ask anything — event impact on Nifty or any ticker, answered with live board + headlines.", "/module/116"),];
+  t("115", "BOOK", "Book Reader", "PDF book library with per-book page memory — upload once, resume anywhere.", "/module/115"),];
 
 MODULES.push(...TERMINAL_DESKS);
 

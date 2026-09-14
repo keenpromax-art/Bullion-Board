@@ -17,7 +17,6 @@ import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk } from "@/components/FundaDesks";
 import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk } from "@/components/QuantDesks";
 import { BookReader } from "@/components/BookDesks";
-import { AskDesk } from "@/components/AskDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
@@ -182,17 +181,6 @@ function Inner({ id }: { id: string }) {
         <div className="panel panel-glow">
           <p className="p-head">Book Reader — PDF library · page memory per book</p>
           <BookReader />
-        </div>
-      </Shell>
-    );
-  }
-
-  if (id === "116") {
-    return (
-      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
-        <div className="panel panel-glow">
-          <p className="p-head">Event Lab — ask anything · live board + headlines attached</p>
-          <AskDesk symbol={symbol} />
         </div>
       </Shell>
     );
