@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { chatComplete, streamChat } from "@/lib/ai";
+import { chatComplete, streamChat, aiSystem } from "@/lib/ai";
 import { store } from "@/lib/store";
 
 /* ---------------- wikipedia ---------------- */
@@ -43,8 +43,8 @@ export function WikiDesk() {
     setAiLoading(true); setAiOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a markets explainer. Terse uppercase terminal lines." },
-        { role: "user", content: `ARTICLE: ${article.title}\n${article.intro.slice(0, 2000)}\nTASK: FINANCE LENS — WHAT A TRADER MUST KNOW IN 5 LINES + 1 RISK.` },
+        { role: "system", content: aiSystem.financeLens() },
+        { role: "user", content: `ARTICLE: ${article.title}\n${article.intro.slice(0, 2000)}\nTASK: FINANCE LENS — WHAT A TRADER MUST KNOW IN 5 LINES + 1 RISK. USE ONLY ARTICLE FACTS.` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: any) {
@@ -162,7 +162,7 @@ export function BibleDesk() {
     setAiLoading(true); setAiOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a concise study assistant. Terse lines." },
+        { role: "system", content: "YOU ARE A CONCISE STUDY ASSISTANT ON A TERMINAL. REPLY IN TERSE NUMBERED LINES, NO SERMON. CITE BOOK CHAPTER:VERSE YOU USE. FORMAT: 3-LINE COMMENTARY + 1 CROSS-REFERENCE. MAX 6 LINES." },
         { role: "user", content: `${bookName} ${chapter} (${trans}):\n${verses.slice(0, 12).map((v) => `${v.n}. ${v.text}`).join("\n")}\nTASK: 3-LINE COMMENTARY + 1 CROSS-REFERENCE.` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
@@ -369,7 +369,7 @@ export function AIDesk({ symbol, mode }: { symbol: string; mode: "chat" | "tasks
       let full = "";
       await streamChat(
         [
-          { role: "system", content: `You are a terminal markets assistant. Terse uppercase lines, numbers first, no disclaimers. Security in focus: ${symbol}${px !== null ? ` @ ₹${px}` : ""}.` },
+          { role: "system", content: aiSystem.deskChatSecurity(symbol, px, mode === "tasks" ? "TASK EXECUTOR" : "AI CHAT") },
           ...history.slice(-12, -1).map((m) => ({ role: m.role, content: m.text }) as { role: "user" | "assistant"; content: string }),
         ],
         {

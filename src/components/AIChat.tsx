@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { streamChat, FREE_MODELS, DEFAULT_MODEL, type ChatMessage } from "@/lib/ai";
+import { streamChat, FREE_MODELS, DEFAULT_MODEL, aiSystem, type ChatMessage } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { MODULE_MAP } from "@/lib/modules";
 
@@ -137,7 +137,7 @@ export default function AIChat() {
       const history: ChatMessage[] = [
         {
           role: "system",
-          content: `You are a terse terminal markets assistant. Reply in short UPPERCASE lines, numbers first, no disclaimers. Context: ${digest}. Desk: ${deskLabel()}.`,
+          content: `${aiSystem.deskChat(deskLabel())} CONTEXT: ${digest}.`,
         },
         ...base.slice(-12, -1).map((m) => ({ role: m.role, content: m.text }) as ChatMessage),
       ];

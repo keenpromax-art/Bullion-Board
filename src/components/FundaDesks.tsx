@@ -7,7 +7,7 @@ import { funcCode } from "@/lib/terminal";
 import { calcMonteCarloDCF, calcPiotroski, calcAltmanZ, calcBeneish } from "@/lib/fundamentals";
 import { LineChart, Donut, HBars, Histogram, GroupedBars, AreaChart, BarChart } from "./charts";
 import DeskOutput from "./DeskOutput";
-import { chatComplete } from "@/lib/ai";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 
 /* ---------------- shared ---------------- */
@@ -874,8 +874,8 @@ export function DupontDesk({ symbol }: { symbol: string }) {
       const a = extra?.fundamentalExamples?.altman;
       const b = extra?.fundamentalExamples?.beneish;
       const txt = await chatComplete([
-        { role: "system", content: "You are a terminal analyst. Function DUP (DuPont Analysis). Reply in terse uppercase terminal lines." },
-        { role: "user", content: `SEC ${symbol} PIOTROSKI ${p?.score ?? "?"}//9 ALTMAN ${a?.zScore ?? "?"} (${a?.zone ?? "?"}) BENEISH ${b?.mScore ?? "?"} (${b?.risk ?? "?"}). ROE DRIVERS + 3 RISKS.` },
+        { role: "system", content: aiSystem.dupont() },
+        { role: "user", content: `SEC ${symbol} PIOTROSKI ${p?.score ?? "?"}//9 ALTMAN ${a?.zScore ?? "?"} (${a?.zone ?? "?"}) BENEISH ${b?.mScore ?? "?"} (${b?.risk ?? "?"}). TASK: ROE DRIVERS + WEAKEST LINK + 3 RISKS. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: unknown) {
@@ -1009,8 +1009,8 @@ export function AnalyzerDesk({ symbol }: { symbol: string }) {
     setAiLoading(true); setAiOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a terminal equity analyst. Function SA (Statement Analyzer). Reply in terse uppercase terminal lines." },
-        { role: "user", content: `SEC ${symbol}. STRUCTURED P&L/BS/CF + RATIOS ON LEDGER. STRENGTHS, WEAKNESSES, 3 THINGS TO WATCH.` },
+        { role: "system", content: aiSystem.statementAnalyzer() },
+        { role: "user", content: `SEC ${symbol}. STRUCTURED P&L/BS/CF + RATIOS ON LEDGER. TASK: 2 STRENGTHS + 2 WEAKNESSES + 3 THINGS TO WATCH. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: unknown) {
@@ -1248,8 +1248,8 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
     setAiLoading(true); setAiOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a terminal equity historian. Function HI (Historical Financials 4Y). Reply in terse uppercase terminal lines." },
-        { role: "user", content: `SEC ${symbol}. 4-YEAR ARC: GROWTH, MARGINS, LEVERAGE, CASH, ALLOCATION. WHAT CHANGED, WHAT IT MEANS, WHAT TO WATCH NEXT.` },
+        { role: "system", content: aiSystem.historian() },
+        { role: "user", content: `SEC ${symbol}. 4-YEAR ARC: GROWTH, MARGINS, LEVERAGE, CASH, ALLOCATION. TASK: WHAT CHANGED + WHAT IT MEANS + WHAT TO WATCH NEXT. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: unknown) {
@@ -1471,8 +1471,8 @@ export function ForensicDesk({ symbol }: { symbol: string }) {
     setAiLoading(true); setAiOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a forensic accountant terminal. Function FOR (Forensic Accounting). Reply in terse uppercase terminal lines." },
-        { role: "user", content: `SEC ${symbol}. BENEISH/ALTMAN/PIOTROSKI + ACCRUALS + DIVERGENCES ON LEDGER. TOP 3 MANIPULATION RISKS + WHAT TO VERIFY IN ANNUAL REPORT.` },
+        { role: "system", content: aiSystem.forensic() },
+        { role: "user", content: `SEC ${symbol}. BENEISH/ALTMAN/PIOTROSKI + ACCRUALS + DIVERGENCES ON LEDGER. TASK: TOP 3 MANIPULATION RISKS + WHAT TO VERIFY IN ANNUAL REPORT. CONSERVATIVE — FLAG, DON'T ACCUSE. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: unknown) {
@@ -2949,8 +2949,8 @@ export function useFundAI(symbol: string, context: string) {
     setLoading(true); setOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a fundamental analyst. Reply in terse uppercase terminal lines." },
-        { role: "user", content: `SEC ${symbol}. LEDGER:\n${context.slice(0, 3000)}\nQ: ${question}` },
+        { role: "system", content: aiSystem.fundaHelper() },
+        { role: "user", content: `SEC ${symbol}. LEDGER EXCERPT (USE ONLY THIS):\n${context.slice(0, 3000)}\nQ: ${question}\n${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setOut(txt);
     } catch (e: any) {

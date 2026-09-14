@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { chatComplete } from "@/lib/ai";
+import { chatComplete, aiSystem } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { Donut, HBars, AreaChart, Histogram } from "./charts";
 
@@ -102,7 +102,7 @@ function ReaderPane({ item, art, loading, err, onClose, onRetry }: {
     setPtsLoading(true); setPtsErr(""); setPtsOn(true);
     try {
       const txt = await chatComplete([
-        { role: "system", content: "Summarize the article into key points. UNDER 100 WORDS TOTAL. Terse uppercase terminal bullet lines, no preamble, no conclusion." },
+        { role: "system", content: aiSystem.articleSummary() },
         { role: "user", content: `TITLE: ${art.title}\n\n${art.paragraphs.join("\n").slice(0, 6000)}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setPts(txt);
@@ -230,8 +230,8 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
     const lines = data.items.slice(0, 10).map((n, i) => `${i + 1}. [${n.label}] ${n.title} (${n.source})`).join("\n");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a Bloomberg-style wire editor. Reply in terse uppercase terminal lines: 3-bullet brief + RISK line." },
-        { role: "user", content: `SEC ${symbol}. HEADLINES:\n${lines}` },
+        { role: "system", content: aiSystem.wireBrief() },
+        { role: "user", content: `SEC ${symbol}. HEADLINES (USE ONLY THESE, NEWEST FIRST):\n${lines}\nTASK: 3-BULLET BRIEF + 1 RISK LINE.` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: any) {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { LineChart, BarChart, Donut, HBars } from "./charts";
 import { sectorOf, SECTORS } from "@/lib/sectors";
-import { chatComplete } from "@/lib/ai";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 
 /* ---------------- analyst ratings desk (ANR) ---------------- */
@@ -132,8 +132,8 @@ export function ANRDesk({ symbol }: { symbol: string }) {
     setAiWhyLoading(true); setAiWhy("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a terminal equity analyst. Reply in terse uppercase terminal lines: 2 sentences max." },
-        { role: "user", content: `SEC ${symbol}. CONSENSUS ${data.consensus} (${data.pctBuy}% BUY, ${data.nAnalysts} ANALYSTS). TARGET ${tg.mean ?? "?"} (${tg.upsidePct ?? "?"}% UPSIDE, RANGE ${tg.low ?? "?"}-${tg.high ?? "?"}, DISPERSION ${tg.dispersionPct ?? "?"}%). 30D REVS +${est1y.up30d ?? 0}/-${est1y.down30d ?? 0}. BUY% DELTA ${buyDelta >= 0 ? "+" : ""}${buyDelta.toFixed(0)}PP VS OLDEST VINTAGE. CONVICTION ${conviction}/100. WHY THIS CONSENSUS — WHAT DRIVES IT?` },
+        { role: "system", content: aiSystem.consensus() },
+        { role: "user", content: `SEC ${symbol}. CONSENSUS ${data.consensus} (${data.pctBuy}% BUY, ${data.nAnalysts} ANALYSTS). TARGET ${tg.mean ?? "?"} (${tg.upsidePct ?? "?"}% UPSIDE, RANGE ${tg.low ?? "?"}-${tg.high ?? "?"}, DISPERSION ${tg.dispersionPct ?? "?"}%). 30D REVS +${est1y.up30d ?? 0}/-${est1y.down30d ?? 0}. BUY% DELTA ${buyDelta >= 0 ? "+" : ""}${buyDelta.toFixed(0)}PP VS OLDEST VINTAGE. CONVICTION ${conviction}/100. TASK: WHY THIS CONSENSUS — WHAT DRIVES IT + WHAT COULD BREAK IT. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiWhy(txt);
     } catch (e: unknown) { setAiWhy(`AI ERR: ${e instanceof Error ? e.message : "failed"}`); }

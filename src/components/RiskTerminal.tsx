@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { rsi, macd, adx, ema, sma, atr, hurst, pctReturns } from "@/lib/indicators";
 import { blackScholes } from "@/lib/options";
 import { calcAltmanZ } from "@/lib/fundamentals";
-import { chatComplete } from "@/lib/ai";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { LineChart, GroupedBars, BarChart, AreaChart, HBars, Histogram } from "./charts";
 import { MCFan } from "./ChartDesks";
@@ -158,8 +158,8 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
     setAiLoading(true); setAiOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a terminal risk officer. Function RSK (Risk Assessment). Reply in terse uppercase terminal lines." },
-        { role: "user", content: `SEC ${symbol}. FULL RISK STACK ON TAPE. TOP 3 RISKS + POSITION SIZE NOTE + HEDGE.` },
+        { role: "system", content: aiSystem.riskOfficer() },
+        { role: "user", content: `SEC ${symbol}. FULL RISK STACK ON TAPE (PRICE/VOL/LEVERAGE/LIQUIDITY/EVENT/OPTIONS). TASK: TOP 3 RISKS + POSITION-SIZE NOTE (1% RULE) + 1 HEDGE. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: any) {

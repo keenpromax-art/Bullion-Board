@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { MODULE_MAP, MODULES, NEXUS_CHAT_URL, resolveFuncId } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
 import { store } from "@/lib/store";
-import { chatComplete } from "@/lib/ai";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { fmtINR, fmtPct, fmtNum } from "@/lib/utils";
 import FunctionDirectory from "@/components/FunctionDirectory";
 import DeskOutput from "@/components/DeskOutput";
@@ -571,8 +571,8 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
     setAiLoading(true); setAiOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: `You are a terminal analyst. Function ${code} (${mod?.label}). Reply in terse uppercase terminal lines.` },
-        { role: "user", content: `SEC ${symbol} PX ${data?.price} RSI ${ind.rsi} MACD_H ${ind.macdHist} ADX ${ind.adx} SHARPE ${risk.sharpe}. VERDICT + 3 RISKS.` },
+        { role: "system", content: aiSystem.genericDesk(code, mod?.label ?? code) },
+        { role: "user", content: `SEC ${symbol} PX ${data?.price ?? "?"} CHG% ${liveChg?.toFixed?.(2) ?? "?"} RSI14 ${ind.rsi ?? "?"} MACD_HIST ${ind.macdHist ?? "?"} ADX ${ind.adx ?? "?"} SHARPE ${risk.sharpe ?? "?"} MAXDD% ${risk?.maxDD?.pct ?? "?"}. SIGNAL ${String(data?.extra?.signal ?? "?")}. TASK: VERDICT + EVIDENCE + 3 RISKS + INVALIDATION. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: any) { setAiOut(`AI ERR: ${e.message}`); }

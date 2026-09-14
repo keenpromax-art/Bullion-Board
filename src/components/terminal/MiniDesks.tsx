@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { store } from "@/lib/store";
 import { WATCHLIST } from "@/lib/watchlist";
-import { chatComplete } from "@/lib/ai";
+import { chatComplete, aiSystem } from "@/lib/ai";
 import { logReturns } from "@/lib/indicators";
 import { historicalVol, volRegime, trendBias } from "@/lib/options";
 import { buildAllStrategies, detectBias } from "@/lib/strategyEngine";
@@ -214,10 +214,10 @@ export function AIMini({ symbol, onFull }: { symbol: string; onFull: () => void 
     let alive = true;
     setBusy(true);
     chatComplete([
-      { role: "system", content: "You are a terse terminal derivatives analyst. Two sentences max, uppercase." },
-      { role: "user", content: `Summarize the options regime for ${symbol}.` },
+      { role: "system", content: aiSystem.derivativesMini() },
+      { role: "user", content: `Summarize the options regime for ${symbol}. GIVE A FULL SHORT READ: REGIME + ONE NUMBER + ONE RISK. USE ONLY GIVEN SYMBOL — IF NO CHAIN DATA, SAY DATA GAP.` },
     ], { apiKey: store.getORKey(), model: store.getORModel() })
-      .then((t) => { if (alive) setLog((l) => [...l, { who: "ANALYST", text: t.slice(0, 280) }]); })
+      .then((t) => { if (alive) setLog((l) => [...l, { who: "ANALYST", text: t.slice(0, 1500) }]); })
       .catch((e) => { if (alive) setLog((l) => [...l, { who: "ANALYST", text: `AI ERR: ${e.message}` }]); })
       .finally(() => { if (alive) setBusy(false); });
     return () => { alive = false; };
@@ -230,11 +230,11 @@ export function AIMini({ symbol, onFull }: { symbol: string; onFull: () => void 
     setBusy(true);
     try {
       const t = await chatComplete([
-        { role: "system", content: "You are a terse terminal analyst. Two sentences max, uppercase." },
+        { role: "system", content: aiSystem.analystMini() },
         ...log.slice(-4).map((m) => ({ role: m.who === "YOU" ? "user" as const : "assistant" as const, content: m.text })),
         { role: "user" as const, content: text },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
-      setLog((l) => [...l.slice(-5), { who: "ANALYST", text: t.slice(0, 280) }]);
+      setLog((l) => [...l.slice(-5), { who: "ANALYST", text: t.slice(0, 1500) }]);
     } catch (e: any) {
       setLog((l) => [...l.slice(-5), { who: "ANALYST", text: `AI ERR: ${e.message}` }]);
     } finally {

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { MODULE_MAP, NEXUS_CHAT_URL, resolveFuncId } from "@/lib/modules";
 import { normalizeTicker, fmtINR, fmtPct, fmtNum } from "@/lib/utils";
 import { funcCode } from "@/lib/terminal";
-import { chatComplete } from "@/lib/ai";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import OpenInWorkspace from "@/components/terminal/OpenInWorkspace";
@@ -585,10 +585,10 @@ function GenericDesk({ id, code, symbol, setSymbol, status, task }: {
       const isOpt70 = id === "70";
       const o = data?.extra?.options;
       const user = isOpt70
-        ? `OPTIONS STRATEGY DESK ${symbol} PX ${data?.price} RSI ${ind.rsi} MACD_H ${ind.macdHist} ADX ${ind.adx} HV10/30/252 ${(o?.hv10 * 100)?.toFixed(1)}/${(o?.hv30 * 100)?.toFixed(1)}/${(o?.hv252 * 100)?.toFixed(1)} REGIME ${o?.regime} BIAS ${o?.trendBias} SIDE ${o?.side} EXP_MOVE ${o?.expectedMove1sd?.toFixed(0)}. PICK BEST OF 15 (LONG C/P, SPREADS, STRADDLE/STRANGLE, CONDOR, BUTTERFLY, JADE, BACKSPREADS) FOR THIS REGIME. GIVE: 1) TOP PICK + WHY, 2) STRIKES/DTE, 3) GREEKS RISK, 4) ADJUST/STOP.`
-        : `SEC ${symbol} PX ${data?.price} RSI ${ind.rsi} MACD_H ${ind.macdHist} ADX ${ind.adx} SHARPE ${risk.sharpe} MAXDD ${risk?.maxDD?.pct}%. VERDICT + 3 RISKS.`;
+        ? `OPTIONS STRATEGY DESK ${symbol} PX ${data?.price ?? "?"} RSI ${ind.rsi ?? "?"} MACD_H ${ind.macdHist ?? "?"} ADX ${ind.adx ?? "?"} HV10/30/252 ${(o?.hv10 * 100)?.toFixed(1) ?? "?"}/${(o?.hv30 * 100)?.toFixed(1) ?? "?"}/${(o?.hv252 * 100)?.toFixed(1) ?? "?"} REGIME ${o?.regime ?? "?"} BIAS ${o?.trendBias ?? "?"} SIDE ${o?.side ?? "?"} EXP_MOVE ${o?.expectedMove1sd?.toFixed(0) ?? "?"}. PICK BEST OF 15 (LONG C/P, SPREADS, STRADDLE/STRANGLE, CONDOR, BUTTERFLY, JADE, BACKSPREADS) FOR THIS REGIME. GIVE: 1) TOP PICK + WHY, 2) STRIKES/DTE, 3) GREEKS RISK, 4) ADJUST/STOP. ${NO_INVENT}`
+        : `SEC ${symbol} PX ${data?.price ?? "?"} RSI ${ind.rsi ?? "?"} MACD_H ${ind.macdHist ?? "?"} ADX ${ind.adx ?? "?"} SHARPE ${risk.sharpe ?? "?"} MAXDD ${risk?.maxDD?.pct ?? "?"}%. TASK: VERDICT + EVIDENCE + 3 RISKS + INVALIDATION. ${NO_INVENT}`;
       const txt = await chatComplete([
-        { role: "system", content: isOpt70 ? `You are a senior derivatives quant. Function ${code} (${mod.label}). Reply in terse uppercase terminal lines. Risk-first: theta, IV crush, stops before upside.` : `You are a terminal analyst. Function ${code} (${mod.label}). Reply in terse uppercase terminal lines.` },
+        { role: "system", content: isOpt70 ? aiSystem.optionsDesk(code, mod.label) : aiSystem.genericDesk(code, mod.label) },
         { role: "user", content: user },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);

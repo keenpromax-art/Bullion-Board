@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { sma, rsi, last, logReturns, hurst, pctReturns } from "@/lib/indicators";
 import { historicalVol, volRegime } from "@/lib/options";
 import { ewmaVol, maxDrawdown } from "@/lib/risk";
-import { chatComplete } from "@/lib/ai";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { BarChart, LineChart, HBars, Histogram, AreaChart } from "./charts";
 import { MCFan } from "./ChartDesks";
@@ -80,8 +80,8 @@ export function MLDossier({ id, closes }: { id: string; closes: number[] }) {
     setAiLoading(true); setAiOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a quant model critic. Terse uppercase terminal lines." },
-        { role: "user", content: `${spec.name} ${spec.arch}. LIVE FEATS: TREND ${trend} RSI ${r.toFixed(1)} HV30 ${(hv * 100).toFixed(1)}% HURST ${hu.toFixed(2)} DD ${dd.toFixed(1)}%. CRITIQUE: OVERFIT RISK + WHEN IT BREAKS + 1 GUARDRAIL.` },
+        { role: "system", content: aiSystem.quantCritic() },
+        { role: "user", content: `${spec.name} ${spec.arch}. LIVE FEATS: TREND ${trend} RSI ${r.toFixed(1)} HV30 ${(hv * 100).toFixed(1)}% HURST ${hu.toFixed(2)} DD ${dd.toFixed(1)}%. TASK: OVERFIT RISK + WHEN IT BREAKS + 1 GUARDRAIL. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: any) {
@@ -686,8 +686,8 @@ export function RollingRiskDesk({ symbol }: { symbol: string }) {
     setAiLoading(true); setAiOut("");
     try {
       const txt = await chatComplete([
-        { role: "system", content: "You are a terminal risk analyst. Function RR (Rolling Risk). Reply in terse uppercase terminal lines." },
-        { role: "user", content: `SEC ${symbol}. 3Y ROLLING VOL/SHARPE/BETA/DD/VAR ON TAPE. REGIME CALL + 3 RISKS + HEDGE NOTE.` },
+        { role: "system", content: aiSystem.rollingRisk() },
+        { role: "user", content: `SEC ${symbol}. 3Y ROLLING VOL/SHARPE/BETA/DD/VAR ON TAPE. TASK: REGIME CALL + 3 RISKS + HEDGE NOTE. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: any) {

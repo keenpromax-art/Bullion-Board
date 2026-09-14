@@ -21,6 +21,10 @@ export async function POST(req: NextRequest) {
     );
   }
   const model = body.model || process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-super-120b-a12b:free";
+  // House decoding defaults: factual but conversational enough for full
+  // Q&A answers. Auto-summaries stay short via their prompts; Q&A needs room.
+  const temperature = 0.4;
+  const max_tokens = 1400;
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${apiKey}`,
@@ -33,7 +37,7 @@ export async function POST(req: NextRequest) {
       const r = await fetch(OPENROUTER_URL, {
         method: "POST",
         headers,
-        body: JSON.stringify({ model, messages: body.messages ?? [], stream: true }),
+        body: JSON.stringify({ model, messages: body.messages ?? [], stream: true, temperature, max_tokens }),
       });
       if (!r.ok || !r.body) {
         const t = await r.text();
@@ -55,7 +59,7 @@ export async function POST(req: NextRequest) {
     const r = await fetch(OPENROUTER_URL, {
       method: "POST",
       headers,
-      body: JSON.stringify({ model, messages: body.messages ?? [] }),
+      body: JSON.stringify({ model, messages: body.messages ?? [], temperature, max_tokens }),
     });
     if (!r.ok) {
       const t = await r.text();
