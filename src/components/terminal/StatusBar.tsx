@@ -1,7 +1,10 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MODULES } from "@/lib/modules";
 import { useClock } from "@/components/TerminalChrome";
+import { store } from "@/lib/store";
+import SettingsDesk, { SETTINGS_CHANGED_EVENT } from "./SettingsDesk";
 import type { TilingPreset } from "@/lib/terminal/workspaceStore";
 
 const LAYOUTS: Array<{ id: TilingPreset; label: string }> = [
@@ -51,6 +54,47 @@ export default function StatusBar({
   onTour?: () => void;
 }) {
   const clock = useClock();
+  // Global settings: one control for every panel (key/model/FRED live in
+  // one browser store — this drop-up edits the same values everywhere).
+  const [setOpen, setSetOpen] = useState(false);
+  const [summary, setSummary] = useState({ model: "", hasKey: false });
+  const setWrapRef = useRef<HTMLSpanElement>(null);
+
+  const refreshSummary = useCallback(() => {
+    try {
+      setSummary({ model: store.getORModel(), hasKey: !!store.getORKey() });
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    refreshSummary();
+    function onStorage(e: StorageEvent) {
+      if (e.key === "iss.openrouter.key" || e.key === "iss.openrouter.model") refreshSummary();
+    }
+    function onCustom() { refreshSummary(); }
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(SETTINGS_CHANGED_EVENT, onCustom);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(SETTINGS_CHANGED_EVENT, onCustom);
+    };
+  }, [refreshSummary]);
+
+  useEffect(() => {
+    if (!setOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (setWrapRef.current && !setWrapRef.current.contains(e.target as Node)) setSetOpen(false);
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setSetOpen(false); }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [setOpen]);
+
+  const shortModel = (() => {
+    const tail = summary.model.split("/").pop() ?? summary.model;
+    return tail.split(":")[0].toUpperCase().slice(0, 14) || "MODEL";
+  })();
   return (
     <div className="statusbar term-status" role="status" aria-label="Terminal status">
       <span><span className="feed-dot" />YAHOO FEED · LIVE</span>
@@ -109,6 +153,20 @@ export default function StatusBar({
           aria-label="Open settings"
         >⚙ SET</button>
       )}
+      <span className="set-wrap" ref={setWrapRef}>
+        <button
+          className="add-btn" onClick={() => setSetOpen((v) => !v)}
+          title="Global settings — API key · model · FRED (applies to ALL panels)"
+          aria-label="Global settings"
+          aria-expanded={setOpen}
+        >⚙ <span className="hide-sm">{shortModel} · {summary.hasKey ? "● KEY" : "○ SRV"}</span><span className="sr-only">Global settings</span></button>
+        {setOpen && (
+          <div className="set-drop" role="dialog" aria-label="Global settings">
+            <p className="p-head">Global settings — applies to all panels</p>
+            <SettingsDesk compact />
+          </div>
+        )}
+      </span>
       {onTour && (
         <button
           className="add-btn" onClick={onTour}

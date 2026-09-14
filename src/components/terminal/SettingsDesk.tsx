@@ -12,7 +12,7 @@ export function notifySettingsChanged(): void {
 }
 
 // Compact settings desk — renders inside a terminal panel (SET) and is
-// also reused by the per-panel footer strip. Same backing store as
+// also reused by the global status-bar drop-up. Same backing store as
 // /settings (localStorage overrides, server key stays default).
 export default function SettingsDesk({ compact = false }: { compact?: boolean }) {
   const [key, setKey] = useState("");

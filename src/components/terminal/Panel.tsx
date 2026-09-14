@@ -9,7 +9,6 @@ import type { PanelSpec } from "@/lib/terminal/workspaceStore";
 import { parseTerminalCommand, resolveFuncId, suggestSymbols } from "@/lib/terminal/commandParser";
 import { WATCHLIST } from "@/lib/watchlist";
 import DeskRenderer, { SYMBOL_LESS } from "./DeskRenderer";
-import PanelSettingsStrip from "./PanelSettingsStrip";
 
 export function panelTitle(p: PanelSpec): string {
   if (PSEUDO_DESKS[p.funcId]) return PSEUDO_DESKS[p.funcId].label;
@@ -75,7 +74,6 @@ export default function Panel({
 }) {
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [mini, setMini] = useState(`${spec.symbol ? spec.symbol.replace(".NS", "") : ""} ${panelCode(spec)}`.trim());
   const [miniErr, setMiniErr] = useState("");
   const [isFav, setIsFav] = useState(() => {
@@ -250,7 +248,6 @@ export default function Panel({
             <button role="menuitem" onClick={() => { setMenu(false); toggleFav(); }}>{isFav ? "★ REMOVE FROM FAVORITES" : "☆ MAKE FAVORITE TILE"}</button>
             <button role="menuitem" onClick={() => { setMenu(false); onDuplicate(); }}>⧉ DUPLICATE PANEL</button>
             <button role="menuitem" onClick={() => { setMenu(false); setEditing(true); }}>✎ CHANGE FUNCTION…</button>
-            <button role="menuitem" onClick={() => { setMenu(false); setShowSettings((v) => !v); }}>⚙ {showSettings ? "HIDE PANEL SETTINGS" : "PANEL SETTINGS — KEY · MODEL…"}</button>
             <button role="menuitem" onClick={() => { setMenu(false); onFocus(); onChange({ ...spec, funcId: "SET", task: null }); }}>⚙ OPEN SETTINGS DESK (SET)</button>
             <button role="menuitem" onClick={() => { setMenu(false); onDetach(); }}>⇪ DETACH TO NEW PANEL</button>
             <button role="menuitem" onClick={() => { setMenu(false); onMaximize(); }}>{maximized ? "⧉ RESTORE" : "▢ MAXIMIZE"}</button>
@@ -338,7 +335,6 @@ export default function Panel({
           </PanelErrorBoundary>
         </div>
       </div>
-      <PanelSettingsStrip open={showSettings} onToggle={() => setShowSettings((v) => !v)} />
     </section>
   );
 }

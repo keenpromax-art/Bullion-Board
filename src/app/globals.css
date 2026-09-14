@@ -667,6 +667,16 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-status .add-btn { background: none; border: none; color: var(--sub); font-family: var(--mono); font-size: 10.5px; cursor: pointer; }
 .term-status .add-btn:hover { color: var(--amber); }
 
+/* global settings drop-up (one control for all panels) */
+.term-status .set-wrap { position: relative; display: inline-flex; align-items: center; }
+.set-drop {
+  position: absolute; bottom: 150%; right: -8px; z-index: 60;
+  width: min(400px, calc(100vw - 24px)); max-height: 62vh; overflow-y: auto;
+  background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.7); padding: 12px 14px; text-transform: none;
+}
+.set-drop .p-head { margin-bottom: 10px; }
+
 /* workspace switcher dropdown rows */
 .ws-drop { position: absolute; top: 110%; left: 0; z-index: 35; width: min(420px, 92vw); background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; box-shadow: 0 18px 50px rgba(0,0,0,0.7); max-height: 60vh; overflow-y: auto; padding-bottom: 6px; }
 .ws-row { align-items: center; }
