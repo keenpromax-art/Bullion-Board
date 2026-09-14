@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MODULE_MAP } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
-import { calcMonteCarloDCF, calcPiotroski, calcAltmanZ, calcBeneish } from "@/lib/fundamentals";
+import { calcMonteCarloDCF, calcPiotroski, calcAltmanZ, calcBeneish, calcReverseDCF } from "@/lib/fundamentals";
 import { LineChart, Donut, HBars, Histogram, GroupedBars, AreaChart, BarChart } from "./charts";
-import DeskOutput from "./DeskOutput";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 
@@ -849,33 +848,215 @@ function ComparePanel({ symbol, periods, rev, gp, opI, net, assets, debt, equity
   );
 }
 
-/* ---------------- dupont desk (module 14, stripped) ---------------- */
-// Only: full 5-factor DuPont + the 5 quality panels (Piotroski / Altman /
-// Beneish / MC-DCF / Reverse-DCF) + AI analyst. No price cells, no charts.
+/* ---------------- dupont desk (module 14) ---------------- */
+// Full 5-factor DuPont + Piotroski / Altman / Beneish / MC-DCF / reverse-DCF
+// — every score computed from THIS company's live ledger + quote. Anything
+// unavailable prints as an explicit DATA GAP; placeholder examples are never
+// shown as analysis.
+
+interface DupCheck { label: string; detail: string; st: "pass" | "fail" | "gap" }
 
 export function DupontDesk({ symbol }: { symbol: string }) {
   const { data: st, err: stErr, loading: stLoading } = useStatements(symbol);
-  const [extra, setExtra] = useState<any>(null);
+  const { q, qErr, qLoading, retryQuote } = useCompany(symbol);
   const [aiOut, setAiOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    fetch(`/api/analysis/14?symbol=${encodeURIComponent(symbol)}&range=1y`)
-      .then((r) => r.json())
-      .then((j) => { if (alive && !j.error) setExtra(j.extra); });
-    return () => { alive = false; };
-  }, [symbol]);
+  const P = st?.pl?.periods ?? [];
+  const li = P.length - 1; // latest FY
+  const pi = P.length - 2; // prior FY
+  const hasPrior = P.length >= 2 && pi >= 0;
+  const val = (t: STable | null, cands: string[], i: number): number | null => {
+    const r = findRow(t, cands);
+    const v = r?.values[i];
+    return typeof v === "number" && isFinite(v) ? v : null;
+  };
+
+  // ---- live quote (for Altman X4 + DCF upside) ----
+  const px = typeof q?.quote?.regularMarketPrice === "number" ? q.quote.regularMarketPrice : null;
+  const mcapCr = typeof q?.quote?.marketCap === "number" && isFinite(q.quote.marketCap)
+    ? q.quote.marketCap / 1e7
+    : typeof st?.marketCapCr === "number" ? st.marketCapCr : null;
+  const holders = q?.profile?.holders;
+  const sharesCr = typeof holders?.sharesOut === "number" && holders.sharesOut > 0
+    ? holders.sharesOut / 1e7
+    : typeof q?.quote?.sharesOutstanding === "number" && q.quote.sharesOutstanding > 0
+      ? q.quote.sharesOutstanding / 1e7
+      : mcapCr !== null && px ? mcapCr / px : null;
+
+  // ---- 5-factor DuPont, latest + prior ----
+  const f5 = (i: number) => {
+    const sales = val(st?.pl ?? null, ["total revenue", "operating revenue"], i);
+    const ebit = val(st?.pl ?? null, ["ebit"], i);
+    const ebt = val(st?.pl ?? null, ["pretax income", "profit before tax"], i);
+    const net = val(st?.pl ?? null, ["net income", "net profit"], i);
+    const assets = val(st?.bs ?? null, ["total assets"], i);
+    const eq = val(st?.bs ?? null, ["stockholders equity", "total equity gross minority interest", "common stock equity"], i);
+    const taxB = sales !== null && ebt !== null && net !== null && ebt !== 0 ? net / ebt : null;
+    const intB = ebt !== null && ebit !== null && ebit !== 0 ? ebt / ebit : null;
+    const ebitM = sales !== null && ebit !== null && sales !== 0 ? ebit / sales : null;
+    const at = sales !== null && assets !== null && assets !== 0 ? sales / assets : null;
+    const em = assets !== null && eq !== null && eq !== 0 ? assets / eq : null;
+    const roe = taxB !== null && intB !== null && ebitM !== null && at !== null && em !== null
+      ? taxB * intB * ebitM * at * em * 100 : null;
+    return { sales, net, assets, eq, taxB, intB, ebitM, at, em, roe };
+  };
+  const cur = li >= 0 ? f5(li) : null;
+  const prv = hasPrior ? f5(pi) : null;
+
+  const f2 = (v: number | null) => (v === null ? "—" : v.toFixed(2));
+  const dPP = (c: number | null, p: number | null, pct = false) => {
+    if (c === null || p === null) return "—";
+    const d = pct ? (c - p) * 100 : c - p;
+    return `${d >= 0 ? "+" : ""}${d.toFixed(2)}${pct ? "pp" : ""}`;
+  };
+  const inrCr = (v: number | null) => (v === null ? "—" : `₹${Math.round(v).toLocaleString("en-IN")} Cr`);
+  const inrPx = (v: number | null | undefined) => (typeof v === "number" && isFinite(v) ? `₹${v.toLocaleString("en-IN", { maximumFractionDigits: v < 100 ? 2 : 0 })}` : "—");
+
+  // ---- Piotroski 9 checks, real ledger (current vs prior FY) ----
+  let pio: { score: number; answered: number; gaps: number; checks: DupCheck[] } | null = null;
+  if (st?.pl && hasPrior) {
+    const g = (t: STable | null, c: string[], i: number) => val(t, c, i);
+    const niC = g(st.pl, ["net income", "net profit"], li), niP = g(st.pl, ["net income", "net profit"], pi);
+    const cfoC = g(st.cf, ["cash flow from continuing operating activities", "operating cash flow"], li);
+    const aC = g(st.bs, ["total assets"], li), aP = g(st.bs, ["total assets"], pi);
+    const caC = g(st.bs, ["current assets"], li), caP = g(st.bs, ["current assets"], pi);
+    const clC = g(st.bs, ["current liabilities"], li), clP = g(st.bs, ["current liabilities"], pi);
+    const ltdC = g(st.bs, ["long term debt", "long term debt and capital lease obligation", "total debt"], li);
+    const ltdP = g(st.bs, ["long term debt", "long term debt and capital lease obligation", "total debt"], pi);
+    const revC = g(st.pl, ["total revenue", "operating revenue"], li), revP = g(st.pl, ["total revenue", "operating revenue"], pi);
+    const gpC = g(st.pl, ["gross profit"], li), gpP = g(st.pl, ["gross profit"], pi);
+    // Dilution proxy: equity share capital book value (no per-year share count on Yahoo).
+    const capC = g(st.bs, ["share issued", "common stock"], li), capP = g(st.bs, ["share issued", "common stock"], pi);
+    const roaC = niC !== null && aC ? niC / aC : null, roaP = niP !== null && aP ? niP / aP : null;
+    const crC = caC !== null && clC ? caC / clC : null, crP = caP !== null && clP ? caP / clP : null;
+    const levC = ltdC !== null && aC ? ltdC / aC : null, levP = ltdP !== null && aP ? ltdP / aP : null;
+    const gmC = gpC !== null && revC ? gpC / revC : null, gmP = gpP !== null && revP ? gpP / revP : null;
+    const atC = revC !== null && aC ? revC / aC : null, atP = revP !== null && aP ? revP / aP : null;
+    const raw: Array<[string, string | null, boolean | null]> = [
+      ["ROA > 0", roaC === null ? null : `ROA = ${(roaC * 100).toFixed(2)}%`, roaC === null ? null : roaC > 0],
+      ["CFO > 0", cfoC === null ? null : `CFO = ${inrCr(cfoC)}`, cfoC === null ? null : cfoC > 0],
+      ["ROA UP", roaC === null || roaP === null ? null : `Δ ROA = ${dPP(roaC, roaP, true)}`, roaC === null || roaP === null ? null : roaC > roaP],
+      ["CFO > NI", niC === null || cfoC === null ? null : `CFO/NI = ${(cfoC / (niC || 1)).toFixed(2)}x`, niC === null || cfoC === null ? null : cfoC > niC],
+      ["LEVERAGE DOWN", levC === null || levP === null ? null : `D/A ${(levP * 100).toFixed(1)}% → ${(levC * 100).toFixed(1)}%`, levC === null || levP === null ? null : levC < levP],
+      ["CURRENT R UP", crC === null || crP === null ? null : `CR ${crP.toFixed(2)} → ${crC.toFixed(2)}`, crC === null || crP === null ? null : crC > crP],
+      ["NO DILUTION", capC === null || capP === null ? null : `EQ CAP ${inrCr(capP)} → ${inrCr(capC)}`, capC === null || capP === null ? null : capC <= capP],
+      ["GM UP", gmC === null || gmP === null ? null : `GM ${(gmP * 100).toFixed(1)}% → ${(gmC * 100).toFixed(1)}%`, gmC === null || gmP === null ? null : gmC > gmP],
+      ["TURNOVER UP", atC === null || atP === null ? null : `AT ${atP.toFixed(2)} → ${atC.toFixed(2)}`, atC === null || atP === null ? null : atC > atP],
+    ];
+    const checks: DupCheck[] = raw.map(([label, detail, pass]) => ({
+      label, detail: detail ?? "DATA GAP", st: pass === null ? "gap" : pass ? "pass" : "fail",
+    }));
+    const answered = checks.filter((c) => c.st !== "gap").length;
+    pio = { score: checks.filter((c) => c.st === "pass").length, answered, gaps: 9 - answered, checks };
+  }
+  const pioLabel = pio
+    ? `${pio.score}/9${pio.gaps ? ` · ${pio.gaps} GAP` : ""} · ${pio.score >= 8 ? "EXCEPTIONAL" : pio.score >= 7 ? "STRONG" : pio.score >= 4 ? "AVERAGE" : "WEAK"}`
+    : "DATA GAP";
+
+  // ---- Altman Z, real ledger + live market cap ----
+  let alt: ReturnType<typeof calcAltmanZ> | null = null;
+  let altGap = "";
+  if (st?.pl && li >= 0) {
+    const g = (t: STable | null, c: string[], i: number) => val(t, c, i);
+    const ca = g(st.bs, ["current assets"], li), cl = g(st.bs, ["current liabilities"], li);
+    const wc = ca !== null && cl !== null ? ca - cl : null;
+    const ta = g(st.bs, ["total assets"], li);
+    const tl = g(st.bs, ["total liabilities net minority interest", "total liabilities"], li);
+    const re = g(st.bs, ["retained earnings", "reserves"], li);
+    const ebit = g(st.pl, ["ebit"], li);
+    const rev = g(st.pl, ["total revenue", "operating revenue"], li);
+    const miss: string[] = [];
+    if (wc === null) miss.push("WORK CAP");
+    if (re === null) miss.push("RET EARN");
+    if (ebit === null) miss.push("EBIT");
+    if (ta === null) miss.push("ASSETS");
+    if (tl === null) miss.push("LIAB");
+    if (rev === null) miss.push("SALES");
+    if (mcapCr === null) miss.push("MCAP");
+    if (miss.length) altGap = `NEEDS ${miss.join(" · ")}`;
+    else {
+      alt = calcAltmanZ({
+        niC: 0, retainedC: re!, ebitC: ebit!, workingCapital: wc!,
+        totalAssets: ta!, totalLiab: tl!, revenueC: rev!, marketCap: mcapCr!,
+      });
+    }
+  }
+
+  // ---- Beneish M, real ledger (needs current + prior FY) ----
+  let ben: { mScore: number; risk: string; cls: string; vars: Array<{ k: string; v: number | null }> } | null = null;
+  if (st?.pl && hasPrior) {
+    const g = (t: STable | null, c: string[], i: number) => val(t, c, i);
+    const R = (c: string[]) => [g(st.pl, c, li), g(st.pl, c, pi)] as const;
+    const B = (c: string[]) => [g(st.bs, c, li), g(st.bs, c, pi)] as const;
+    const C = (c: string[]) => [g(st.cf, c, li), g(st.cf, c, pi)] as const;
+    const [revC, revP] = R(["total revenue", "operating revenue"]);
+    const [recC, recP] = B(["gross accounts receivable", "accounts receivable", "receivables"]);
+    const [gpC, gpP] = R(["gross profit"]);
+    const [caC, caP] = B(["current assets"]);
+    const [ppeC, ppeP] = B(["net ppe", "gross ppe"]);
+    const [taC, taP] = B(["total assets"]);
+    const [depC, depP] = R(["reconciled depreciation", "depreciation and amortization", "depreciation"]);
+    const [sgaC, sgaP] = R(["selling general and administration", "selling and marketing expense"]);
+    const [niC] = R(["net income", "net profit"]);
+    const [ocfC] = C(["cash flow from continuing operating activities", "operating cash flow"]);
+    const [clC, clP] = B(["current liabilities"]);
+    const [ltdC, ltdP] = B(["long term debt", "long term debt and capital lease obligation", "total debt"]);
+    const dv = (a: number | null, b: number | null) => (a === null || b === null || !b ? null : a / b);
+    const dsri = recC !== null && revC && recP !== null && revP ? dv(recC / revC, recP / revP) : null;
+    const gmi = gpC !== null && revC && gpP !== null && revP && revC !== 0 && revP !== 0
+      ? dv((revP - gpP) / revP, (revC - gpC) / revC) : null;
+    const aqi = caC !== null && ppeC !== null && taC && caP !== null && ppeP !== null && taP
+      ? dv(1 - (caC + ppeC) / taC, 1 - (caP + ppeP) / taP) : null;
+    const sgi = dv(revC, revP);
+    const depi = depP !== null && ppeP !== null && depC !== null && ppeC !== null && (ppeP + depP) !== 0 && (ppeC + depC) !== 0
+      ? dv(depP / (ppeP + depP), depC / (ppeC + depC)) : null;
+    const sgai = sgaC !== null && revC && sgaP !== null && revP ? dv(sgaC / revC, sgaP / revP) : null;
+    const lvgi = clC !== null && ltdC !== null && taC && clP !== null && ltdP !== null && taP
+      ? dv((clC + ltdC) / taC, (clP + ltdP) / taP) : null;
+    const tata = niC !== null && ocfC !== null && taC ? (niC - ocfC) / taC : null;
+    const vars = [
+      { k: "DSRI", v: dsri }, { k: "GMI", v: gmi }, { k: "AQI", v: aqi }, { k: "SGI", v: sgi },
+      { k: "DEPI", v: depi }, { k: "SGAI", v: sgai }, { k: "LVGI", v: lvgi }, { k: "TATA", v: tata },
+    ];
+    if (vars.every((x) => x.v !== null)) {
+      const r = calcBeneish({
+        dsri: dsri!, gmi: gmi!, aqi: aqi!, sgi: sgi!,
+        depi: depi!, sgai: sgai!, tata: tata!, lvgi: lvgi!,
+      });
+      ben = { mScore: r.mScore, risk: r.risk, cls: r.cssClass, vars };
+    } else {
+      ben = { mScore: NaN, risk: "DATA GAP", cls: "", vars };
+    }
+  }
+
+  // ---- MC-DCF + reverse DCF on real FCF ----
+  const ocfL = li >= 0 ? val(st?.cf ?? null, ["cash flow from continuing operating activities", "operating cash flow"], li) : null;
+  const capexL = li >= 0 ? val(st?.cf ?? null, ["capital expenditure", "capital expenditure reported"], li) : null;
+  const fcf = ocfL !== null && capexL !== null ? ocfL - Math.abs(capexL) : ocfL;
+  const dcf = fcf !== null && sharesCr !== null && sharesCr > 0
+    ? calcMonteCarloDCF(fcf * 1e7, sharesCr * 1e7, 0.12, 0.04, [0.05, 0.1, 0.15], 800, 5, 42)
+    : null;
+  const rdcf = px !== null && fcf !== null && sharesCr !== null && sharesCr > 0
+    ? calcReverseDCF(px, fcf * 1e7, sharesCr * 1e7)
+    : null;
+  const upside = dcf && !dcf.error && px ? ((dcf.p50 - px) / px) * 100 : null;
 
   async function askAI() {
     setAiLoading(true); setAiOut("");
     try {
-      const p = extra?.fundamentalExamples?.piotroski;
-      const a = extra?.fundamentalExamples?.altman;
-      const b = extra?.fundamentalExamples?.beneish;
+      const f = (v: number | null, d = 2) => (v === null ? "?" : v.toFixed(d));
       const txt = await chatComplete([
         { role: "system", content: aiSystem.dupont() },
-        { role: "user", content: `SEC ${symbol} PIOTROSKI ${p?.score ?? "?"}//9 ALTMAN ${a?.zScore ?? "?"} (${a?.zone ?? "?"}) BENEISH ${b?.mScore ?? "?"} (${b?.risk ?? "?"}). TASK: ROE DRIVERS + WEAKEST LINK + 3 RISKS. ${NO_INVENT}` },
+        {
+          role: "user",
+          content: `SEC ${symbol} FY${P[li] ?? "?"} ROE ${cur?.roe === null || cur?.roe === undefined ? "?" : cur.roe.toFixed(1)}% ` +
+            `(TAXB ${f(cur?.taxB ?? null)} INTB ${f(cur?.intB ?? null)} EBITM ${cur?.ebitM === null || cur?.ebitM === undefined ? "?" : (cur.ebitM * 100).toFixed(1)}% AT ${f(cur?.at ?? null)} EM ${f(cur?.em ?? null)}). ` +
+            `PIOTROSKI ${pio ? `${pio.score}/9` : "?"} ALTMAN ${alt ? `${alt.zScore.toFixed(2)} (${alt.zone})` : "?"} ` +
+            `BENEISH ${ben && isFinite(ben.mScore) ? `${ben.mScore.toFixed(2)} (${ben.risk})` : "?"} ` +
+            `DCF P50 ${dcf && !dcf.error ? dcf.p50.toFixed(0) : "?"} VS PX ${px ?? "?"} (UPSIDE ${upside === null ? "?" : upside.toFixed(1) + "%"}). ` +
+            `TASK: ROE DRIVERS + WEAKEST LINK + 3 RISKS. ${NO_INVENT}`,
+        },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: unknown) {
@@ -889,47 +1070,50 @@ export function DupontDesk({ symbol }: { symbol: string }) {
   if (stErr) return <div className="panel"><p className="neg">DUPONT ERR: {stErr} (YAHOO THROTTLED — RETRY)</p></div>;
   if (!st?.pl) return null;
 
-  const P = st.pl.periods;
-  const val = (t: STable | null, cands: string[], i: number): number | null => {
-    const r = findRow(t, cands);
-    const v = r?.values[i];
-    return typeof v === "number" && isFinite(v) ? v : null;
-  };
-  const li = P.length - 1; // latest FY
-  const salesL = val(st.pl, ["total revenue", "operating revenue"], li);
-  const ebitL = val(st.pl, ["ebit"], li);
-  const ebtL = val(st.pl, ["pretax income", "profit before tax"], li);
-  const netL = val(st.pl, ["net income", "net profit"], li);
-  const aL = val(st.bs, ["total assets"], li);
-  const eL = val(st.bs, ["stockholders equity", "total equity gross minority interest", "common stock equity"], li)
-    ?? ((((val(st.bs, ["share issued", "common stock"], li) ?? 0) + (val(st.bs, ["retained earnings", "reserves"], li) ?? 0)) || null));
+  const verdict = !cur || cur.roe === null
+    ? { t: "DATA GAP", cls: "" }
+    : cur.roe >= 15 && (cur.em ?? 9) <= 2.5 && (pio?.score ?? 0) >= 7 && alt?.zone === "SAFE ZONE"
+      ? { t: "QUALITY COMPOUNDER", cls: "pos" }
+      : cur.roe >= 15
+        ? { t: "PROFITABLE — CHECK LEVERAGE", cls: "pos" }
+        : cur.roe >= 8
+          ? { t: "AVERAGE EARNER", cls: "" }
+          : { t: "WEAK EARNER", cls: "neg" };
 
-  const taxB = salesL && ebtL && netL ? netL / ebtL : null;
-  const intB = ebtL && ebitL ? ebtL / ebitL : null;
-  const ebitM = salesL && ebitL ? ebitL / salesL : null;
-  const at = salesL && aL ? salesL / aL : null;
-  const em = aL && eL ? aL / eL : null;
-  const roe = taxB !== null && intB !== null && ebitM !== null && at !== null && em !== null
-    ? taxB * intB * ebitM * at * em * 100 : null;
+  const factors: Array<{ k: string; cur: number | null; prv: number | null; pct: boolean; fmt: (v: number | null) => string }> = [
+    { k: "TAX BURDEN", cur: cur?.taxB ?? null, prv: prv?.taxB ?? null, pct: false, fmt: f2 },
+    { k: "INT BURDEN", cur: cur?.intB ?? null, prv: prv?.intB ?? null, pct: false, fmt: f2 },
+    { k: "EBIT MARGIN", cur: cur?.ebitM ?? null, prv: prv?.ebitM ?? null, pct: true, fmt: (v) => (v === null ? "—" : `${(v * 100).toFixed(1)}%`) },
+    { k: "ASSET T/O", cur: cur?.at ?? null, prv: prv?.at ?? null, pct: false, fmt: f2 },
+    { k: "EQUITY MULT", cur: cur?.em ?? null, prv: prv?.em ?? null, pct: false, fmt: f2 },
+  ];
+  const hb = factors.map((x, i) => ({
+    label: x.k, value: x.cur ?? NaN, display: x.fmt(x.cur),
+    color: ["#00d664", "#00c8ff", "#ffa028", "#8f7bff", "#ff453a"][i],
+  })).filter((r) => isFinite(r.value));
 
-  const f2 = (v: number | null) => (v === null ? "—" : v.toFixed(2));
-  const bars = [
-    { label: "TAX BURDEN", value: taxB ?? NaN, display: f2(taxB), color: "#00d664" },
-    { label: "INT BURDEN", value: intB ?? NaN, display: f2(intB), color: "#00c8ff" },
-    { label: "EBIT MARGIN", value: ebitM ?? NaN, display: ebitM === null ? "—" : `${(ebitM * 100).toFixed(1)}%`, color: "#ffa028" },
-    { label: "ASSET T/O", value: at ?? NaN, display: f2(at), color: "#8f7bff" },
-    { label: "EQUITY MULT", value: em ?? NaN, display: f2(em), color: "#ff453a" },
-  ].filter((r) => isFinite(r.value));
-
-  const perSeries = (fn: (i: number) => number | null) => P.map((_, i) => fn(i));
-  const sTaxB = perSeries((i) => {
+  const roeS = st.rat?.rows.find((r) => r.label === "ROE %")?.values ?? [];
+  const roaS = st.rat?.rows.find((r) => r.label === "ROA %")?.values ?? [];
+  const roceS = st.rat?.rows.find((r) => r.label === "ROCE %")?.values ?? [];
+  const perS = (fn: (i: number) => number | null) => P.map((_, i) => fn(i));
+  const sTaxB = perS((i) => {
     const n = val(st.pl, ["net income", "net profit"], i), e = val(st.pl, ["pretax income", "profit before tax"], i);
     return n !== null && e ? n / e : null;
   });
-  const sIntB = perSeries((i) => {
+  const sIntB = perS((i) => {
     const e = val(st.pl, ["pretax income", "profit before tax"], i), b = val(st.pl, ["ebit"], i);
     return e !== null && b ? e / b : null;
   });
+  const sAT = perS((i) => {
+    const s = val(st.pl, ["total revenue", "operating revenue"], i), a = val(st.bs, ["total assets"], i);
+    return s !== null && a ? s / a : null;
+  });
+  const sEM = perS((i) => {
+    const a = val(st.bs, ["total assets"], i);
+    const e = val(st.bs, ["stockholders equity", "total equity gross minority interest"], i);
+    return a !== null && e ? a / e : null;
+  });
+
   return (
     <div className="grid">
       <div className="panel panel-glow">
@@ -938,52 +1122,170 @@ export function DupontDesk({ symbol }: { symbol: string }) {
           ROE = TAX BURDEN × INT BURDEN × EBIT MARGIN × ASSET TURNOVER × EQUITY MULT
         </p>
         <div className="cells" style={{ marginTop: 8 }}>
-          <div className="cell"><div className="lbl">Sales</div><div className="val">{salesL !== null ? `₹${Math.round(salesL).toLocaleString("en-IN")} Cr` : "—"}</div><div className="sub">FY {P[li]}</div></div>
-          <div className="cell"><div className="lbl">Net income</div><div className="val">{netL !== null ? `₹${Math.round(netL).toLocaleString("en-IN")} Cr` : "—"}</div><div className="sub">bottom line</div></div>
-          <div className="cell"><div className="lbl">Equity</div><div className="val">{eL !== null ? `₹${Math.round(eL).toLocaleString("en-IN")} Cr` : "—"}</div><div className="sub">book</div></div>
-          <div className="cell"><div className="lbl">ROE (5-factor)</div><div className={`val ${roe !== null && roe >= 15 ? "pos" : ""}`}>{roe === null ? "—" : `${roe.toFixed(1)}%`}</div><div className="sub">product below</div></div>
+          <div className="cell"><div className="lbl">Sales</div><div className="val">{inrCr(cur?.sales ?? null)}</div><div className="sub">FY {P[li]}</div></div>
+          <div className="cell"><div className="lbl">Net income</div><div className="val">{inrCr(cur?.net ?? null)}</div><div className="sub">bottom line</div></div>
+          <div className="cell"><div className="lbl">Equity</div><div className="val">{inrCr(cur?.eq ?? null)}</div><div className="sub">book</div></div>
+          <div className="cell"><div className="lbl">ROE (5-factor)</div><div className={`val ${cur?.roe !== null && cur?.roe !== undefined && cur.roe >= 15 ? "pos" : ""}`}>{cur?.roe === null || cur?.roe === undefined ? "—" : `${cur.roe.toFixed(1)}%`}</div><div className="sub">product below</div></div>
+          <div className="cell"><div className="lbl">Verdict</div><div className={`val ${verdict.cls}`} style={{ fontSize: 13 }}>{verdict.t}</div><div className="sub">F {pio?.score ?? "—"}/9 · {alt ? alt.zone : "Z GAP"} · {ben && isFinite(ben.mScore) ? ben.risk : "M GAP"}</div></div>
         </div>
         <div style={{ marginTop: 10 }}>
-          <HBars rows={bars} />
+          <HBars rows={hb} />
+        </div>
+        <div className="scrollx" style={{ marginTop: 10 }}>
+          <table className="plain">
+            <thead><tr><th style={{ textAlign: "left" }}>FACTOR</th><th style={{ textAlign: "right" }}>FY {P[li]}</th><th style={{ textAlign: "right" }}>FY {hasPrior ? P[pi] : "—"}</th><th style={{ textAlign: "right" }}>Δ</th></tr></thead>
+            <tbody>
+              {factors.map((x) => (
+                <tr key={x.k}>
+                  <td><strong>{x.k}</strong></td>
+                  <td style={{ textAlign: "right" }}>{x.fmt(x.cur)}</td>
+                  <td style={{ textAlign: "right" }} className="faint">{x.fmt(x.prv)}</td>
+                  <td style={{ textAlign: "right" }} className={x.cur !== null && x.prv !== null ? (x.cur >= x.prv ? "pos" : "neg") : "faint"}>{dPP(x.cur, x.prv, x.pct)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div className="grid grid-2">
+      <div className="panel">
+        <p className="p-head">Returns % — {P[0]} → {P[li]}</p>
+        <LineChart
+          dates={P}
+          yFmt={(v) => `${v.toFixed(1)}%`}
+          series={[
+            { label: `ROE ${cur?.roe === null || cur?.roe === undefined ? "—" : cur.roe.toFixed(1)}%`, color: "#ffa028", values: roeS },
+            { label: "ROA", color: "#00d664", values: roaS },
+            { label: "ROCE", color: "#00c8ff", values: roceS },
+          ]}
+        />
+      </div>
+      <div className="panel">
+        <p className="p-head">DuPont multipliers — {P[0]} → {P[li]}</p>
+        <LineChart
+          dates={P}
+          yFmt={(v) => v.toFixed(2)}
+          series={[
+            { label: "TAX B", color: "#00d664", values: sTaxB },
+            { label: "INT B", color: "#00c8ff", values: sIntB },
+            { label: "AT", color: "#8f7bff", values: sAT },
+            { label: "EM", color: "#ff453a", values: sEM },
+          ]}
+        />
+      </div>
+
+      <div className="duo">
         <div className="panel">
-          <p className="p-head">Returns % — trend</p>
-          <LineChart
-            dates={P}
-            yFmt={(v) => `${v.toFixed(1)}%`}
-            series={[
-              { label: "ROE", color: "#ffa028", values: st.rat?.rows.find((r) => r.label === "ROE %")?.values ?? [] },
-              { label: "ROA", color: "#00d664", values: st.rat?.rows.find((r) => r.label === "ROA %")?.values ?? [] },
-              { label: "ROCE", color: "#00c8ff", values: st.rat?.rows.find((r) => r.label === "ROCE %")?.values ?? [] },
-            ]}
-          />
+          <p className="p-head">Piotroski F — {pioLabel} · FY {hasPrior ? `${P[pi]}→${P[li]}` : P[li]}</p>
+          {!pio ? (
+            <p className="muted">NEEDS 2 FY OF LEDGER — ONLY {P.length} AVAILABLE.</p>
+          ) : (
+            <table className="plain">
+              <thead><tr><th style={{ textAlign: "left" }}>CHECK</th><th style={{ textAlign: "left" }}>DETAIL</th><th style={{ textAlign: "right" }}>●</th></tr></thead>
+              <tbody>
+                {pio.checks.map((c) => (
+                  <tr key={c.label}>
+                    <td><strong>{c.label}</strong></td>
+                    <td style={{ fontSize: 12 }}>{c.detail}</td>
+                    <td style={{ textAlign: "right" }} className={c.st === "pass" ? "pos" : c.st === "fail" ? "neg" : "faint"}>
+                      {c.st === "pass" ? "● PASS" : c.st === "fail" ? "○ FAIL" : "— GAP"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
-        <div className="panel">
-          <p className="p-head">DuPont multipliers — trend</p>
-          <LineChart
-            dates={P}
-            yFmt={(v) => v.toFixed(2)}
-            series={[
-              { label: "TAX B", color: "#00d664", values: sTaxB },
-              { label: "INT B", color: "#00c8ff", values: sIntB },
-              { label: "AT", color: "#8f7bff", values: perSeries((i) => {
-                const s = val(st.pl, ["total revenue", "operating revenue"], i), a = val(st.bs, ["total assets"], i);
-                return s !== null && a ? s / a : null;
-              }) },
-              { label: "EM", color: "#ff453a", values: perSeries((i) => {
-                const a = val(st.bs, ["total assets"], i);
-                const e = val(st.bs, ["stockholders equity", "total equity gross minority interest"], i);
-                return a !== null && e ? a / e : null;
-              }) },
-            ]}
-          />
+        <div className="grid" style={{ gap: 10 }}>
+          <div className="panel">
+            <p className="p-head">Altman Z — {alt ? `${alt.zScore.toFixed(2)} · ${alt.zone}` : "DATA GAP"}</p>
+            {!alt ? (
+              <p className="muted">{altGap || "INCOMPLETE LEDGER."}{qErr ? ` QUOTE: ${qErr} ` : ""}{!q && !qErr ? (qLoading ? "PULLING QUOTE…" : "") : ""} {!alt && mcapCr === null && <button className="ghost" style={{ marginLeft: 6 }} onClick={retryQuote}>RETRY QUOTE</button>}</p>
+            ) : (
+              <table className="plain">
+                <thead><tr><th style={{ textAlign: "left" }}>COMP</th><th style={{ textAlign: "right" }}>×WT</th><th style={{ textAlign: "right" }}>VALUE</th><th style={{ textAlign: "right" }}>PTS</th></tr></thead>
+                <tbody>
+                  {([["X1 WC/TA", 1.2, alt.X1], ["X2 RE/TA", 1.4, alt.X2], ["X3 EBIT/TA", 3.3, alt.X3], ["X4 MCAP/TL", 0.6, alt.X4], ["X5 SALES/TA", 1.0, alt.X5]] as Array<[string, number, number]>).map(([k, w, v]) => (
+                    <tr key={k}>
+                      <td><strong>{k}</strong></td>
+                      <td style={{ textAlign: "right" }} className="faint">{w.toFixed(1)}</td>
+                      <td style={{ textAlign: "right" }}>{v.toFixed(3)}</td>
+                      <td style={{ textAlign: "right" }} className={w * v >= 0 ? "pos" : "neg"}>{(w * v).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {alt && <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>Z ≥ 2.99 SAFE · 1.81–2.99 GREY · &lt; 1.81 DISTRESS · MCAP {inrCr(mcapCr)}</p>}
+          </div>
+          <div className="panel">
+            <p className="p-head">Beneish M — {ben && isFinite(ben.mScore) ? `${ben.mScore.toFixed(2)} · ${ben.risk}` : "DATA GAP"}</p>
+            {!ben ? (
+              <p className="muted">NEEDS 2 FY OF LEDGER — ONLY {P.length} AVAILABLE.</p>
+            ) : !isFinite(ben.mScore) ? (
+              <div>
+                <table className="plain">
+                  <thead><tr><th style={{ textAlign: "left" }}>VAR</th><th style={{ textAlign: "right" }}>VALUE</th></tr></thead>
+                  <tbody>
+                    {ben.vars.map((x) => (
+                      <tr key={x.k}><td><strong>{x.k}</strong></td><td style={{ textAlign: "right" }}>{x.v === null ? <span className="faint">— GAP</span> : x.v.toFixed(3)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="neg" style={{ fontSize: 12 }}>M NEEDS ALL 8 VARS — FILL GAPS FROM ANNUAL REPORT.</p>
+              </div>
+            ) : (
+              <div>
+                <div className="kv"><span className="muted">M-SCORE</span><strong className={ben.cls}>{ben.mScore.toFixed(2)}</strong></div>
+                <div className="kv"><span className="muted">RISK</span><strong className={ben.cls}>{ben.risk}</strong></div>
+                <div className="kv"><span className="muted">WORST VAR</span><strong>{[...ben.vars].sort((a, b) => Math.abs((b.v ?? 1) - 1) - Math.abs((a.v ?? 1) - 1))[0].k}</strong></div>
+                <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>M &gt; −1.78 MANIPULATOR-LIKE · −2.22…−1.78 GREY · &lt; −2.22 CLEAN</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <DeskOutput extra={extra} />
+      <div className="duo">
+        <div className="panel">
+          <p className="p-head">Monte-Carlo DCF / sh — real FCF</p>
+          {!dcf ? (
+            <p className="muted">NEEDS OCF − CAPEX + SHARES OUT{px === null || sharesCr === null ? " + QUOTE" : ""}. {qErr ? `QUOTE: ${qErr} ` : ""}{qLoading && !q ? "PULLING QUOTE…" : ""}</p>
+          ) : dcf.error ? (
+            <p className="neg">DCF: {dcf.error} (FCF {inrCr(fcf)} — ASSET-HEAVY / CAPEX CYCLE NAMES OFTEN FAIL HERE).</p>
+          ) : (
+            <div>
+              <table className="plain">
+                <thead><tr><th style={{ textAlign: "right" }}>P10</th><th style={{ textAlign: "right" }}>P25</th><th style={{ textAlign: "right" }}>P50</th><th style={{ textAlign: "right" }}>P75</th><th style={{ textAlign: "right" }}>P90</th></tr></thead>
+                <tbody><tr>
+                  {[dcf.p10, dcf.p25, dcf.p50, dcf.p75, dcf.p90].map((v, i) => (
+                    <td key={i} style={{ textAlign: "right" }}>{i === 2 ? <strong className="sec">{inrPx(v)}</strong> : inrPx(v)}</td>
+                  ))}
+                </tr></tbody>
+              </table>
+              <div className="kv"><span className="muted">FCF BASE</span><strong>{inrCr(fcf)} · {sharesCr !== null ? `${sharesCr.toFixed(1)} Cr SH` : "—"}</strong></div>
+              <div className="kv"><span className="muted">P50 VS PX {inrPx(px)}</span><strong className={upside !== null && upside >= 0 ? "pos" : "neg"}>{upside === null ? "—" : `${upside >= 0 ? "+" : ""}${upside.toFixed(1)}%`}</strong></div>
+              {dcf.histCounts?.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <Histogram prebinned={{ counts: dcf.histCounts, edges: dcf.histEdges ?? [] }} height={90} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="panel">
+          <p className="p-head">Reverse DCF — what price implies</p>
+          {!rdcf || rdcf.error ? (
+            <p className="muted">{rdcf?.error ? `REVERSE DCF: ${rdcf.error}.` : "NEEDS LIVE PRICE + POSITIVE FCF + SHARES."} {qErr ? `QUOTE: ${qErr}` : ""}</p>
+          ) : (
+            <div>
+              <div className="kv"><span className="muted">IMPLIED G (5Y)</span><strong>{isFinite(rdcf.impliedGrowthPct) ? `${rdcf.impliedGrowthPct >= 0 ? "+" : ""}${rdcf.impliedGrowthPct.toFixed(1)}% P.A.` : "—"}</strong></div>
+              <div className="kv"><span className="muted">VERDICT</span><strong className={rdcf.cssClass}>{rdcf.verdict}</strong></div>
+              <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>AT 12% WACC / 4% TERMINAL · &gt;20% = EXPENSIVE · 10–20% FAIR · 0–10% CHEAP</p>
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="panel">
         <p className="p-head">AI analyst — DUP</p>
@@ -1247,9 +1549,18 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
   async function askAI() {
     setAiLoading(true); setAiOut("");
     try {
+      const f = (v: number | null) => (v === null ? "?" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`);
       const txt = await chatComplete([
         { role: "system", content: aiSystem.historian() },
-        { role: "user", content: `SEC ${symbol}. 4-YEAR ARC: GROWTH, MARGINS, LEVERAGE, CASH, ALLOCATION. TASK: WHAT CHANGED + WHAT IT MEANS + WHAT TO WATCH NEXT. ${NO_INVENT}` },
+        {
+          role: "user",
+          content: `SEC ${symbol}. 4Y ${P[0]}→${P[P.length - 1]}: REV CAGR ${f(cagr(rev))} NET CAGR ${f(cagr(net))} OCF CAGR ${f(cagr(ocfS))} ` +
+            `LATEST NPM ${npmS[npmS.length - 1] === null || npmS[npmS.length - 1] === undefined ? "?" : `${npmS[npmS.length - 1]!.toFixed(1)}%`} ` +
+            `ROE ${roeS[roeS.length - 1] === null || roeS[roeS.length - 1] === undefined ? "?" : `${roeS[roeS.length - 1]!.toFixed(1)}%`} ` +
+            `DE ${deS[deS.length - 1] === null || deS[deS.length - 1] === undefined ? "?" : `${deS[deS.length - 1]!.toFixed(2)}x`} ` +
+            `ALLOC 4Y OCF ${inr(sum(ocfS))} CAPEX ${inr(Math.abs(sum(capexS)))} DIV ${inr(Math.abs(sum(divS)))}. ` +
+            `TASK: WHAT CHANGED + WHAT IT MEANS + WHAT TO WATCH NEXT. ${NO_INVENT}`,
+        },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: unknown) {
@@ -1303,6 +1614,36 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
     return (Math.pow(b / a, 1 / (f.length - 1)) - 1) * 100;
   };
   const sum = (arr: (number | null)[]): number => arr.reduce<number>((s, v) => s + (v ?? 0), 0);
+  const last2 = (arr: (number | null)[]): [number | null, number | null] => {
+    const f = arr.map((v, i) => ({ v, i })).filter((x) => x.v !== null);
+    if (f.length < 1) return [null, null];
+    if (f.length < 2) return [null, f[f.length - 1].v];
+    return [f[f.length - 2].v, f[f.length - 1].v];
+  };
+  const yoyLast = (arr: (number | null)[]): number | null => {
+    const [p, c] = last2(arr);
+    if (p === null || c === null || !p) return null;
+    return ((c - p) / Math.abs(p)) * 100;
+  };
+  // Growth-quality verdict from the three CAGRs.
+  const revC = cagr(rev), netC = cagr(net), ocfC = cagr(ocfS);
+  const arc = revC === null || netC === null
+    ? { t: "DATA GAP", cls: "" }
+    : netC > revC && revC > 0
+      ? { t: "MARGIN EXPANSION — PROFIT OUTGREW SALES", cls: "pos" }
+      : revC > 0 && netC <= 0
+        ? { t: "MARGIN SQUEEZE — SALES UP, PROFIT DOWN", cls: "neg" }
+        : ocfC !== null && netC > 0 && ocfC <= 0
+          ? { t: "CASH LAGGED PROFIT — WATCH RECEIVABLES", cls: "neg" }
+          : revC > 10 && netC > 10
+            ? { t: "BROAD-BASED GROWTH", cls: "pos" }
+            : { t: "MIXED ARC — READ YEAR NOTES", cls: "" };
+  const L = (arr: (number | null)[]) => {
+    for (let i = arr.length - 1; i >= 0; i--) if (arr[i] !== null) return arr[i] as number;
+    return null;
+  };
+  const fcfConv = sum(ocfS) !== 0 ? (sum(fcfS) / sum(ocfS)) * 100 : null;
+  const payout = sum(net) !== 0 ? (Math.abs(sum(divS)) / Math.abs(sum(net))) * 100 : null;
   const f1 = (v: number | null, suf = "") => (v === null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}${suf}`);
   const inr = (v: number | null) => (v === null ? "—" : `₹${Math.round(v).toLocaleString("en-IN")} Cr`);
 
@@ -1364,23 +1705,33 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
     <div className="grid">
       <div className="panel panel-glow">
         <p className="p-head">{st.name} — 4-year story · {P[0]} → {P[P.length - 1]}</p>
+        <div className="cells" style={{ marginBottom: 10 }}>
+          <div className="cell"><div className="lbl">Revenue</div><div className="val" style={{ fontSize: 15 }}>{inr(L(rev))}</div><div className="sub">CAGR {f1(revC, "%")}</div></div>
+          <div className="cell"><div className="lbl">Net income</div><div className="val" style={{ fontSize: 15 }}>{inr(L(net))}</div><div className="sub">CAGR {f1(netC, "%")}</div></div>
+          <div className="cell"><div className="lbl">OCF / FCF</div><div className="val" style={{ fontSize: 15 }}>{inr(L(ocfS))} / {inr(L(fcfS))}</div><div className="sub">conv {fcfConv === null ? "—" : `${fcfConv.toFixed(0)}%`}</div></div>
+          <div className="cell"><div className="lbl">ROE</div><div className={`val ${ (L(roeS) ?? 0) >= 15 ? "pos" : ""}`} style={{ fontSize: 15 }}>{L(roeS) === null ? "—" : `${L(roeS)!.toFixed(1)}%`}</div><div className="sub">D/E {L(deS) === null ? "—" : `${L(deS)!.toFixed(2)}x`}</div></div>
+          <div className="cell"><div className="lbl">EPS</div><div className="val" style={{ fontSize: 15 }}>{L(epsS) === null ? "—" : `₹${L(epsS)!.toFixed(1)}`}</div><div className="sub">diluted</div></div>
+          <div className="cell"><div className="lbl">Arc</div><div className={`val ${arc.cls}`} style={{ fontSize: 12 }}>{arc.t}</div><div className="sub">rev {f1(revC, "%")} · net {f1(netC, "%")}</div></div>
+        </div>
         <div className="scrollx">
           <table className="plain">
-            <thead><tr><th style={{ textAlign: "left" }}>LINE</th>{P.map((p) => <th key={p} style={{ textAlign: "right" }}>{p}</th>)}<th style={{ textAlign: "right", color: "var(--amber)" }}>4Y CAGR</th></tr></thead>
+            <thead><tr><th style={{ textAlign: "left" }}>LINE</th>{shortP.map((p) => <th key={p} style={{ textAlign: "right" }}>{p}</th>)}<th style={{ textAlign: "right" }}>YOY</th><th style={{ textAlign: "right", color: "var(--amber)" }}>4Y CAGR</th></tr></thead>
             <tbody>
               {storyRows.map(([label, arr, fmt]) => (
                 <tr key={label}>
                   <td><strong>{label}</strong></td>
                   {arr.map((v, j) => <td key={j} style={{ textAlign: "right" }}>{fmt(v)}</td>)}
+                  <td style={{ textAlign: "right" }}>{(() => { const y = yoyLast(arr); return <span className={y !== null && y >= 0 ? "pos" : "neg"}>{f1(y, "%")}</span>; })()}</td>
                   <td style={{ textAlign: "right" }}>{(() => { const c = cagr(arr); return <span className={c !== null && c >= 0 ? "pos" : "neg"}>{f1(c, "%")}</span>; })()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>— = NOT REPORTED FOR THAT FY ON YAHOO · CAGR USES FIRST→LAST AVAILABLE</p>
       </div>
 
-      <div className="grid grid-2">
+      <div className="duo">
         <div className="panel">
           <p className="p-head">Growth engine — YoY %</p>
           <GroupedBars
@@ -1406,7 +1757,7 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
         </div>
       </div>
 
-      <div className="grid grid-2">
+      <div className="duo">
         <div className="panel">
           <p className="p-head">Balance evolution — ₹ Cr</p>
           <GroupedBars periods={P} fmt={crF} series={[
@@ -1434,6 +1785,8 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
           { label: "NET DEBT CHANGE", value: debtChg ?? 0, display: debtChg === null ? "—" : `${debtChg >= 0 ? "+" : ""}${inr(Math.abs(debtChg))}${debtChg >= 0 ? " borrowed" : " repaid"}`, color: "#8f7bff" },
           { label: "EQUITY BUILT", value: eqChg ?? 0, display: eqChg === null ? "—" : `${eqChg >= 0 ? "+" : ""}${inr(Math.abs(eqChg))}`, color: "#00c8ff" },
         ]} />
+        <div className="kv" style={{ marginTop: 8 }}><span className="muted">FCF CONVERSION (4Y FCF/OCF)</span><strong className={fcfConv !== null && fcfConv >= 50 ? "pos" : fcfConv !== null && fcfConv < 0 ? "neg" : ""}>{fcfConv === null ? "—" : `${fcfConv.toFixed(0)}%`}</strong></div>
+        <div className="kv"><span className="muted">PAYOUT (4Y DIV/PROFIT)</span><strong>{payout === null || !isFinite(payout) ? "—" : `${payout.toFixed(0)}%`}</strong></div>
       </div>
 
       <div className="panel">

@@ -616,6 +616,15 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 
 /* container-aware panels: desks adapt to PANEL width, not viewport width —
    a 6-stat strip must collapse in a narrow 4-up tile even on a wide monitor */
+/* container-aware duo: side-by-side on wide desks, stacked in narrow
+   terminal panels (fixes squeezed 2-col grids like the old DuPont view) */
+.duo { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container panel (max-width: 720px) {
+  .duo { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .duo { grid-template-columns: 1fr; }
+}
 @container panel (max-width: 720px) {
   .term-panel-body .cells, .desk-fill .cells { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .term-panel-body .scrollx table.plain, .desk-fill .scrollx table.plain { min-width: 600px; }
