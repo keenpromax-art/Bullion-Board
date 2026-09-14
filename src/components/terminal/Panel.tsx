@@ -155,7 +155,15 @@ export default function Panel({
         {spec.symbol && !SYMBOL_LESS.has(spec.funcId) ? (
           <>
             <span className="term-panel-sep">|</span>
-            <span className="term-panel-sym">{spec.symbol}</span>
+            <button
+              type="button"
+              className="term-panel-sym as-btn"
+              title="Change ticker — click to edit symbol"
+              aria-label={`Change ticker (current ${spec.symbol})`}
+              onClick={(e) => { e.stopPropagation(); onFocus(); setEditing(true); }}
+            >
+              {spec.symbol}
+            </button>
           </>
         ) : null}
         <span className="term-panel-sp" />
