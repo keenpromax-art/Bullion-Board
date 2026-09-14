@@ -6,7 +6,8 @@ import { MODULE_MAP } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
 import { store } from "@/lib/store";
 import type { PanelSpec } from "@/lib/terminal/workspaceStore";
-import { parseTerminalCommand } from "@/lib/terminal/commandParser";
+import { parseTerminalCommand, resolveFuncId, suggestSymbols } from "@/lib/terminal/commandParser";
+import { WATCHLIST } from "@/lib/watchlist";
 import DeskRenderer, { SYMBOL_LESS } from "./DeskRenderer";
 import PanelSettingsStrip from "./PanelSettingsStrip";
 
@@ -42,6 +43,8 @@ class PanelErrorBoundary extends Component<{ label: string; children: React.Reac
     return this.props.children;
   }
 }
+
+interface LookupRow { symbol: string; name: string; exch: string; type: string }
 
 export default function Panel({
   spec,
@@ -80,6 +83,14 @@ export default function Panel({
   });
   const menuRef = useRef<HTMLDivElement>(null);
   const miniRef = useRef<HTMLInputElement>(null);
+  // Company autofill for the mini editor (SYM FNC): live Yahoo-backed
+  // lookup on the first token, same source as the page command bar.
+  const [secs, setSecs] = useState<LookupRow[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [sugHi, setSugHi] = useState(0);
+  const [sugMoved, setSugMoved] = useState(false);
+  const lookupSeq = useRef(0);
+  const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setMini(`${spec.symbol ? spec.symbol.replace(".NS", "") : ""} ${panelCode(spec)}`.trim()); }, [spec.symbol, spec.funcId]);
   useEffect(() => {
@@ -105,6 +116,66 @@ export default function Panel({
     return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
   }, [menu]);
   useEffect(() => { if (editing) miniRef.current?.focus(); }, [editing]);
+
+  // Debounced company lookup while the mini editor is open. Local
+  // watchlist matches show instantly (so NSE names like ADA → ADANIENT
+  // appear even before/slow Yahoo); live lookup merges in on top.
+  // Skips when the first token is already a function code (e.g. STRAT).
+  useEffect(() => {
+    if (!editing) {
+      setSecs([]); setScanning(false); setSugMoved(false); setSugHi(0);
+      return;
+    }
+    const first = (mini.split(/[\s,;]+/).filter(Boolean)[0] ?? "").toUpperCase();
+    if (!first || resolveFuncId(first)) {
+      setSecs([]); setScanning(false);
+      return;
+    }
+    let local: LookupRow[] = [];
+    try {
+      const w = store.getWatchlist();
+      const uni = w.length > 0 ? w : WATCHLIST;
+      local = suggestSymbols(first, uni, 6).map((s) => ({
+        symbol: s,
+        name: s.replace(/\.NS$|\.BO$/, "").replace(/\^/g, "").replace(/=.*$/, ""),
+        exch: s.endsWith(".BO") ? "BSE" : "NSE",
+        type: "EQ",
+      }));
+    } catch { local = []; }
+    setSecs(local);
+    setSugHi(0);
+    setScanning(true);
+    const my = ++lookupSeq.current;
+    if (lookupTimer.current) clearTimeout(lookupTimer.current);
+    lookupTimer.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/lookup?q=${encodeURIComponent(first)}`);
+        const j = await r.json();
+        if (lookupSeq.current !== my) return;
+        const rows = ((j.rows ?? []) as LookupRow[]).slice();
+        const seen = new Set(rows.map((x) => x.symbol));
+        for (const l of local) {
+          if (rows.length >= 8) break;
+          if (!seen.has(l.symbol)) { seen.add(l.symbol); rows.push(l); }
+        }
+        setSecs(rows.slice(0, 6));
+        setSugHi(0);
+      } catch {
+        if (lookupSeq.current === my) setSecs(local);
+      } finally {
+        if (lookupSeq.current === my) setScanning(false);
+      }
+    }, 220);
+    return () => { if (lookupTimer.current) clearTimeout(lookupTimer.current); };
+  }, [mini, editing]);
+
+  function pickMiniSecurity(row: LookupRow) {
+    const rest = mini.split(/[\s,;]+/).filter(Boolean).slice(1).join(" ");
+    setMini(rest ? `${row.symbol} ${rest}` : `${row.symbol} `);
+    lookupSeq.current++;
+    setSecs([]); setSugMoved(false); setSugHi(0); setScanning(false);
+    miniRef.current?.focus();
+  }
 
   function applyMini() {
     const p = parseTerminalCommand(mini);
@@ -188,23 +259,69 @@ export default function Panel({
         )}
       </header>
       {editing && (
-        <div className="term-minirow">
-          <span className="cmd-prompt" aria-hidden>&gt;</span>
-          <input
-            ref={miniRef}
-            value={mini}
-            onChange={(e) => setMini(e.target.value.toUpperCase())}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === "Enter") applyMini();
-              if (e.key === "Escape") { setEditing(false); setMiniErr(""); }
-            }}
-            onBlur={() => { setEditing(false); setMiniErr(""); }}
-            placeholder="SYM FNC"
-            aria-label="Change panel symbol and function"
-            spellCheck={false}
-            autoComplete="off"
-          />
+        <div style={{ position: "relative" }}>
+          <div className="term-minirow">
+            <span className="cmd-prompt" aria-hidden>&gt;</span>
+            <input
+              ref={miniRef}
+              value={mini}
+              onChange={(e) => { setMini(e.target.value.toUpperCase()); setSugHi(0); setSugMoved(false); }}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                const open = secs.length > 0;
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                  if (!open) return;
+                  e.preventDefault();
+                  setSugMoved(true);
+                  setSugHi((h) => (e.key === "ArrowDown" ? (h + 1) % secs.length : (h - 1 + secs.length) % secs.length));
+                  return;
+                }
+                if (e.key === "Tab" && open) {
+                  e.preventDefault();
+                  pickMiniSecurity(secs[sugHi] ?? secs[0]);
+                  return;
+                }
+                if (e.key === "Enter") {
+                  if (open && sugMoved && secs[sugHi]) { e.preventDefault(); pickMiniSecurity(secs[sugHi]); return; }
+                  applyMini();
+                  return;
+                }
+                if (e.key === "Escape") {
+                  if (open) { setSecs([]); setSugMoved(false); return; }
+                  setEditing(false); setMiniErr("");
+                }
+              }}
+              onBlur={() => { setEditing(false); setMiniErr(""); }}
+              placeholder="SYM FNC — TYPE A COMPANY, TAB TO FILL"
+              aria-label="Change panel symbol and function"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+          {secs.length > 0 && (
+            <div className="suggest" role="listbox" aria-label="Company suggestions">
+              <div className="sug-head">COMPANIES — ↑↓ + TAB/ENTER TO FILL · CLICK TO PICK</div>
+              {secs.map((s, i) => (
+                <div
+                  key={s.symbol}
+                  role="option"
+                  aria-selected={i === sugHi}
+                  className={`sug-row${i === sugHi ? " active" : ""}`}
+                  onMouseDown={(ev) => { ev.preventDefault(); pickMiniSecurity(s); }}
+                  onMouseEnter={() => { setSugHi(i); setSugMoved(true); }}
+                >
+                  <span className="sug-sym">{s.symbol}</span>
+                  <span className="sug-name">{s.name}</span>
+                  <span className="sug-meta">{s.exch} {s.type}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {scanning && secs.length === 0 && (
+            <div className="suggest" aria-hidden>
+              <div className="sug-row"><span className="sug-meta">SCANNING COMPANIES…</span></div>
+            </div>
+          )}
         </div>
       )}
       {miniErr && <div className="term-mini-err" role="alert">{miniErr}</div>}

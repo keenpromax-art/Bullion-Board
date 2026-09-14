@@ -37,6 +37,8 @@ const SERIES: SeriesDef[] = [
   { id: "PRMNTO01INM659N", label: "INDIA MFG OUTPUT", group: "INDIA", unit: "IDX" },
   { id: "NGDPRNSAXDCINQ", label: "INDIA GDP NOM", group: "INDIA", unit: "₹B" },
   { id: "DCOILBRENTEU", label: "BRENT CRUDE", group: "GLOBAL", unit: "$" },
+  { id: "DCOILWTICO", label: "WTI CRUDE", group: "GLOBAL", unit: "$" },
+  { id: "DTWEXBGS", label: "DOLLAR INDEX", group: "GLOBAL", unit: "IDX" },
   { id: "GOLDPMGBD228NLBM", label: "GOLD LONDON", group: "GLOBAL", unit: "$" },
 ];
 

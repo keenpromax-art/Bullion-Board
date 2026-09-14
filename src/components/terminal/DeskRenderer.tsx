@@ -214,6 +214,7 @@ function MacroSpark({ data }: { data: number[] }) {
 
 function MacroMini() {
   const [rows, setRows] = useState<any[]>([]);
+  const [mkt, setMkt] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -241,11 +242,24 @@ function MacroMini() {
       setAsof((keep.length > 0 ? keep : all)?.find?.((r: any) => r.ok)?.date ?? "");
     }).catch((e) => { if (alive) setErr(e.message); })
       .finally(() => { if (alive) setLoading(false); });
+    // Live global cross-asset tape (Yahoo): bullion, energy, US/EU/Asia
+    // indices + INR crosses — the intraday complement to monthly FRED.
+    fetch("/api/market").then((r) => r.json()).then((j) => {
+      if (!alive) return;
+      const want = ["GC=F", "SI=F", "CL=F", "^GSPC", "^FTSE", "^N225", "USDINR=X", "EURINR=X"];
+      const bySym = new Map((j.rows ?? []).filter((r: any) => r.ok).map((r: any) => [r.sym, r]));
+      setMkt(want.map((s) => bySym.get(s)).filter(Boolean));
+    }).catch(() => {});
     return () => { alive = false; };
   }, []);
   let lastGroup = "";
+  const liveCount = rows.length + mkt.length;
   return (
     <div className="grid" style={{ gap: 4 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <span className="faint" style={{ fontSize: 10.5 }}>{liveCount > 0 ? `${liveCount} LIVE · INDIA/GLOBAL` : "INDIA/GLOBAL"}</span>
+        <a href="/macro" style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}>FULL MACRO DESK →</a>
+      </div>
       {loading && rows.length === 0 && <p className="muted">PULLING MACRO…</p>}
       {err && <p className="neg">ERR: {err}</p>}
       {!loading && !err && rows.length === 0 && <p className="muted">NO MACRO ROWS — RETRY.</p>}
@@ -283,10 +297,27 @@ function MacroMini() {
           </div>
         );
       })}
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 4 }}>
-        <span className="faint" style={{ fontSize: 10.5 }}>{rows.length} LIVE · INDIA/GLOBAL{asof ? ` · AS OF ${asof}` : ""}</span>
-        <a href="/macro" style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}>FULL MACRO DESK →</a>
-      </div>
+      <p className="p-head" style={{ margin: "8px 0 2px 0" }}>GLOBAL MARKETS · LIVE</p>
+      {mkt.length === 0 && <p className="faint" style={{ fontSize: 10.5, margin: "0 0 4px 0" }}>PULLING LIVE TAPE…</p>}
+      {mkt.map((m: any) => {
+        const up = (m.chgPct ?? 0) >= 0;
+        const px = typeof m.price === "number" && isFinite(m.price)
+          ? m.price.toLocaleString("en-IN", { maximumFractionDigits: m.price < 100 ? 2 : 0 })
+          : "—";
+        return (
+          <div key={m.sym}>
+            <div className="kv">
+              <span className="muted">{m.label} <span className="faint">{m.sym.replace("=F", "").replace("^", "").replace("=X", "")}</span></span>
+              <strong>{px} <span className={up ? "pos" : "neg"}>{isFinite(m.chgPct) ? `${up ? "+" : ""}${m.chgPct.toFixed(2)}%` : "—"}</span></strong>
+            </div>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", padding: "2px 0 4px 0" }}>
+              <span className="faint" style={{ fontSize: 10.5 }}>1D · YAHOO</span>
+              <MacroSpark data={m.spark ?? []} />
+            </div>
+          </div>
+        );
+      })}
+      {asof && <span className="faint" style={{ fontSize: 10.5 }}>FRED AS OF {asof} · LIVE TAPE VIA YAHOO</span>}
     </div>
   );
 }
