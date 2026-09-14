@@ -1,7 +1,7 @@
 # Bullion Board — NSE Quant Terminal
 
 A Bloomberg-style web terminal for Indian equities: a multi-panel quant
-workspace with **86 analytics desks** covering technicals, fundamentals,
+workspace with **87 analytics desks** covering technicals, fundamentals,
 options, risk, ML, screeners, macro, news and AI analysis — plus an embedded
 **CFA study app** — all on free data, no API keys required to start.
 Built with Next.js 14 + React 18 + TypeScript. Vercel-ready.
@@ -226,7 +226,7 @@ First visits (and every fresh desktop) open `MARKET OVERVIEW`:
 
 ## Desk catalog
 
-Open the Function Directory (`MENU` or `F1`) for all 86 with search.
+Open the Function Directory (`MENU` or `F1`) for all 87 with search.
 The most-used, with codes:
 
 **Technical** — `TI` indicators suite · `CH` master chart suite ·
