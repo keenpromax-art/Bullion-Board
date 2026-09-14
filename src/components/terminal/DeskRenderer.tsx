@@ -169,6 +169,10 @@ function OChainMini({ symbol }: { symbol: string }) {
   const sug = m ? calcSuggestion(m.a, spot) : null;
   return (
     <div className="grid" style={{ gap: 8 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <span className="faint" style={{ fontSize: 10.5 }}>{sym}{expiry ? ` · ${expiry}` : ""}</span>
+        <a href={`/ochain?symbol=${encodeURIComponent(sym)}`} style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}>FULL OPTION CHAIN →</a>
+      </div>
       <div className="cells">
         <div className="cell"><div className="lbl">Spot</div><div className="val" style={{ fontSize: 16 }}>{spot ? spot.toLocaleString("en-IN") : "—"}</div><div className="sub">{sym} · {expiry || "NO EXPIRY"}</div></div>
         <div className="cell"><div className="lbl">PCR</div><div className={`val ${(m?.a.pcr ?? 0) >= 1 ? "pos" : "neg"}`} style={{ fontSize: 16 }}>{m ? m.a.pcr : "—"}</div><div className="sub">{m ? m.a.sentiment : "OI"}</div></div>
@@ -195,7 +199,6 @@ function OChainMini({ symbol }: { symbol: string }) {
           </table>
         </div>
       )}
-      <a href={`/ochain?symbol=${encodeURIComponent(sym)}`} style={{ fontSize: 12 }}>FULL OPTION CHAIN →</a>
     </div>
   );
 }
