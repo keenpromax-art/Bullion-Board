@@ -13,7 +13,7 @@ import { SectorDesk } from "@/components/SectorDesks";
 import { StatementsTerminal } from "@/components/StatementsTerminal";
 import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk, LinkerDesk } from "@/components/FundaDesks";
-import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk } from "@/components/QuantDesks";
+import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk } from "@/components/QuantDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ANRDesk, CastDesk } from "@/components/CapitalDesks";
@@ -780,6 +780,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (id === "10") return <ArimaLstmDesk symbol={sym} />;
   if (id === "24") return <GarchDesk symbol={sym} />;
   if (id === "26") return <VolFrameworkDesk symbol={sym} />;
+  if (id === "36") return <AdvGreeksDesk symbol={sym} />;
   if (id === "8") return <DayDesk symbol={sym} />;
   if (id === "27" || id === "48") return <PairDesk symbol={sym} />;
   if (id === "28") return <FactorDesk symbol={sym} />;

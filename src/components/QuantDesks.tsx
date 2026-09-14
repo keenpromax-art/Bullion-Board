@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { sma, ema, rsi, last, logReturns, hurst, halfLife, pctReturns } from "@/lib/indicators";
 import { suggestSymbols } from "@/lib/terminal/commandParser";
 import { WATCHLIST } from "@/lib/watchlist";
-import { historicalVol, volRegime } from "@/lib/options";
+import { historicalVol, volRegime, blackScholes } from "@/lib/options";
 import { ewmaVol, maxDrawdown } from "@/lib/risk";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
@@ -120,10 +120,13 @@ function LegInput({ value, onChange, onRun, label }: {
   const [rows, setRows] = useState<LegRow[]>([]);
   const [hi, setHi] = useState(0);
   const [moved, setMoved] = useState(false);
+  const [touched, setTouched] = useState(false);
   const seq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
+    // Suggest only after user interaction — never pop open on mount/prefill.
+    if (!touched) { setRows([]); return; }
     const q = value.trim().toUpperCase();
     if (!q) { setRows([]); return; }
     let local: LegRow[] = [];
@@ -153,10 +156,10 @@ function LegInput({ value, onChange, onRun, label }: {
       } catch { /* local rows stand */ }
     }, 220);
     return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [value]);
+  }, [value, touched]);
   function pick(r: LegRow) {
     seq.current++;
-    setRows([]); setMoved(false); setHi(0);
+    setRows([]); setMoved(false); setHi(0); setTouched(false);
     onChange(r.symbol);
     inputRef.current?.focus();
   }
@@ -165,7 +168,8 @@ function LegInput({ value, onChange, onRun, label }: {
     <div style={{ position: "relative", flex: 1 }}>
       <input
         ref={inputRef}
-        className="box" value={value} onChange={(e) => { onChange(e.target.value.toUpperCase()); setHi(0); setMoved(false); }}
+        className="box" value={value} onChange={(e) => { onChange(e.target.value.toUpperCase()); setHi(0); setMoved(false); setTouched(true); }}
+        onFocus={() => { if (value.trim()) setTouched(true); }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             if (!open) return;
@@ -2265,6 +2269,166 @@ export function GarchDesk({ symbol }: { symbol: string }) {
           <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "RUNNING…" : `RUN AI ON ${symbol}`}</button></div>
           {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- advanced greeks (module 36) ---------------- */
+// Full second-order surface: per-strike delta/gamma/theta/vega + vanna/
+// vomma/charm/speed, ATM + delta-40 picker, pin/charm risk read.
+
+const AG_TENORS = [7, 14, 30, 60, 90];
+
+function agStep(s: number): number {
+  if (s >= 5000) return 100;
+  if (s >= 1000) return 50;
+  if (s >= 500) return 20;
+  if (s >= 100) return 10;
+  return 5;
+}
+
+export function AdvGreeksDesk({ symbol }: { symbol: string }) {
+  const [bars, setBars] = useState<Array<{ close: number }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [dte, setDte] = useState(30);
+  const [side, setSide] = useState<"CALL" | "PUT">("CALL");
+  const [aiOut, setAiOut] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true); setBars([]); setAiOut("");
+    fetch(`/api/history?symbol=${encodeURIComponent(symbol)}&range=1y&interval=1d`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        setBars(((j.bars ?? []) as any[]).filter((b) => typeof b.close === "number" && isFinite(b.close) && b.close > 0).map((b) => ({ close: b.close })));
+      })
+      .catch(() => { if (alive) setBars([]); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [symbol]);
+
+  const eng = useMemo(() => {
+    if (bars.length < 60) return null;
+    const closes = bars.map((b) => b.close);
+    const S0 = closes[closes.length - 1];
+    const lr = logReturns(closes);
+    const hv10 = historicalVol(lr.slice(-10)), hv30 = historicalVol(lr.slice(-30)), hv252 = historicalVol(lr);
+    const sigma = hv30 || hv252 || 0.3;
+    const r = 0.065, T = dte / 365;
+    const step = agStep(S0);
+    const atm = Math.round(S0 / step) * step;
+    const strikes = Array.from({ length: 11 }, (_, i) => atm + (i - 5) * step);
+    const rows = strikes.map((K) => ({ K, g: blackScholes(S0, K, T, r, sigma, side) })).filter((x) => x.g);
+    if (!rows.length) return null;
+    const byDelta = [...rows].sort((a, b) => Math.abs(Math.abs(a.g!.delta) - 0.4) - Math.abs(Math.abs(b.g!.delta) - 0.4))[0];
+    const byGamma = [...rows].sort((a, b) => b.g!.gamma - a.g!.gamma)[0];
+    const byVanna = [...rows].sort((a, b) => Math.abs(b.g!.vanna) - Math.abs(a.g!.vanna))[0];
+    const byVomma = [...rows].sort((a, b) => b.g!.vomma - a.g!.vomma)[0];
+    const atmRow = rows.reduce((a, b) => (Math.abs(b.K - S0) < Math.abs(a.K - S0) ? b : a));
+    return {
+      S0, sigma, hv10, hv30, hv252, regime: volRegime(hv10, hv252),
+      rows, atm: atmRow.K, d40: byDelta.K, maxG: byGamma.K, maxVanna: byVanna.K, maxVomma: byVomma.K,
+      expMove: S0 * sigma * Math.sqrt(T),
+    };
+  }, [bars, dte, side]);
+
+  async function askAI() {
+    if (!eng) return;
+    const e = eng;
+    const a = e.rows.find((x) => x.K === e.atm)!.g!;
+    setAiLoading(true); setAiOut("");
+    try {
+      const txt = await chatComplete([
+        { role: "system", content: aiSystem.advGreeks() },
+        {
+          role: "user",
+          content: `SEC ${symbol} PX ${e.S0.toFixed(2)} ${side} ${dte}D σ ${(e.sigma * 100).toFixed(1)}% ${e.regime}. ` +
+            `ATM ${e.atm} Δ ${a.delta.toFixed(2)} Γ ${a.gamma.toExponential(1)} Θ ${a.theta.toFixed(2)}/D CHARM ${a.charm.toExponential(1)}/D. ` +
+            `MAX-Γ ${e.maxG} Δ40 ${e.d40} MAX-VANNA ${e.maxVanna} MAX-VOMMA ${e.maxVomma} EXP ±${e.expMove.toFixed(0)}. ` +
+            `TASK: GREEK VERDICT + BIGGEST HIDDEN RISK + 1 ADJUST NOTE. ${NO_INVENT}`,
+        },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(txt);
+    } catch (e2: any) {
+      setAiOut(`AI ERR: ${e2.message}`);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  if (loading) return <div className="panel"><p className="muted">PRICING SURFACE FOR {symbol}…</p></div>;
+  if (!eng) return <div className="panel"><p className="neg">NEED 60+ DAILY BARS FOR VOL.</p></div>;
+
+  const f2 = (v: number) => (isFinite(v) ? v.toFixed(2) : "—");
+  const fE = (v: number) => (isFinite(v) ? (Math.abs(v) >= 0.01 ? v.toFixed(4) : v.toExponential(1)) : "—");
+  const inr = (v: number) => `₹${v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+
+  return (
+    <div className="grid" style={{ gap: 10 }}>
+      <div className="toolbar">
+        <div className="pills">
+          {(["CALL", "PUT"] as const).map((s) => (
+            <button key={s} className={`pill${side === s ? " active" : ""}`} onClick={() => setSide(s)}>{s}</button>
+          ))}
+        </div>
+        <div className="pills">
+          {AG_TENORS.map((d) => (
+            <button key={d} className={`pill${dte === d ? " active" : ""}`} onClick={() => setDte(d)}>{d}D</button>
+          ))}
+        </div>
+        <span className="faint" style={{ fontSize: 11 }}>σ HV30 {(eng.sigma * 100).toFixed(1)}% · R 6.5%</span>
+      </div>
+      <div className="cells">
+        <div className="cell"><div className="lbl">Spot</div><div className="val" style={{ fontSize: 15 }}>{inr(eng.S0)}</div><div className="sub">{eng.regime}</div></div>
+        <div className="cell"><div className="lbl">ATM Δ/Γ</div><div className="val" style={{ fontSize: 15 }}>{eng.rows.find((x) => x.K === eng.atm)!.g!.delta.toFixed(2)}/{eng.rows.find((x) => x.K === eng.atm)!.g!.gamma.toExponential(1)}</div><div className="sub">@ {inr(eng.atm)}</div></div>
+        <div className="cell"><div className="lbl">Max-Γ pin</div><div className="val" style={{ fontSize: 15 }}>{inr(eng.maxG)}</div><div className="sub">pin risk</div></div>
+        <div className="cell"><div className="lbl">Δ40 pick</div><div className="val sec" style={{ fontSize: 15 }}>{inr(eng.d40)}</div><div className="sub">{side} {dte}D</div></div>
+        <div className="cell"><div className="lbl">Max vanna</div><div className="val" style={{ fontSize: 15 }}>{inr(eng.maxVanna)}</div><div className="sub">spot/vol x</div></div>
+        <div className="cell"><div className="lbl">Exp move ±</div><div className="val" style={{ fontSize: 15 }}>{inr(eng.expMove)}</div><div className="sub">1SD {dte}D</div></div>
+      </div>
+      <div className="panel">
+        <p className="p-head">Surface — {side} · {dte}D · strikes ±5 around ATM</p>
+        <div className="scrollx">
+          <table className="plain">
+            <thead><tr>
+              <th style={{ textAlign: "left" }}>STRIKE</th><th style={{ textAlign: "right" }}>PX</th>
+              <th style={{ textAlign: "right" }}>Δ</th><th style={{ textAlign: "right" }}>Γ</th>
+              <th style={{ textAlign: "right" }}>Θ/D</th><th style={{ textAlign: "right" }}>VEGA</th>
+              <th style={{ textAlign: "right" }}>VANNA</th><th style={{ textAlign: "right" }}>VOMMA</th>
+              <th style={{ textAlign: "right" }}>CHARM/D</th><th style={{ textAlign: "right" }}>P(ITM)</th>
+            </tr></thead>
+            <tbody>
+              {eng.rows.map(({ K, g }) => {
+                const isATM = K === eng.atm, is40 = K === eng.d40;
+                return (
+                  <tr key={K} className={isATM ? "active" : undefined} style={is40 && !isATM ? { background: "rgba(0,200,255,0.06)" } : undefined}>
+                    <td><strong className={isATM ? "sec" : ""}>{inr(K)}{isATM ? " ●" : ""}{is40 ? " Δ40" : ""}</strong></td>
+                    <td style={{ textAlign: "right" }}>{f2(g!.price)}</td>
+                    <td style={{ textAlign: "right" }}>{f2(g!.delta)}</td>
+                    <td style={{ textAlign: "right" }}>{g!.gamma.toExponential(1)}</td>
+                    <td style={{ textAlign: "right" }} className="neg">{f2(g!.theta)}</td>
+                    <td style={{ textAlign: "right" }}>{f2(g!.vega)}</td>
+                    <td style={{ textAlign: "right" }}>{fE(g!.vanna)}</td>
+                    <td style={{ textAlign: "right" }}>{fE(g!.vomma)}</td>
+                    <td style={{ textAlign: "right" }}>{fE(g!.charm)}</td>
+                    <td style={{ textAlign: "right" }}>{(g!.probITM * 100).toFixed(0)}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>
+          ● ATM · Δ40 = CLOSEST TO 0.40 DELTA · VANNA = Δ/σ · VOMMA = VEGA CONVEXITY · CHARM = Δ BLEED/DAY · BS ON HV30, NO DIVS
+        </p>
+      </div>
+      <div>
+        <p className="p-head">AI analyst — AGRK</p>
+        <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "RUNNING…" : `RUN AI ON ${symbol}`}</button></div>
+        {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
       </div>
     </div>
   );
