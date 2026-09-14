@@ -329,23 +329,8 @@ function MacroMini() {
 }
 
 function FrameDesk({ src, label }: { src: string; label: string }) {
-  const external = /^https?:\/\//i.test(src);
   return (
     <div className="frame-fill">
-      <p
-        className="muted"
-        style={{ fontSize: 12, margin: 0, minWidth: 0, overflowWrap: "anywhere", lineHeight: 1.5 }}
-      >
-        {label} · {external ? "EXTERNAL APP INSIDE PANEL" : "HOSTED ROUTE INSIDE PANEL"}{" "}
-        <a
-          href={src}
-          target={external ? "_blank" : undefined}
-          rel={external ? "noopener" : undefined}
-          style={{ whiteSpace: "nowrap" }}
-        >
-          OPEN FULL →
-        </a>
-      </p>
       <iframe
         src={src}
         title={label}

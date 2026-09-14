@@ -16,6 +16,24 @@ export function panelTitle(p: PanelSpec): string {
   return m ? m.label : p.funcId;
 }
 
+// Desks rendered as hosted-route iframes get an OPEN FULL shortcut in the
+// panel header (beside the window controls) instead of an in-body label.
+const FULL_HREF: Record<string, string> = {
+  "101": "/portfolio",
+  "102": "/alerts",
+  "103": "/compare",
+  "104": "/corr",
+  "106": "/events",
+  "107": "/breadth",
+  "38": "/macro",
+};
+
+function fullHrefFor(spec: PanelSpec): string | null {
+  const base = FULL_HREF[spec.funcId];
+  if (!base) return null;
+  return spec.symbol ? `${base}?symbol=${encodeURIComponent(spec.symbol)}` : base;
+}
+
 export function panelCode(p: PanelSpec): string {
   if (PSEUDO_DESKS[p.funcId]) return p.funcId;
   return funcCode(p.funcId);
@@ -240,6 +258,14 @@ export default function Panel({
           <button className="term-icon" title="Back to directory (DIR)" aria-label="Back to directory" onClick={(e) => { e.stopPropagation(); onFocus(); onChange({ ...spec, funcId: "DIR", task: null }); }}>⌂</button>
         )}
         <button className={`term-icon fav${isFav ? " active" : ""}`} title={isFav ? "Remove from favorites (★)" : "Make favorite tile (☆)"} aria-label={isFav ? "Remove from favorites" : "Make favorite"} aria-pressed={isFav} onClick={(e) => { e.stopPropagation(); onFocus(); toggleFav(); }}>{isFav ? "★" : "☆"}</button>
+        {fullHrefFor(spec) && (
+          <a
+            className="term-icon" href={fullHrefFor(spec) as string}
+            title="Open full page (OPEN FULL →)" aria-label="Open full page"
+            onClick={(e) => e.stopPropagation()}
+            style={{ textDecoration: "none" }}
+          >↗</a>
+        )}
         <button className="term-icon" title={maximized ? "Restore (Ctrl+M)" : "Maximize (Ctrl+M)"} aria-label="Maximize panel" onClick={(e) => { e.stopPropagation(); onMaximize(); }}>▢</button>
         <button className="term-icon danger" title="Close panel (Ctrl+W)" aria-label="Close panel" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
         {menu && (
