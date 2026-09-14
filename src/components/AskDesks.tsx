@@ -5,6 +5,14 @@ import { streamChat, aiSystem } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { LegInput } from "./QuantDesks";
 import { LineChart, BarChart } from "./charts";
+import { runSectorRank, rankerDigest, type RankResult } from "@/lib/sectorRank";
+
+// Blueprint routing: project-like prompts that need live computation run a
+// deterministic tool first — the AI then interprets real numbers.
+function wantsRanker(question: string): boolean {
+  const q = question.toLowerCase();
+  return q.includes("sector") && (q.includes("rotat") || q.includes("rank") || q.includes("roc") || q.includes("relative") || q.includes("momentum"));
+}
 
 const IDEAS = [
   "HOW DO G20 SUMMITS MOVE THE INDIAN MARKET?",
@@ -178,6 +186,8 @@ export function AskDesk({ symbol }: { symbol: string }) {
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [ctxLine, setCtxLine] = useState("");
+  const [rank, setRank] = useState<RankResult | null>(null);
+  const [rankBusy, setRankBusy] = useState(false);
   const abort = useRef<AbortController | null>(null);
   const ansRef = useRef<HTMLDivElement>(null);
 
@@ -192,13 +202,28 @@ export function AskDesk({ symbol }: { symbol: string }) {
     const tick = ticker.trim().toUpperCase() || symbol;
     setQ("");
     setAnswer("");
+    setRank(null);
     setCtxLine("SNAPPING MARKET CONTEXT…");
     setBusy(true);
     abort.current = new AbortController();
     try {
+      // Blueprint tool first: deterministic scan the AI will interpret.
+      let digest = "";
+      if (wantsRanker(question)) {
+        setRankBusy(true);
+        try {
+          const res = await runSectorRank((m) => setCtxLine(m));
+          setRank(res);
+          digest = `\n${rankerDigest(res)}\nINSTRUCTION: THE SECTOR SCAN ABOVE WAS ALREADY RUN ON LIVE DATA — INTERPRET ITS RANKS, DO NOT RECOMPUTE. CITE ITS NUMBERS.`;
+        } catch (e: any) {
+          digest = `\nSECTOR SCAN FAILED: ${e.message} — REASON FROM MECHANICS, SAY THE SCAN IS DOWN.`;
+        } finally {
+          setRankBusy(false);
+        }
+      }
       const ctx = await buildContext(tick, question);
       setCtxLine(`${ctx.tickerLine}`);
-      const user = `QUESTION: ${question}\nFOCUS: ${tick}\nLIVE BOARD: ${ctx.board}\n${ctx.series}\nHEADLINES:\n${ctx.headlines.length ? ctx.headlines.map((h, i) => `${i + 1}. ${h}`).join("\n") : "(NO FRESH HEADLINES — SAY SO IF IT MATTERS)"}`;
+      const user = `QUESTION: ${question}\nFOCUS: ${tick}\nLIVE BOARD: ${ctx.board}\n${ctx.series}\nHEADLINES:\n${ctx.headlines.length ? ctx.headlines.map((h, i) => `${i + 1}. ${h}`).join("\n") : "(NO FRESH HEADLINES — SAY SO IF IT MATTERS)"}${digest}`;
       let full = "";
       await streamChat(
         [
@@ -251,6 +276,55 @@ export function AskDesk({ symbol }: { symbol: string }) {
         })}
       </div>
       {ctxLine && <p className="faint" style={{ fontSize: 11, margin: 0 }}>CTX · {ctxLine}</p>}
+      {rankBusy && <p className="muted">RUNNING SECTOR SCAN — 9 LIVE FEEDS…</p>}
+      {rank && (
+        <div className="panel">
+          <p className="p-head">Sector ranker — RS vs Nifty · ROC excess · 200D filter · as of {rank.asof}</p>
+          <div className="scrollx">
+            <table className="plain">
+              <thead><tr>
+                <th style={{ textAlign: "left" }}>#</th><th style={{ textAlign: "left" }}>SECTOR</th>
+                <th style={{ textAlign: "right" }}>RS</th><th style={{ textAlign: "right" }}>MOM</th>
+                <th style={{ textAlign: "right" }}>R21</th><th style={{ textAlign: "right" }}>R63</th>
+                <th style={{ textAlign: "right" }}>R252</th><th style={{ textAlign: "right" }}>EXC63</th>
+                <th style={{ textAlign: "right" }}>200D</th><th style={{ textAlign: "right" }}>SCORE</th>
+              </tr></thead>
+              <tbody>
+                {rank.rows.map((r) => {
+                  const f1 = (v: number | null, d = 1) => (v === null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(d)}`);
+                  return (
+                    <tr key={r.key} className={r.rank <= 3 ? "active" : ""}>
+                      <td className="faint">{r.rank}</td>
+                      <td><strong className={r.rank === 1 ? "sec" : ""}>{r.label}</strong></td>
+                      <td style={{ textAlign: "right" }} className={r.rsRatio !== null && r.rsRatio >= 100 ? "pos" : "neg"}>{r.rsRatio === null ? "—" : r.rsRatio.toFixed(1)}</td>
+                      <td style={{ textAlign: "right" }} className={r.rsMom !== null && r.rsMom >= 0 ? "pos" : "neg"}>{f1(r.rsMom)}</td>
+                      <td style={{ textAlign: "right" }}>{f1(r.roc21)}</td>
+                      <td style={{ textAlign: "right" }}>{f1(r.roc63)}</td>
+                      <td style={{ textAlign: "right" }}>{f1(r.roc252)}</td>
+                      <td style={{ textAlign: "right" }} className={r.exc63 !== null && r.exc63 >= 0 ? "pos" : "neg"}>{f1(r.exc63)}</td>
+                      <td style={{ textAlign: "right" }}>{r.above200 === null ? "—" : r.above200 ? <span className="pos">▲</span> : <span className="neg">▼</span>}</td>
+                      <td style={{ textAlign: "right" }}><strong>{r.score === null ? "—" : f1(r.score)}</strong></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <p className="p-head">RS ratio curves — top 4 vs 100 = Nifty</p>
+            <LineChart
+              series={rank.rows.slice(0, 4).map((r, i) => ({
+                label: r.label,
+                color: ["#ffa028", "#00d664", "#00c8ff", "#a1a1aa"][i % 4],
+                values: r.curve,
+              }))}
+              height={130}
+              yFmt={(v) => v.toFixed(0)}
+            />
+          </div>
+          {rank.failed.length > 0 && <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>FEEDS DOWN: {rank.failed.join(", ")} — RANKED THE REST</p>}
+        </div>
+      )}
       {(answer || busy) && (
         <div ref={ansRef} style={{ maxHeight: 560, overflowY: "auto" }}>
           {renderAnswer(answer, busy)}
