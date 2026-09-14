@@ -10,6 +10,7 @@ import PanelWorkspace from "@/components/terminal/PanelWorkspace";
 import TickerTape from "@/components/terminal/TickerTape";
 import FunctionKeyBar from "@/components/terminal/FunctionKeyBar";
 import StatusBar from "@/components/terminal/StatusBar";
+import Tour, { isFirstRun } from "@/components/terminal/Tour";
 import WorkspaceSwitcher from "@/components/terminal/WorkspaceSwitcher";
 import { panelCode, panelTitle } from "@/components/terminal/Panel";
 import {
@@ -41,6 +42,7 @@ function Inner() {
   const [maxId, setMaxId] = useState<string | null>(null);
   const [feedOk, setFeedOk] = useState<boolean | null>(null);
   const [expose, setExpose] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const cmdRef = useRef<HTMLInputElement>(null);
   const lastFunc = useRef<Record<string, string>>({});
   const exposeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,6 +96,9 @@ function Inner() {
     const desktops = [...sh.desktops];
     desktops[sh.idx] = s;
     setShell({ ...sh, desktops });
+    // Fresh browser (no saved workspace, tour never seen): run the
+    // first-run tour over the starter dashboard.
+    try { if (isFirstRun()) setShowTour(true); } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -502,7 +507,9 @@ function Inner() {
         onDeskRename={renameDesktop}
         onDeskClose={closeDesktop}
         deskAddDisabled={shell.desktops.length >= MAX_DESKTOPS}
+        onTour={() => setShowTour(true)}
       />
+      {showTour && <Tour onDone={() => setShowTour(false)} />}
       <span className="sr-only" aria-live="polite">{focusLabelLong ? `Focused: ${focusLabelLong}` : ""}</span>
     </div>
   );

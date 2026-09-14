@@ -70,15 +70,16 @@ function write(key: string, val: unknown): void {
 }
 
 export function defaultPanels(): PanelSpec[] {
-  // "Equity Overview" preset: four compact summary panels that fit the
-  // viewport with no scrolling (watchlist + strat mini + funda mini + AI).
-  // task MINI selects the summary view; FULL DESK in-panel opens the desk.
+  // "Market Overview" starter dashboard: one glance per market pillar —
+  // macro board + function menu + Reliance technicals + news wire.
+  // Shown to first-time browsers (after the tour) and used for fresh
+  // desktops; returning users always keep their saved workspace.
   const now = Date.now().toString(36);
   return [
-    { id: `p${now}a`, funcId: "70", symbol: "RELIANCE.NS", task: "MINI" },
-    { id: `p${now}b`, funcId: "DIR", symbol: "RELIANCE.NS", task: "MINI" },
-    { id: `p${now}c`, funcId: "12", symbol: "RELIANCE.NS", task: "MINI" },
-    { id: `p${now}d`, funcId: "66", symbol: "RELIANCE.NS", task: "MINI" },
+    { id: `p${now}a`, funcId: "111", symbol: "", task: null },
+    { id: `p${now}b`, funcId: "DIR", symbol: "RELIANCE.NS", task: null },
+    { id: `p${now}c`, funcId: "1", symbol: "RELIANCE.NS", task: null },
+    { id: `p${now}d`, funcId: "47", symbol: "", task: null },
   ];
 }
 
@@ -187,7 +188,7 @@ function fallbackShell(): ShellState {
     panels: defaultPanels(),
     layout: "4-up",
     focusedId: null,
-    workspaceName: "EQUITY OVERVIEW",
+    workspaceName: "MARKET OVERVIEW",
     dirty: false,
   })!;
   return { desktops: [d], idx: 0, names: [deskName(0)] };

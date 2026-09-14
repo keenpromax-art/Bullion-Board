@@ -662,6 +662,38 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .ws-ops { display: flex; gap: 4px; }
 .ws-rename { display: flex; gap: 4px; align-items: center; }
 
+/* first-run guided tour: dim backdrop, amber spotlight ring, bottom card */
+.tour-backdrop {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(0, 0, 0, 0.62);
+}
+.tour-spot {
+  position: relative; z-index: 95 !important;
+  outline: 2px solid var(--amber) !important; outline-offset: -2px;
+  box-shadow: 0 0 32px rgba(255, 160, 40, 0.35) !important;
+  border-radius: 3px;
+}
+.tour-card {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 40px; z-index: 96; width: min(600px, calc(100vw - 24px));
+  background: #000; border: 1px solid var(--amber); border-radius: 3px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 24px rgba(255, 160, 40, 0.25);
+  padding: 14px 16px;
+}
+.tour-title {
+  margin: 0 0 8px 0; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.08em; color: var(--amber); text-transform: uppercase;
+}
+.tour-body { margin: 0 0 12px 0; font-size: 12.5px; line-height: 1.7; color: var(--text); }
+.tour-dots { display: flex; gap: 6px; margin-bottom: 12px; }
+.tour-dot { width: 22px; height: 4px; border-radius: 2px; background: var(--grid); }
+.tour-dot.done { background: var(--amber-deep); }
+.tour-dot.active { background: var(--amber); box-shadow: 0 0 8px rgba(255,160,40,0.7); }
+.tour-btns .btn { padding: 7px 14px; font-size: 12px; }
+@media (max-width: 639px) {
+  .tour-card { bottom: 36px; padding: 12px; }
+  .tour-body { font-size: 12px; }
+}
 /* screen-reader only */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

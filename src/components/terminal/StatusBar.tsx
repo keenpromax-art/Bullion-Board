@@ -30,6 +30,7 @@ export default function StatusBar({
   onDeskClose,
   deskAddDisabled,
   onSettings,
+  onTour,
 }: {
   panelCount: number;
   workspaceSlot: React.ReactNode;
@@ -47,6 +48,7 @@ export default function StatusBar({
   onDeskClose: (i: number) => void;
   deskAddDisabled?: boolean;
   onSettings?: () => void;
+  onTour?: () => void;
 }) {
   const clock = useClock();
   return (
@@ -106,6 +108,13 @@ export default function StatusBar({
           title="Open settings desk (SET) — API key · model · FRED"
           aria-label="Open settings"
         >⚙ SET</button>
+      )}
+      {onTour && (
+        <button
+          className="add-btn" onClick={onTour}
+          title="Replay the first-run guided tour"
+          aria-label="Replay guided tour"
+        >? TOUR</button>
       )}
       <span>{clock} IST</span>
     </div>
