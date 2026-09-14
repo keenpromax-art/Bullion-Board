@@ -429,7 +429,6 @@ export function CastDesk({ symbol }: { symbol: string }) {
   if (err) return <div className="panel"><p className="neg">CAST ERR: {err}</p></div>;
   if (!co && !st) return <div className="panel"><p className="muted">BUILDING CAPITAL STACK…</p></div>;
 
-  const mcapCr = (co?.quote?.marketCap ?? 0) / 1e7 || (st?.marketCapCr ?? 0);
   const num = (rows: any[] | undefined, cands: string[]): number | null => {
     if (!rows) return null;
     const nn = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -441,16 +440,29 @@ export function CastDesk({ symbol }: { symbol: string }) {
   const borrow = st?.bs ? num(st.bs.rows, ["borrowings", "total debt", "long term debt"]) : null;
   const cap = st?.bs ? num(st.bs.rows, ["equity share capital", "share capital", "share issued", "common stock", "stockholders equity"]) : null;
   const res = st?.bs ? num(st.bs.rows, ["reserves", "other equity", "retained earnings"]) : null;
+  // Equity leg: live mcap → price×shares → book proxy (Yahoo often omits
+  // marketCap for NSE names — never leave it at ₹0).
+  const qPx = typeof co?.quote?.regularMarketPrice === "number" && isFinite(co.quote.regularMarketPrice) ? co.quote.regularMarketPrice : null;
+  const qMc = typeof co?.quote?.marketCap === "number" && isFinite(co.quote.marketCap) && co.quote.marketCap > 0 ? co.quote.marketCap / 1e7 : null;
+  const qSh = typeof co?.profile?.holders?.sharesOut === "number" && co.profile.holders.sharesOut > 0
+    ? co.profile.holders.sharesOut
+    : typeof co?.quote?.sharesOutstanding === "number" && co.quote.sharesOutstanding > 0 ? co.quote.sharesOutstanding : null;
+  const bookEq = (cap ?? 0) + (res ?? 0);
+  let mcapCr: number | null = qMc ?? (typeof st?.marketCapCr === "number" && st.marketCapCr > 0 ? st.marketCapCr : null);
+  let eqSrc = mcapCr !== null ? "MCAP" : null;
+  if (mcapCr === null && qPx !== null && qSh !== null) { mcapCr = (qPx * qSh) / 1e7; eqSrc = "PX×SH"; }
+  if (mcapCr === null && bookEq > 0) { mcapCr = bookEq; eqSrc = "BOOK"; }
+  const eqVal = mcapCr ?? 0;
   const pbt = st?.pl ? num(st.pl.rows, ["profit before tax", "pretax income"]) : null;
   const ni = st?.pl ? num(st.pl.rows, ["net profit", "profit after tax", "net income"]) : null;
   const debt = borrow ?? 0;
   const tax = pbt && ni && pbt !== 0 ? Math.max(0, Math.min(0.6, (pbt - ni) / pbt)) : 0.25;
   const P = (s: string) => parseFloat(s);
   const re = P(rf) / 100 + P(beta) * (P(erp) / 100);
-  const wacc = mcapCr + debt > 0
-    ? (mcapCr / (mcapCr + debt)) * re + (debt / (mcapCr + debt)) * (P(rd) / 100) * (1 - tax)
+  const wacc = eqVal + debt > 0
+    ? (eqVal / (eqVal + debt)) * re + (debt / (eqVal + debt)) * (P(rd) / 100) * (1 - tax)
     : NaN;
-  const de = mcapCr > 0 ? debt / mcapCr : null;
+  const de = eqVal > 0 ? debt / eqVal : null;
 
   // D/E + debt history from BS ledger (Yahoo/yfinance labels)
   let deSeries: { pers: string[]; de: (number | null)[]; debt: (number | null)[] } | null = null;
@@ -491,9 +503,9 @@ export function CastDesk({ symbol }: { symbol: string }) {
   return (
     <div className="grid">
       <div className="panel panel-glow">
-        <p className="p-head">Capital stack — {symbol} · equity ₹{Math.round(mcapCr).toLocaleString("en-IN")} Cr vs debt ₹{Math.round(debt).toLocaleString("en-IN")} Cr</p>
+        <p className="p-head">Capital stack — {symbol} · equity ₹{Math.round(eqVal).toLocaleString("en-IN")} Cr{eqSrc === "BOOK" ? " (BOOK PROXY)" : ""} vs debt ₹{Math.round(debt).toLocaleString("en-IN")} Cr</p>
         <div className="cells">
-          <div className="cell"><div className="lbl">D/E</div><div className={`val ${de !== null && de > 1 ? "neg" : ""}`}>{de !== null ? de.toFixed(2) : "—"}×</div><div className="sub">debt / mcap</div></div>
+          <div className="cell"><div className="lbl">D/E</div><div className={`val ${de !== null && de > 1 ? "neg" : ""}`}>{de !== null ? de.toFixed(2) : "—"}×</div><div className="sub">{eqSrc === "BOOK" ? "debt / book" : "debt / mcap"}</div></div>
           <div className="cell"><div className="lbl">Cost of equity</div><div className="val">{isFinite(re) ? `${(re * 100).toFixed(1)}%` : "—"}</div><div className="sub">rf + β·erp</div></div>
           <div className="cell"><div className="lbl">After-tax debt</div><div className="val">{isFinite(P(rd)) ? `${((P(rd) / 100) * (1 - tax) * 100).toFixed(1)}%` : "—"}</div><div className="sub">tax {(tax * 100).toFixed(0)}%</div></div>
           <div className="cell"><div className="lbl">WACC</div><div className="val pos" style={{ fontSize: 20 }}>{isFinite(wacc) ? `${(wacc * 100).toFixed(1)}%` : "—"}</div><div className="sub">blended</div></div>
@@ -506,9 +518,10 @@ export function CastDesk({ symbol }: { symbol: string }) {
         </div>
         <div style={{ marginTop: 10 }}>
           <Donut slices={[
-            { label: "EQUITY", value: mcapCr, color: "#00d664" },
+            { label: "EQUITY", value: eqVal, color: "#00d664" },
             { label: "DEBT", value: debt, color: "#ff453a" },
           ]} />
+          {eqVal <= 0 && <p className="neg" style={{ fontSize: 12 }}>NO EQUITY VALUE ON FEED (MCAP + PRICE×SHARES + LEDGER ALL MISSING).</p>}
         </div>
       </div>
 
