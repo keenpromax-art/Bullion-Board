@@ -32,6 +32,12 @@ const SERIES: SeriesDef[] = [
   { id: "UMCSENT", label: "MICHIGAN SENT", group: "US SENTIMENT", unit: "IDX" },
   { id: "CPALTT01INM659N", label: "INDIA CPI", group: "INDIA", unit: "IDX" },
   { id: "IRSTCI01INM156N", label: "INDIA CALL RATE", group: "INDIA", unit: "%", pp: true },
+  { id: "DEXINUS", label: "INR / USD", group: "INDIA", unit: "₹", dp: 2 },
+  { id: "IRLTLT01INM156N", label: "INDIA 10Y", group: "INDIA", unit: "%", pp: true },
+  { id: "PRMNTO01INM659N", label: "INDIA MFG OUTPUT", group: "INDIA", unit: "IDX" },
+  { id: "NGDPRNSAXDCINQ", label: "INDIA GDP NOM", group: "INDIA", unit: "₹B" },
+  { id: "DCOILBRENTEU", label: "BRENT CRUDE", group: "GLOBAL", unit: "$" },
+  { id: "GOLDPMGBD228NLBM", label: "GOLD LONDON", group: "GLOBAL", unit: "$" },
 ];
 
 interface Obs { date: string; v: number }

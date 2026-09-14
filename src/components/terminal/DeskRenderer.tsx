@@ -233,8 +233,12 @@ function MacroMini() {
     } catch { /* keyless */ }
     fetch(url).then((r) => r.json()).then((j) => {
       if (!alive) return;
-      setRows((j.rows ?? []).filter((r: any) => r.ok));
-      setAsof(j.rows?.find?.((r: any) => r.ok)?.date ?? "");
+      const all = (j.rows ?? []).filter((r: any) => r.ok);
+      // Terminal starter panel is India-first: India + global only,
+      // no US-domestic groups (full US board lives on /macro).
+      const keep = all.filter((r: any) => ["INDIA", "GLOBAL", "CUSTOM"].includes(r.group));
+      setRows(keep.length > 0 ? keep : all);
+      setAsof((keep.length > 0 ? keep : all)?.find?.((r: any) => r.ok)?.date ?? "");
     }).catch((e) => { if (alive) setErr(e.message); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -280,7 +284,7 @@ function MacroMini() {
         );
       })}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 4 }}>
-        <span className="faint" style={{ fontSize: 10.5 }}>{rows.length} LIVE{asof ? ` · AS OF ${asof}` : ""}</span>
+        <span className="faint" style={{ fontSize: 10.5 }}>{rows.length} LIVE · INDIA/GLOBAL{asof ? ` · AS OF ${asof}` : ""}</span>
         <a href="/macro" style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}>FULL MACRO DESK →</a>
       </div>
     </div>

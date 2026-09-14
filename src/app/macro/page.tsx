@@ -11,7 +11,7 @@ interface MRow {
   yoy?: string; yoyDate?: string | null; spark?: number[]; ok: boolean;
 }
 
-const GROUPS = ["US GROWTH", "US LABOR", "US INFLATION", "US RATES", "US EXTERNAL", "US SENTIMENT", "INDIA", "CUSTOM"];
+const GROUPS = ["US GROWTH", "US LABOR", "US INFLATION", "US RATES", "US EXTERNAL", "US SENTIMENT", "INDIA", "GLOBAL", "CUSTOM"];
 
 const CADENCE: Array<[string, string, string]> = [
   ["NFP + UNEMPLOYMENT", "MONTHLY · FIRST FRIDAY", "HIGHEST VOL — FX + RATES"],
