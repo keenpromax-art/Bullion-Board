@@ -21,6 +21,7 @@ import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/
 import { Histogram, EquityDrawdown, AreaChart, HBars } from "@/components/charts";
 import { WatchPanel, StratMini, FundaMini, AIMini } from "./MiniDesks";
 import OptionsStrategyDesk from "@/components/OptionsStrategyDesk";
+import { CalcDesks } from "@/components/CalcDesks";
 import SettingsDesk from "./SettingsDesk";
 import { analyseChain, calcSuggestion, expiryToDays } from "@/lib/ochain";
 
@@ -753,7 +754,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (funcId === "105") return <FrameDesk src={`/season?symbol=${encodeURIComponent(sym)}`} label="SEASONALITY" />;
   if (funcId === "106") return <FrameDesk src={`/events?symbol=${encodeURIComponent(sym)}`} label="HISTORY & ACTIONS" />;
   if (funcId === "107") return <FrameDesk src={`/breadth?symbol=${encodeURIComponent(sym)}`} label="BREADTH & MOVERS" />;
-  if (funcId === "108") return <FrameDesk src={`/calc?symbol=${encodeURIComponent(sym)}`} label="DESK CALCULATORS" />;
+  if (funcId === "108") return <CalcDesks />;
   if (funcId === "109") return <OpeningMini symbol={sym} />;
   if (funcId === "112") return <ANRDesk symbol={sym} />;
   if (funcId === "113") return <CastDesk symbol={sym} />;
