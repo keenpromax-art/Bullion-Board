@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ModuleInfo } from "@/lib/types";
 import { funcCode } from "@/lib/terminal";
 import { deskLink } from "@/lib/functionMenus";
-import { MODULE_MAP } from "@/lib/modules";
+import { MODULE_MAP, CATEGORIES } from "@/lib/modules";
 import { PSEUDO_DESKS } from "@/lib/terminal/functionKeyMap";
 import { store } from "@/lib/store";
 
@@ -25,10 +25,11 @@ function readFavs(): string[] {
   }
 }
 
-// Function directory: favorite tiles on top + dense FNC | DESK | DESCRIPTION table.
-// Clicking a row/tile opens its desk directly for the active ticker.
-// Star (★) toggles a favorite — favorites persist in localStorage (iss.favorites)
-// and sync across panels via the `storage` event.
+// Function directory: Bloomberg-style grouped menu (category columns, numbered
+// rows) + favorite tiles on top. Clicking a row/tile opens its desk directly
+// for the active ticker. Group collapse persists in localStorage
+// (bb.dir.collapsed). Star (★) toggles a favorite — favorites persist in
+// localStorage (iss.favorites) and sync across panels via `storage`.
 export default function FunctionDirectory({
   ticker,
   modules,
@@ -46,6 +47,15 @@ export default function FunctionDirectory({
   const [favs, setFavs] = useState<string[]>(() => readFavs());
   const [favsOnly, setFavsOnly] = useState(false);
   const [ctx, setCtx] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [collapsed, setCollapsed] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem("bb.dir.collapsed");
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     setFavs(readFavs());
@@ -96,6 +106,27 @@ export default function FunctionDirectory({
     [modules, favsOnly, favSet]
   );
 
+  const collapsedSet = useMemo(() => new Set(collapsed), [collapsed]);
+  const toggleGroup = useCallback((cat: string) => {
+    setCollapsed((prev) => {
+      const next = prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat];
+      try {
+        localStorage.setItem("bb.dir.collapsed", JSON.stringify(next));
+      } catch {
+        /* quota — ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  // Bloomberg menu: category columns in registry order, numbered rows.
+  const groups = useMemo(() => {
+    const order = CATEGORIES.length ? CATEGORIES : Array.from(new Set(modules.map((m) => m.category)));
+    return order
+      .map((cat) => ({ cat, rows: visible.filter((m) => m.category === cat) }))
+      .filter((g) => g.rows.length > 0);
+  }, [visible, modules]);
+
   function open(mod: ModuleInfo) {
     // External apps (http…) open in a new tab — never navigate away.
     if (/^https?:\/\//i.test(mod.route)) {
@@ -138,7 +169,7 @@ export default function FunctionDirectory({
   return (
     <div className="panel fndir-panel">
       <p className="p-head">
-        Function directory — {counts}
+        Function menu — {counts}
         <span className="faint" style={{ fontWeight: 400 }}>
           {" "}
           · {onPickHere ? "CLICK A ROW TO OPEN IN FOCUSED PANEL" : "CLICK A ROW TO OPEN ITS DESK"}{onPickHere ? " · RIGHT-CLICK FOR OPTIONS" : ""}
@@ -193,67 +224,77 @@ export default function FunctionDirectory({
         </div>
       )}
 
-      <table className="fntbl fndir">
-        <thead>
-          <tr>
-            <th style={{ width: 36 }} title="TOGGLE FAVORITE">
-              ★
-            </th>
-            <th style={{ width: 72 }}>FNC</th>
-            <th style={{ width: 300 }}>DESK</th>
-            <th>DESCRIPTION</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((m) => {
-            const code = funcCode(m.id);
-            const isFav = favSet.has(m.id.toUpperCase());
-            return (
-              <tr
-                key={m.id}
-                onClick={() => open(m)}
-                onContextMenu={onPickHere ? (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setCtx({
-                    id: m.id,
-                    x: Math.min(e.clientX, window.innerWidth - 250),
-                    y: Math.min(e.clientY, window.innerHeight - 160),
-                  });
-                } : undefined}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    open(m);
-                  }
-                }}
-                tabIndex={0}
-                title={`${code} — ${onPickHere ? "OPEN IN FOCUSED PANEL" : "OPEN"} ${m.label.toUpperCase()} FOR ${ticker}`}
-                className={isFav ? "fav-row" : undefined}
+      <div className="bbmenu" role="menu" aria-label="Function menu by category">
+        {groups.map(({ cat, rows }) => {
+          const shut = collapsedSet.has(cat);
+          return (
+            <section key={cat} className="bbgroup" aria-label={cat}>
+              <button
+                className="bbgroup-head"
+                onClick={() => toggleGroup(cat)}
+                aria-expanded={!shut}
+                title={shut ? `EXPAND ${cat.toUpperCase()}` : `COLLAPSE ${cat.toUpperCase()}`}
               >
-                <td className="favcell">
-                  <button
-                    className={`fav-star${isFav ? " active" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFav(m.id);
-                    }}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    title={isFav ? `REMOVE ${code} FROM FAVORITES` : `MAKE ${code} A FAVORITE TILE`}
-                    aria-label={isFav ? `Remove ${m.label} from favorites` : `Make ${m.label} a favorite`}
-                    aria-pressed={isFav}
-                  >
-                    {isFav ? "★" : "☆"}
-                  </button>
-                </td>
-                <td className="fnc">{code}</td>
-                <td className="desk">{m.label}</td>
-                <td className="desc">{m.description}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                <span className="bbgroup-arrow">{shut ? "▸" : "▾"}</span>
+                <span className="bbgroup-name">{cat}</span>
+                <span className="bbgroup-count">{rows.length}</span>
+              </button>
+              {!shut && (
+                <div className="bbgroup-rows">
+                  {rows.map((m, i) => {
+                    const code = funcCode(m.id);
+                    const isFav = favSet.has(m.id.toUpperCase());
+                    return (
+                      <div
+                        key={m.id}
+                        role="menuitem"
+                        tabIndex={0}
+                        onClick={() => open(m)}
+                        onContextMenu={onPickHere ? (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setCtx({
+                            id: m.id,
+                            x: Math.min(e.clientX, window.innerWidth - 250),
+                            y: Math.min(e.clientY, window.innerHeight - 160),
+                          });
+                        } : undefined}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            open(m);
+                          }
+                        }}
+                        title={`${code} — ${m.label.toUpperCase()} · ${m.description}`}
+                        className={`bbrow${isFav ? " fav" : ""}`}
+                      >
+                        <button
+                          className={`fav-star${isFav ? " active" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFav(m.id);
+                          }}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          title={isFav ? `REMOVE ${code} FROM FAVORITES` : `MAKE ${code} A FAVORITE TILE`}
+                          aria-label={isFav ? `Remove ${m.label} from favorites` : `Make ${m.label} a favorite`}
+                          aria-pressed={isFav}
+                          tabIndex={-1}
+                        >
+                          {isFav ? "★" : "☆"}
+                        </button>
+                        <span className="bbnum">{String(i + 1).padStart(2, "0")}</span>
+                        <span className="bbcode">{code}</span>
+                        <span className="bblabel">{m.label}</span>
+                        <span className="bbarrow">›</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
       {visible.length === 0 && (
         <p className="muted">{favsOnly ? "NO FAVORITES MATCH — STAR A ROW TO PIN IT HERE." : "NO FUNCTIONS MATCH — CLEAR THE FILTER."}</p>
       )}
