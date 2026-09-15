@@ -204,9 +204,9 @@ const CURATED: Record<string, FunctionTask[]> = {
     t("spreads", "SPREAD BUILDER", "2-leg payoff"),
   ],
   "33": [
-    t("chain", "CHAIN GREEKS", "Spot + strikes"),
-    t("calendar", "EXPIRY CALENDAR", "Tenor map"),
-    t("note", "STRATEGY NOTE", "Bias write-up"),
+    t("move", "HOW IT MOVES", "Beta/drift/accel"),
+    t("capture", "CAPTURE", "Up/down vs Nifty"),
+    t("bands", "EXPECTED MOVE", "ATR ±1SD bands"),
   ],
   "35": [
     t("breadth", "BREADTH", "Adv / dec + % >20D"),

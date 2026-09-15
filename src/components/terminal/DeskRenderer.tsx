@@ -666,9 +666,13 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
   async function askAI() {
     setAiLoading(true); setAiOut("");
     try {
+      const sg = data?.extra?.stockGreeks;
+      const user = id === "33" && sg
+        ? `STOCK GREEKS ${symbol} PX ${data?.price ?? "?"} BETA60 ${sg.beta60?.toFixed?.(2) ?? "?"} (R2 ${sg.r2?.toFixed?.(2) ?? "?"}) DRIFT20 ${sg.drift20?.toFixed?.(1) ?? "?"}% ACCEL ${sg.accel?.toFixed?.(1) ?? "?"}pp VOLDRAG ${sg.volDragAnn?.toFixed?.(1) ?? "?"}%/yr VOLBETA ${sg.volBeta?.toFixed?.(3) ?? "?"} EXPMOVE_1D ${sg.expMove1dPct?.toFixed?.(2) ?? "?"}% REGIME ${sg.regime ?? "?"}. TASK: HOW IT MOVES (SENSITIVITY + PACE + FEAR RESPONSE) + WHAT NEXT + 2 RISKS + INVALIDATION. ${NO_INVENT}`
+        : `SEC ${symbol} PX ${data?.price ?? "?"} CHG% ${liveChg?.toFixed?.(2) ?? "?"} RSI14 ${ind.rsi ?? "?"} MACD_HIST ${ind.macdHist ?? "?"} ADX ${ind.adx ?? "?"} SHARPE ${risk.sharpe ?? "?"} MAXDD% ${risk?.maxDD?.pct ?? "?"}. SIGNAL ${String(data?.extra?.signal ?? "?")}. TASK: VERDICT + EVIDENCE + 3 RISKS + INVALIDATION. ${NO_INVENT}`;
       const txt = await chatComplete([
         { role: "system", content: aiSystem.genericDesk(code, mod?.label ?? code) },
-        { role: "user", content: `SEC ${symbol} PX ${data?.price ?? "?"} CHG% ${liveChg?.toFixed?.(2) ?? "?"} RSI14 ${ind.rsi ?? "?"} MACD_HIST ${ind.macdHist ?? "?"} ADX ${ind.adx ?? "?"} SHARPE ${risk.sharpe ?? "?"} MAXDD% ${risk?.maxDD?.pct ?? "?"}. SIGNAL ${String(data?.extra?.signal ?? "?")}. TASK: VERDICT + EVIDENCE + 3 RISKS + INVALIDATION. ${NO_INVENT}` },
+        { role: "user", content: user },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: any) { setAiOut(`AI ERR: ${e.message}`); }

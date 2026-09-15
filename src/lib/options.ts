@@ -105,3 +105,166 @@ export function recommendStrike(S0: number, T: number, r: number, sigma: number,
   }
   return { strike: Math.round(best / step) * step, greeks: bestG };
 }
+
+// ---------- Stock Greeks: how the STOCK moves ----------
+// Greek-letter sensitivities of the equity itself (vs Nifty + India VIX),
+// for desk 33. No option contracts involved: Δ = market sensitivity,
+// drift = trend carry, Γ = change in pace, Θ = volatility bleed,
+// V = reaction to fear spikes. All NaN-safe — missing inputs stay NaN so
+// renderers print their standard data-gap dash.
+
+export interface StockGreeks {
+  bench: string;
+  vixSym: string;
+  nPaired: number;
+  beta60: number;
+  beta120: number;
+  r2: number;
+  corr: number;
+  alpha60ann: number;
+  upCapture: number;
+  downCapture: number;
+  drift20: number;
+  drift60: number;
+  accel: number;
+  volDragAnn: number;
+  volBeta: number;
+  volBetaCorr: number;
+  expMove1d: number;
+  expMove1dPct: number;
+  expMove1w: number;
+  expMove1wPct: number;
+  hv10: number;
+  hv30: number;
+  hv252: number;
+  regime: string;
+}
+
+interface DayBar { date: string; high: number; low: number; close: number }
+
+// Pair daily % returns of two tapes by calendar date (drops NSE/index
+// holiday mismatches instead of misaligning the regression).
+export function alignPctReturns(
+  stock: Array<{ date: string; close: number }>,
+  other: Array<{ date: string; close: number }>
+): Array<{ s: number; b: number }> {
+  const om = new Map<string, number>();
+  for (const b of other) {
+    if (isFinite(b.close) && b.close > 0) om.set(b.date, b.close);
+  }
+  const out: Array<{ s: number; b: number }> = [];
+  for (let i = 1; i < stock.length; i++) {
+    const p = stock[i - 1], c = stock[i];
+    if (!isFinite(p.close) || !isFinite(c.close) || p.close <= 0 || c.close <= 0) continue;
+    const pb = om.get(p.date), cb = om.get(c.date);
+    if (pb === undefined || cb === undefined || pb <= 0 || cb <= 0) continue;
+    out.push({ s: c.close / p.close - 1, b: cb / pb - 1 });
+  }
+  return out;
+}
+
+export function olsSlope(x: number[], y: number[], minObs = 10): { slope: number; r2: number; corr: number } {
+  const n = Math.min(x.length, y.length);
+  if (n < minObs) return { slope: NaN, r2: NaN, corr: NaN };
+  const xs = x.slice(-n), ys = y.slice(-n);
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxx = 0, syy = 0, sxy = 0;
+  for (let i = 0; i < n; i++) {
+    sxx += (xs[i] - mx) ** 2;
+    syy += (ys[i] - my) ** 2;
+    sxy += (xs[i] - mx) * (ys[i] - my);
+  }
+  if (!(sxx > 0) || !(syy > 0)) return { slope: NaN, r2: NaN, corr: NaN };
+  const corr = sxy / Math.sqrt(sxx * syy);
+  return { slope: sxy / sxx, r2: corr * corr, corr };
+}
+
+function driftPct(close: number[], n: number, endOff = 0): number {
+  const end = close.length - 1 - endOff;
+  const start = end - n;
+  if (start < 0 || end >= close.length) return NaN;
+  const a = close[start], b = close[end];
+  return a > 0 && isFinite(a) && isFinite(b) ? (b / a - 1) * 100 : NaN;
+}
+
+function wilderAtr14(high: number[], low: number[], close: number[]): number {
+  if (close.length < 15) return NaN;
+  let atr = 0;
+  for (let i = 1; i < close.length; i++) {
+    const tr = Math.max(high[i] - low[i], Math.abs(high[i] - close[i - 1]), Math.abs(low[i] - close[i - 1]));
+    if (!isFinite(tr)) return NaN;
+    atr = i <= 14 ? atr + tr / 14 : (atr * 13 + tr) / 14;
+  }
+  return atr;
+}
+
+export function stockGreeks(
+  stock: DayBar[],
+  bench: Array<{ date: string; close: number }> | null,
+  vix: Array<{ date: string; close: number }> | null
+): StockGreeks {
+  const close = stock.map((b) => b.close);
+  const price = close.length ? close[close.length - 1] : NaN;
+  const lrets: number[] = [];
+  for (let i = 1; i < close.length; i++) {
+    if (close[i] > 0 && close[i - 1] > 0) lrets.push(Math.log(close[i] / close[i - 1]));
+  }
+  const hv10 = historicalVol(lrets, 10);
+  const hv30 = historicalVol(lrets, 30);
+  const hv252 = historicalVol(lrets);
+
+  const paired = bench ? alignPctReturns(stock, bench).slice(-130) : [];
+  const w60 = paired.slice(-60);
+  const b60 = olsSlope(w60.map((p) => p.b), w60.map((p) => p.s), 20);
+  const b120 = olsSlope(paired.map((p) => p.b), paired.map((p) => p.s), 60);
+  let alpha60ann = NaN;
+  if (w60.length >= 20 && isFinite(b60.slope)) {
+    const ms = w60.reduce((a, p) => a + p.s, 0) / w60.length;
+    const mb = w60.reduce((a, p) => a + p.b, 0) / w60.length;
+    alpha60ann = (ms - b60.slope * mb) * 252 * 100;
+  }
+  let upCapture = NaN, downCapture = NaN;
+  if (w60.length >= 20) {
+    const up = w60.filter((p) => p.b > 0), dn = w60.filter((p) => p.b < 0);
+    const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
+    const muS = avg(up.map((p) => p.s)), muB = avg(up.map((p) => p.b));
+    const mdS = avg(dn.map((p) => p.s)), mdB = avg(dn.map((p) => p.b));
+    upCapture = muB ? (muS / muB) * 100 : NaN;
+    downCapture = mdB ? (mdS / mdB) * 100 : NaN;
+  }
+
+  const vpaired = vix ? alignPctReturns(stock, vix).slice(-60) : [];
+  const vb = olsSlope(vpaired.map((p) => p.b), vpaired.map((p) => p.s), 20);
+
+  const atr14 = wilderAtr14(stock.map((b) => b.high), stock.map((b) => b.low), close);
+  const expMove1d = atr14;
+  const expMove1w = isFinite(atr14) ? atr14 * Math.sqrt(5) : NaN;
+
+  return {
+    bench: bench ? "^NSEI" : "—",
+    vixSym: vix ? "^INDIAVIX" : "—",
+    nPaired: paired.length,
+    beta60: b60.slope,
+    beta120: b120.slope,
+    r2: b60.r2,
+    corr: b60.corr,
+    alpha60ann,
+    upCapture,
+    downCapture,
+    drift20: driftPct(close, 20),
+    drift60: driftPct(close, 60),
+    accel: driftPct(close, 20) - driftPct(close, 20, 20),
+    volDragAnn: isFinite(hv30) && hv30 > 0 ? -(hv30 * hv30) / 2 * 100 : NaN,
+    volBeta: vb.slope,
+    volBetaCorr: vb.corr,
+    expMove1d,
+    expMove1dPct: isFinite(atr14) && price > 0 ? (atr14 / price) * 100 : NaN,
+    expMove1w,
+    expMove1wPct: isFinite(expMove1w) && price > 0 ? (expMove1w / price) * 100 : NaN,
+    hv10,
+    hv30,
+    hv252,
+    regime: volRegime(hv10, hv252),
+  };
+}

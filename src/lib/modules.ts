@@ -45,7 +45,7 @@ export const MODULES: ModuleInfo[] = [
   m("30", "run_mean_reversion", "Mean Reversion Lab", "Statistical", "Bollinger/RSI signals, backtest, walk-forward, Monte-Carlo equity, AI chat."),
   m("31", "run_monte_carlo_advanced", "Monte Carlo Advanced", "Risk", "Cornish-Fisher VaR, extreme paths, fan charts, risk report."),
   m("32", "run_options_engine", "Synthetic Options Engine", "Options", "Black-Scholes Greeks, vol regime, delta-40 strike picker, spread builder.", true),
-  m("33", "run_options_greeks", "Options Greeks", "Options", "Spot + chain Greeks, expiry calendar, strategy note."),
+  m("33", "run_stock_greeks", "Stock Greeks", "Options", "How the stock moves: beta, drift, acceleration, drag, vol-sensitivity, expected move."),
   m("34", "run_sentiment_analysis", "Sentiment Analysis", "News", "VADER-style scoring, topic extraction, source weighting, charts, Excel."),
   m("35", "run_sector_analysis", "Sector Analysis", "Market", "Breadth, RS ratio/momentum, beta, sector rotation heatmap, AI chat."),
   m("36", "run_advanced_greeks", "Advanced Greeks", "Options", "Vanna/vomma/charm/speed, chain scoring, intraday scanner."),
