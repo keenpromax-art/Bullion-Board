@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { sma, ema, rsi, last, logReturns, hurst, halfLife, pctReturns } from "@/lib/indicators";
+import { sma, ema, rsi, last, logReturns, hurst, halfLife, pctReturns, atr } from "@/lib/indicators";
 import { suggestSymbols } from "@/lib/terminal/commandParser";
 import { WATCHLIST } from "@/lib/watchlist";
-import { historicalVol, volRegime, blackScholes } from "@/lib/options";
+import { historicalVol, volRegime, blackScholes, stockGreeks } from "@/lib/options";
 import { ewmaVol, maxDrawdown } from "@/lib/risk";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
-import { BarChart, LineChart, HBars, Histogram, AreaChart } from "./charts";
+import { BarChart, LineChart, HBars, Histogram, AreaChart, EquityDrawdown } from "./charts";
 import { mulberry32 } from "@/lib/utils";
 
 function KV({ k, v, cls }: { k: string; v: string; cls?: string }) {
@@ -2427,6 +2427,279 @@ export function AdvGreeksDesk({ symbol }: { symbol: string }) {
       </div>
       <div>
         <p className="p-head">AI analyst — AGRK</p>
+        <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "RUNNING…" : `RUN AI ON ${symbol}`}</button></div>
+        {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- stock greeks (module 33) ---------------- */
+// How the STOCK moves: beta/drift/acceleration/drag/vol-beta as Greek-letter
+// sensitivities of the equity itself vs Nifty + India VIX. No option contracts.
+
+const SG_RANGES = ["6mo", "1y", "2y"] as const;
+
+export function StockGreeksDesk({ symbol }: { symbol: string }) {
+  const [bars, setBars] = useState<any[]>([]);
+  const [bench, setBench] = useState<any[]>([]);
+  const [vix, setVix] = useState<any[]>([]);
+  const [range, setRange] = useState<string>("1y");
+  const [retryN, setRetryN] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [aiOut, setAiOut] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true); setErr(""); setBars([]); setBench([]); setVix([]); setAiOut("");
+    const clean = (xs: any[]) => (xs ?? []).filter((b) => b && typeof b.date === "string" && isFinite(b.close) && b.close > 0 && isFinite(b.high) && isFinite(b.low));
+    Promise.all([
+      fetch(`/api/history?symbol=${encodeURIComponent(symbol)}&range=${range}&interval=1d`).then((r) => r.json()),
+      fetch(`/api/history?symbol=${encodeURIComponent("^NSEI")}&range=${range}&interval=1d`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/history?symbol=${encodeURIComponent("^INDIAVIX")}&range=${range}&interval=1d`).then((r) => r.json()).catch(() => null),
+    ])
+      .then(([a, b, v]) => {
+        if (!alive) return;
+        if (a.error) throw new Error(a.error);
+        setBars(clean(a.bars));
+        setBench(b && !b.error ? clean(b.bars) : []);
+        setVix(v && !v.error ? clean(v.bars) : []);
+      })
+      .catch((e) => { if (alive) setErr(e.message || "load failed"); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [symbol, range, retryN]);
+
+  const calc = useMemo(() => {
+    if (bars.length < 45) return null;
+    const g = stockGreeks(bars, bench.length ? bench : null, vix.length ? vix : null);
+    const dates: string[] = bars.map((b) => b.date);
+    const closes: number[] = bars.map((b) => b.close);
+    const highs: number[] = bars.map((b) => b.high);
+    const lows: number[] = bars.map((b) => b.low);
+    const price = closes[closes.length - 1];
+    const rets: number[] = [];
+    for (let i = 1; i < closes.length; i++) rets.push(closes[i - 1] ? (closes[i] - closes[i - 1]) / closes[i - 1] : 0);
+    const rdates = dates.slice(1);
+    // date-aligned Nifty leg for rolling beta/corr
+    const bMap = new Map<string, number>();
+    bench.forEach((b) => bMap.set(b.date, b.close));
+    const bcloses = dates.map((d) => bMap.get(d) ?? NaN);
+    const brets: number[] = [];
+    for (let i = 1; i < bcloses.length; i++) brets.push(bcloses[i - 1] && isFinite(bcloses[i - 1]) && isFinite(bcloses[i]) ? (bcloses[i] - bcloses[i - 1]) / bcloses[i - 1] : NaN);
+    const roll2 = (w: number, minObs: number, fn: (s: number[], b: number[]) => number | null): (number | null)[] =>
+      rets.map((_, i) => {
+        if (i + 1 < w) return null;
+        const s = rets.slice(i + 1 - w, i + 1);
+        const b = brets.slice(i + 1 - w, i + 1);
+        if (b.length < minObs || b.some((v) => !isFinite(v))) return null;
+        return fn(s, b);
+      });
+    const betaOf = (s: number[], b: number[]): number | null => {
+      const ms = s.reduce((a, v) => a + v, 0) / s.length, mb = b.reduce((a, v) => a + v, 0) / b.length;
+      let cov = 0, vb = 0;
+      for (let k = 0; k < s.length; k++) { cov += (s[k] - ms) * (b[k] - mb); vb += (b[k] - mb) * (b[k] - mb); }
+      return vb > 0 ? cov / vb : null;
+    };
+    const corrOf = (s: number[], b: number[]): number | null => {
+      const ms = s.reduce((a, v) => a + v, 0) / s.length, mb = b.reduce((a, v) => a + v, 0) / b.length;
+      let cov = 0, vs = 0, vb = 0;
+      for (let k = 0; k < s.length; k++) { cov += (s[k] - ms) * (b[k] - mb); vs += (s[k] - ms) * (s[k] - ms); vb += (b[k] - mb) * (b[k] - mb); }
+      return vs > 0 && vb > 0 ? cov / Math.sqrt(vs * vb) : null;
+    };
+    const beta20 = roll2(20, 15, betaOf);
+    const corr20 = roll2(20, 15, corrOf);
+    const oneLine = rets.map(() => 1);
+    // ATR bands: SMA20 ± ATR14, last 90 sessions
+    const N = Math.min(90, closes.length);
+    const s20 = sma(closes, 20);
+    const a14 = atr(highs, lows, closes, 14);
+    const c90 = closes.slice(-N), d90 = dates.slice(-N);
+    const idx = (k: number) => a14.length - N + k;
+    const up90 = c90.map((_, k) => {
+      const m = s20[s20.length - N + k], a = a14[idx(k)];
+      return m === null || m === undefined || a === null || a === undefined ? null : (m as number) + (a as number);
+    });
+    const lo90 = c90.map((_, k) => {
+      const m = s20[s20.length - N + k], a = a14[idx(k)];
+      return m === null || m === undefined || a === null || a === undefined ? null : (m as number) - (a as number);
+    });
+    // HV term points
+    const lr = logReturns(closes);
+    const hv = (w: number) => historicalVol(lr, w) * 100;
+    const d20 = g.drift20, acc = g.accel;
+    const verdict = !isFinite(d20)
+      ? "RANGING"
+      : d20 > 0 && acc > 0 ? "ACCELERATING UP"
+      : d20 > 0 ? "DRIFTING UP"
+      : d20 < 0 && acc < 0 ? "BREAKING DOWN"
+      : "DRIFTING DOWN";
+    return { g, dates, closes, price, rets, rdates, beta20, corr20, oneLine, c90, d90, up90, lo90, hv, verdict, hasBench: bench.length > 50 };
+  }, [bars, bench, vix]);
+
+  async function askAI() {
+    if (!calc) return;
+    const g = calc.g;
+    setAiLoading(true); setAiOut("");
+    try {
+      const txt = await chatComplete([
+        { role: "system", content: aiSystem.stockGreeks() },
+        {
+          role: "user",
+          content: `SEC ${symbol} PX ${calc.price.toFixed(2)} ${range} TAPE. ` +
+            `BETA60 ${g.beta60.toFixed(2)} (R2 ${g.r2.toFixed(2)}) DRIFT20 ${g.drift20.toFixed(1)}% ACCEL ${g.accel.toFixed(1)}pp ` +
+            `VOLDRAG ${g.volDragAnn.toFixed(1)}%/yr VOLBETA ${g.volBeta.toFixed(3)} EXPMOVE_1D ${g.expMove1dPct.toFixed(2)}% ` +
+            `CAPTURE ${g.upCapture.toFixed(0)}/${g.downCapture.toFixed(0)} REGIME ${g.regime} VERDICT ${calc.verdict}. ` +
+            `TASK: HOW IT MOVES + WHAT NEXT + 2 RISKS + INVALIDATION. ${NO_INVENT}`,
+        },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(txt);
+    } catch (e: any) {
+      setAiOut(`AI ERR: ${e.message}`);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  if (loading) return <div className="panel"><p className="muted">TRACKING {symbol} — TAPE + NIFTY + VIX…</p></div>;
+  if (err) return <div className="panel"><p className="neg">STOCK GREEKS ERR: {err} (FEED THROTTLED — RETRY)</p><div className="toolbar" style={{ marginTop: 8 }}><button className="ghost" onClick={() => setRetryN((n) => n + 1)}>RETRY</button></div></div>;
+  if (!calc) return <div className="panel"><p className="muted">NEED 45+ DAILY BARS FOR {symbol} — TRY A LONGER RANGE.</p></div>;
+
+  const { g, verdict, hasBench } = calc;
+  const f2 = (v: number) => (isFinite(v) ? v.toFixed(2) : "—");
+  const fsgn = (v: number, d = 1) => (isFinite(v) ? `${v >= 0 ? "+" : ""}${v.toFixed(d)}` : "—");
+  const inr = (v: number) => (isFinite(v) ? `₹${v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : "—");
+  const dirCls = (v: number) => (!isFinite(v) ? "" : v >= 0 ? "pos" : "neg");
+  const vBad = verdict.includes("BREAKING") ? "neg" : verdict.includes("ACCEL") ? "pos" : "";
+  const short = (ds: string[]): [string, string, string] => {
+    const s = ds.map((d) => d.slice(2, 7));
+    return [s[0] ?? "", s[Math.floor(s.length / 2)] ?? "", s[s.length - 1] ?? ""];
+  };
+  const hvRows = [
+    { w: 10, c: "#00c8ff" }, { w: 30, c: "#ffa028" }, { w: 60, c: "#00d664" },
+    { w: 120, c: "#a1a1aa" }, { w: 252, c: "#5b5b62" },
+  ].filter(({ w }) => isFinite(calc.hv(w))).map(({ w, c }) => ({
+    label: `HV${w}`, value: calc.hv(w), display: `${calc.hv(w).toFixed(1)}%`, color: c,
+  }));
+  const capRows = [
+    { label: "UP CAPTURE", v: g.upCapture, c: "#00d664" },
+    { label: "DOWN CAPTURE", v: g.downCapture, c: "#ff453a" },
+    { label: "NIFTY PAR", v: 100, c: "#5b5b62" },
+  ].filter((r) => isFinite(r.v)).map((r) => ({ label: r.label, value: r.v, display: `${r.v.toFixed(1)}%`, color: r.c }));
+
+  return (
+    <div className="grid" style={{ gap: 10 }}>
+      <div className="toolbar">
+        <div className="pills">
+          {SG_RANGES.map((r) => (
+            <button key={r} className={`pill${range === r ? " active" : ""}`} onClick={() => setRange(r)}>{r.toUpperCase()}</button>
+          ))}
+        </div>
+        <span className={`badge ${vBad === "neg" ? "bad" : vBad === "pos" ? "ok" : "fnc"}`}>{verdict}</span>
+        <span className="faint" style={{ fontSize: 11, marginLeft: "auto" }}>
+          {calc.rdates[calc.rdates.length - 1] ?? ""} · {g.nPaired} PAIRED SESSIONS{!hasBench ? " · NIFTY/VIX TAPE OFF" : ""}
+        </span>
+      </div>
+
+      <div className="panel panel-glow">
+        <p className="p-head">How {symbol.replace(".NS", "")} moves — {verdict} · {g.regime}</p>
+        <p style={{ fontSize: 14, lineHeight: 1.7, margin: "0 0 4px 0" }}>
+          <strong className="sec">{f2(g.beta60)}× NIFTY PACE</strong>
+          {" · "}DRIFT <strong className={dirCls(g.drift20)}>{fsgn(g.drift20)}%</strong>/20D
+          {" · "}{g.accel >= 0 ? "SPEEDING UP" : "FADING"} <strong className={dirCls(g.accel)}>{fsgn(g.accel, 1)}pp</strong>
+          {" · "}FEAR RESPONSE <strong className={dirCls(-g.volBeta)}>{f2(g.volBeta)}</strong>
+          {" · "}1D MOVE <strong>±{f2(g.expMove1dPct)}%</strong>
+        </p>
+        {!hasBench && <p className="muted" style={{ fontSize: 11.5, margin: "4px 0 0 0" }}>NIFTY/VIX TAPE UNAVAILABLE — BETA, CAPTURE AND VOL-BETA SHOW DATA GAPS.</p>}
+      </div>
+
+      <div className="cells">
+        <div className="cell"><div className="lbl">Δ Beta 60D</div><div className="val" style={{ fontSize: 15 }}>{f2(g.beta60)}</div><div className="sub">R² {f2(g.r2)}</div></div>
+        <div className="cell"><div className="lbl">Δ Drift 20D</div><div className={`val ${dirCls(g.drift20)}`} style={{ fontSize: 15 }}>{fsgn(g.drift20)}%</div><div className="sub">60D {fsgn(g.drift60)}%</div></div>
+        <div className="cell"><div className="lbl">Γ Accel</div><div className={`val ${dirCls(g.accel)}`} style={{ fontSize: 15 }}>{fsgn(g.accel)}pp</div><div className="sub">pace change</div></div>
+        <div className="cell"><div className="lbl">Θ Drag</div><div className="val neg" style={{ fontSize: 15 }}>{isFinite(g.volDragAnn) ? `${g.volDragAnn.toFixed(1)}%/yr` : "—"}</div><div className="sub">vol tax</div></div>
+        <div className="cell"><div className="lbl">V Vol-beta</div><div className="val" style={{ fontSize: 15 }}>{isFinite(g.volBeta) ? g.volBeta.toFixed(3) : "—"}</div><div className="sub">vs VIX</div></div>
+        <div className="cell"><div className="lbl">Exp move 1D</div><div className="val" style={{ fontSize: 15 }}>{inr(g.expMove1d)}</div><div className="sub">1W {inr(g.expMove1w)}</div></div>
+      </div>
+
+      <div className="panel">
+        <p className="p-head">Movement tape — close ± ATR bands · last {calc.c90.length} sessions</p>
+        <LineChart
+          dates={calc.d90} xLabels={short(calc.d90)} yFmt={(v) => `₹${v.toFixed(0)}`}
+          series={[
+            { label: "CLOSE", color: "#ffb000", values: calc.c90 },
+            { label: "UPPER", color: "#5b5b62", values: calc.up90, dashed: true },
+            { label: "LOWER", color: "#5b5b62", values: calc.lo90, dashed: true },
+          ]}
+        />
+        <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>BANDS = SMA20 ± ATR14 · A CLOSE OUTSIDE A BAND IS A 1-DAY ±1SD EVENT.</p>
+      </div>
+
+      <div className="grid grid-2">
+        <div className="panel">
+          <p className="p-head">Rolling β20 + corr20 vs Nifty</p>
+          {hasBench ? (
+            <LineChart
+              dates={calc.rdates} xLabels={short(calc.rdates)} yFmt={(v) => v.toFixed(2)}
+              series={[
+                { label: "BETA20", color: "#ffa028", values: calc.beta20 },
+                { label: "CORR20", color: "#00c8ff", values: calc.corr20 },
+                { label: "PAR 1.0", color: "#5b5b62", values: calc.oneLine, dashed: true },
+              ]}
+            />
+          ) : <p className="muted">NIFTY TAPE UNAVAILABLE — BETA SERIES OFF.</p>}
+          <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>1.0 = MARKET PACE · RISING BETA = GETTING TWITCHIER THAN NIFTY.</p>
+        </div>
+        <div className="panel">
+          <p className="p-head">Vol term-structure — ann %</p>
+          <HBars rows={hvRows} />
+          <p className="faint" style={{ fontSize: 10.5, margin: "8px 0 0 0" }}>SHORT ABOVE LONG = VOL EXPANDING · REGIME {g.regime}.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-2">
+        <div className="panel">
+          <p className="p-head">Capture vs Nifty — 60D · R² {f2(g.r2)}</p>
+          <HBars rows={capRows} />
+          <div style={{ marginTop: 8 }}>
+            <KV k="ALPHA 60D ANN" v={fsgn(g.alpha60ann, 1) + "%"} cls={dirCls(g.alpha60ann)} />
+            <KV k="CORR 60D" v={f2(g.corr)} />
+          </div>
+        </div>
+        <div className="panel">
+          <p className="p-head">Daily return distribution — %</p>
+          <Histogram values={calc.rets.map((r) => r * 100)} bins={24} height={140} />
+        </div>
+      </div>
+
+      <div className="panel">
+        <p className="p-head">Greek sheet — full read</p>
+        <div className="scrollx">
+          <table className="plain">
+            <thead><tr><th style={{ textAlign: "left" }}>GREEK</th><th style={{ textAlign: "right" }}>READING</th><th style={{ textAlign: "left" }}>WHAT IT SAYS</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Δ BETA 60D</strong></td><td style={{ textAlign: "right" }}>{f2(g.beta60)}</td><td>1% Nifty ≈ {f2(g.beta60)}% stock</td></tr>
+              <tr><td><strong>Δ BETA 120D</strong></td><td style={{ textAlign: "right" }}>{f2(g.beta120)}</td><td>slower, steadier sensitivity</td></tr>
+              <tr><td><strong>Δ DRIFT 20/60D</strong></td><td style={{ textAlign: "right" }} className={dirCls(g.drift20)}>{fsgn(g.drift20)}% / {fsgn(g.drift60)}%</td><td>trend carry, near vs medium</td></tr>
+              <tr><td><strong>Γ ACCEL</strong></td><td style={{ textAlign: "right" }} className={dirCls(g.accel)}>{fsgn(g.accel)}pp</td><td>pace speeding up (+) or fading (−)</td></tr>
+              <tr><td><strong>Θ VOL DRAG</strong></td><td style={{ textAlign: "right" }} className="neg">{isFinite(g.volDragAnn) ? `${g.volDragAnn.toFixed(1)}%/yr` : "—"}</td><td>yearly bleed from wiggle alone</td></tr>
+              <tr><td><strong>V VOL-BETA</strong></td><td style={{ textAlign: "right" }}>{isFinite(g.volBeta) ? g.volBeta.toFixed(3) : "—"}</td><td>stock % per 1% VIX spike</td></tr>
+              <tr><td><strong>EXP MOVE</strong></td><td style={{ textAlign: "right" }}>{inr(g.expMove1d)} / {inr(g.expMove1w)}</td><td>±1SD bands, 1 day / 1 week</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>Δ = SENSITIVITY · Γ = CHANGE IN PACE · Θ = BLEED · V = FEAR RESPONSE · FROM {range.toUpperCase()} DAILY TAPE VS NIFTY + INDIA VIX.</p>
+      </div>
+
+      <div className="panel">
+        <p className="p-head">Growth of ₹100 + underwater</p>
+        <EquityDrawdown closes={calc.closes} />
+      </div>
+
+      <div className="panel">
+        <p className="p-head">AI analyst — GRK</p>
         <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "RUNNING…" : `RUN AI ON ${symbol}`}</button></div>
         {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
       </div>

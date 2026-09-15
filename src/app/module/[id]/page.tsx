@@ -15,7 +15,7 @@ import { SectorDesk } from "@/components/SectorDesks";
 import { StatementsTerminal } from "@/components/StatementsTerminal";
 import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk } from "@/components/FundaDesks";
-import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk } from "@/components/QuantDesks";
+import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk, StockGreeksDesk } from "@/components/QuantDesks";
 import { BookReader } from "@/components/BookDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
@@ -366,6 +366,14 @@ function Inner({ id }: { id: string }) {
     );
   }
 
+  if (id === "33") {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <StockGreeksDesk symbol={symbol} />
+      </Shell>
+    );
+  }
+
   if (id === "8") {
     return (
       <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
@@ -636,11 +644,8 @@ function GenericDesk({ id, code, symbol, setSymbol, status, task }: {
     try {
       const isOpt70 = id === "70";
       const o = data?.extra?.options;
-      const sg = data?.extra?.stockGreeks;
       const user = isOpt70
         ? `OPTIONS STRATEGY DESK ${symbol} PX ${data?.price ?? "?"} RSI ${ind.rsi ?? "?"} MACD_H ${ind.macdHist ?? "?"} ADX ${ind.adx ?? "?"} HV10/30/252 ${(o?.hv10 * 100)?.toFixed(1) ?? "?"}/${(o?.hv30 * 100)?.toFixed(1) ?? "?"}/${(o?.hv252 * 100)?.toFixed(1) ?? "?"} REGIME ${o?.regime ?? "?"} BIAS ${o?.trendBias ?? "?"} SIDE ${o?.side ?? "?"} EXP_MOVE ${o?.expectedMove1sd?.toFixed(0) ?? "?"}. PICK BEST OF 15 (LONG C/P, SPREADS, STRADDLE/STRANGLE, CONDOR, BUTTERFLY, JADE, BACKSPREADS) FOR THIS REGIME. GIVE: 1) TOP PICK + WHY, 2) STRIKES/DTE, 3) GREEKS RISK, 4) ADJUST/STOP. ${NO_INVENT}`
-        : id === "33" && sg
-        ? `STOCK GREEKS ${symbol} PX ${data?.price ?? "?"} BETA60 ${sg.beta60?.toFixed?.(2) ?? "?"} (R2 ${sg.r2?.toFixed?.(2) ?? "?"}) DRIFT20 ${sg.drift20?.toFixed?.(1) ?? "?"}% ACCEL ${sg.accel?.toFixed?.(1) ?? "?"}pp VOLDRAG ${sg.volDragAnn?.toFixed?.(1) ?? "?"}%/yr VOLBETA ${sg.volBeta?.toFixed?.(3) ?? "?"} EXPMOVE_1D ${sg.expMove1dPct?.toFixed?.(2) ?? "?"}% REGIME ${sg.regime ?? "?"}. TASK: HOW IT MOVES (SENSITIVITY + PACE + FEAR RESPONSE) + WHAT NEXT + 2 RISKS + INVALIDATION. ${NO_INVENT}`
         : `SEC ${symbol} PX ${data?.price ?? "?"} RSI ${ind.rsi ?? "?"} MACD_H ${ind.macdHist ?? "?"} ADX ${ind.adx ?? "?"} SHARPE ${risk.sharpe ?? "?"} MAXDD ${risk?.maxDD?.pct ?? "?"}%. TASK: VERDICT + EVIDENCE + 3 RISKS + INVALIDATION. ${NO_INVENT}`;
       const txt = await chatComplete([
         { role: "system", content: isOpt70 ? aiSystem.optionsDesk(code, mod.label) : aiSystem.genericDesk(code, mod.label) },

@@ -86,39 +86,6 @@ export default function DeskOutput({ extra }: { extra: any }) {
     );
   }
 
-  if (extra.stockGreeks) {
-    const g = extra.stockGreeks as Record<string, number | string>;
-    const num = (k: string) => (typeof g[k] === "number" ? (g[k] as number) : NaN);
-    const d20 = num("drift20"), acc = num("accel");
-    const dirCls = (v: number) => (!isFinite(v) ? undefined : v >= 0 ? "pos" : "neg");
-    sections.push(
-      <div key={k++} className="panel">
-        <p className="p-head">Stock Greeks — how it moves · vs {String(g.bench ?? "NIFTY")}</p>
-        <Tbl
-          head={["GREEK", "READING", "WHAT IT SAYS"]}
-          rows={[
-            ["Δ BETA 60D", n2(num("beta60")), `1% Nifty ≈ ${n2(num("beta60"))}% stock · R² ${n2(num("r2"))}`],
-            ["Δ DRIFT 20D", { t: `${d20 >= 0 ? "+" : ""}${n2(d20)}%`, cls: dirCls(d20) }, "trend carry, last 20 sessions"],
-            ["Γ ACCEL", { t: `${acc >= 0 ? "+" : ""}${n2(acc)}pp`, cls: dirCls(acc) }, "pace speeding up (+) or fading (−)"],
-            ["Θ VOL DRAG", `${n2(num("volDragAnn"))}%/yr`, "volatility tax on holding"],
-            ["V VOL-BETA", n3(num("volBeta")), "stock % per 1% VIX spike (neg = sells off on fear)"],
-          ]}
-        />
-        <div style={{ marginTop: 10 }}>
-          <KV k="EXP MOVE 1D" v={`${fmtINR(num("expMove1d"))} (${n2(num("expMove1dPct"))}%)`} />
-          <KV k="EXP MOVE 1W" v={`${fmtINR(num("expMove1w"))} (${n2(num("expMove1wPct"))}%)`} />
-          <KV k="CAPTURE UP / DOWN" v={`${n2(num("upCapture"))}% / ${n2(num("downCapture"))}%`} />
-          <KV k="BETA 120D" v={n2(num("beta120"))} />
-          <KV k="HV 10 / 30 / 252" v={`${fmtPct(num("hv10") * 100, false)} / ${fmtPct(num("hv30") * 100, false)} / ${fmtPct(num("hv252") * 100, false)}`} />
-          <KV k="REGIME" v={String(g.regime ?? "—")} cls={String(g.regime ?? "").includes("EXPAND") ? "neg" : String(g.regime ?? "").includes("COMPRESS") ? "pos" : ""} />
-        </div>
-        <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0 0" }}>
-          Δ = sensitivity · Γ = change in pace · Θ = yearly bleed · V = fear response · FROM 1Y DAILY TAPE VS NIFTY + INDIA VIX.
-        </p>
-      </div>
-    );
-  }
-
   if (extra.options) {
     const o = extra.options;
     const rec = o.recommended ?? {};

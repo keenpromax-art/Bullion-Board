@@ -13,7 +13,7 @@ import { SectorDesk } from "@/components/SectorDesks";
 import { StatementsTerminal } from "@/components/StatementsTerminal";
 import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk, LinkerDesk } from "@/components/FundaDesks";
-import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk } from "@/components/QuantDesks";
+import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk, StockGreeksDesk } from "@/components/QuantDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ANRDesk, CastDesk } from "@/components/CapitalDesks";
@@ -666,13 +666,9 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
   async function askAI() {
     setAiLoading(true); setAiOut("");
     try {
-      const sg = data?.extra?.stockGreeks;
-      const user = id === "33" && sg
-        ? `STOCK GREEKS ${symbol} PX ${data?.price ?? "?"} BETA60 ${sg.beta60?.toFixed?.(2) ?? "?"} (R2 ${sg.r2?.toFixed?.(2) ?? "?"}) DRIFT20 ${sg.drift20?.toFixed?.(1) ?? "?"}% ACCEL ${sg.accel?.toFixed?.(1) ?? "?"}pp VOLDRAG ${sg.volDragAnn?.toFixed?.(1) ?? "?"}%/yr VOLBETA ${sg.volBeta?.toFixed?.(3) ?? "?"} EXPMOVE_1D ${sg.expMove1dPct?.toFixed?.(2) ?? "?"}% REGIME ${sg.regime ?? "?"}. TASK: HOW IT MOVES (SENSITIVITY + PACE + FEAR RESPONSE) + WHAT NEXT + 2 RISKS + INVALIDATION. ${NO_INVENT}`
-        : `SEC ${symbol} PX ${data?.price ?? "?"} CHG% ${liveChg?.toFixed?.(2) ?? "?"} RSI14 ${ind.rsi ?? "?"} MACD_HIST ${ind.macdHist ?? "?"} ADX ${ind.adx ?? "?"} SHARPE ${risk.sharpe ?? "?"} MAXDD% ${risk?.maxDD?.pct ?? "?"}. SIGNAL ${String(data?.extra?.signal ?? "?")}. TASK: VERDICT + EVIDENCE + 3 RISKS + INVALIDATION. ${NO_INVENT}`;
       const txt = await chatComplete([
         { role: "system", content: aiSystem.genericDesk(code, mod?.label ?? code) },
-        { role: "user", content: user },
+        { role: "user", content: `SEC ${symbol} PX ${data?.price ?? "?"} CHG% ${liveChg?.toFixed?.(2) ?? "?"} RSI14 ${ind.rsi ?? "?"} MACD_HIST ${ind.macdHist ?? "?"} ADX ${ind.adx ?? "?"} SHARPE ${risk.sharpe ?? "?"} MAXDD% ${risk?.maxDD?.pct ?? "?"}. SIGNAL ${String(data?.extra?.signal ?? "?")}. TASK: VERDICT + EVIDENCE + 3 RISKS + INVALIDATION. ${NO_INVENT}` },
       ], { apiKey: store.getORKey(), model: store.getORModel() });
       setAiOut(txt);
     } catch (e: any) { setAiOut(`AI ERR: ${e.message}`); }
@@ -774,6 +770,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (id === "24") return <GarchDesk symbol={sym} />;
   if (id === "26") return <VolFrameworkDesk symbol={sym} />;
   if (id === "36") return <AdvGreeksDesk symbol={sym} />;
+  if (id === "33") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><StockGreeksDesk symbol={sym} /></div>;
   if (id === "8") return <DayDesk symbol={sym} />;
   if (id === "27" || id === "48") return <PairDesk symbol={sym} />;
   if (id === "28") return <FactorDesk symbol={sym} />;

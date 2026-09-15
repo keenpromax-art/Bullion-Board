@@ -7,7 +7,7 @@ import {
   pctReturns, roc, rsi, stochastic, stochRsi, velocity, williamsR, zscore, sma, ema,
 } from "@/lib/indicators";
 import { calcBeneish, calcAltmanZ, calcMonteCarloDCF, calcPiotroski, calcReverseDCF } from "@/lib/fundamentals";
-import { blackScholes, historicalVol, recommendStrike, trendBias, volRegime, stockGreeks } from "@/lib/options";
+import { blackScholes, historicalVol, recommendStrike, trendBias, volRegime } from "@/lib/options";
 import { calmar, ewmaVol, maxDrawdown, monteCarloGBM, profitFactor, sharpe, sortino, varCvar, kelly, tradeStats } from "@/lib/risk";
 
 // One analysis endpoint backing every /module/[id] page.
@@ -26,14 +26,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const range = sp.get("range") || "1y";
 
   try {
-    // Desk 33 (Stock Greeks) also needs the Nifty tape + India VIX tape for
-    // beta/capture/vol-beta — fetched only for that desk, fail-open.
-    const wantBench = id === "33";
-    const [bars, quote, benchBars, vixBars] = await Promise.all([
+    const [bars, quote] = await Promise.all([
       fetchHistory(symbol, range, "1d"),
       fetchQuote(symbol).catch(() => null),
-      wantBench ? fetchHistory("^NSEI", range, "1d").catch(() => null) : null,
-      wantBench ? fetchHistory("^INDIAVIX", range, "1d").catch(() => null) : null,
     ]);
     if (bars.length < 30) return NextResponse.json({ error: "Insufficient history", symbol }, { status: 502 });
 
@@ -141,19 +136,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         reverseDcf: calcReverseDCF(price, 1000, 50),
         note: "Live per-company statement fields come from Yahoo fundamentals on the page; these are the exact Python formulas with worked inputs.",
       };
-    }
-    if (id === "33") {
-      // Stock Greeks: how the stock itself moves — beta/drift/accel/drag/
-      // vol-beta vs Nifty + India VIX. No option contracts involved.
-      const g = stockGreeks(bars, benchBars, vixBars);
-      extra.stockGreeks = g;
-      const d20 = g.drift20, acc = g.accel;
-      extra.signal = !isFinite(d20)
-        ? "RANGING"
-        : d20 > 0 && acc > 0 ? "ACCELERATING UP"
-        : d20 > 0 ? "DRIFTING UP"
-        : d20 < 0 && acc < 0 ? "BREAKING DOWN"
-        : "DRIFTING DOWN";
     }
     if (["27", "28", "48"].includes(id)) {
       extra.pairNote = "Pairs/stat-arb needs two symbols — use ?symbolA=&symbolB= on the module page; hedge ratio = OLS slope, half-life from AR(1).";
