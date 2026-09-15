@@ -24,6 +24,7 @@ import OptionsStrategyDesk from "@/components/OptionsStrategyDesk";
 import { CalcDesks } from "@/components/CalcDesks";
 import { SeasonDesks } from "@/components/SeasonDesks";
 import { BookReader } from "@/components/BookDesks";
+import { NbSeasonDesk, NbSmaDesk, NbCorrDesk, NbOptDesk, NbMoversDesk, NbVolDesk, NbSectorDesk, NbIpoDesk, NbTerminalDesk } from "@/components/NotebookDesks";
 import SettingsDesk from "./SettingsDesk";
 import { analyseChain, calcSuggestion, expiryToDays } from "@/lib/ochain";
 
@@ -53,6 +54,8 @@ export const SYMBOL_LESS = new Set([
   "65", "67", "72", "73", "75",
   "101", "102", "104", "107", "108", "109", "110", "111",
   "114", "115", "SET",
+  // Notebook-port universe scans: ticker is meaningless (universe pill inside).
+  "76", "77", "78", "79", "80", "82", "83", "84",
 ]);
 
 function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
@@ -789,6 +792,15 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (id === "20") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><HistoryDesk symbol={sym} /></div>;
   if (id === "12") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><StatementsTerminal symbol={sym} /></div>;
   if (id === "23") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><RollingRiskDesk symbol={sym} /></div>;
+  if (id === "76") return <NbSeasonDesk />;
+  if (id === "77") return <NbSmaDesk />;
+  if (id === "78") return <NbCorrDesk />;
+  if (id === "79") return <NbOptDesk />;
+  if (id === "80") return <NbMoversDesk />;
+  if (id === "81") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><NbVolDesk symbol={sym} /></div>;
+  if (id === "82") return <NbSectorDesk />;
+  if (id === "83") return <NbIpoDesk />;
+  if (id === "84") return <NbTerminalDesk />;
   if (id === "22") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><RiskTerminal symbol={sym} /></div>;
   if (id === "1") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><GenericDeskContent id={id} symbol={sym} /></div>;
 

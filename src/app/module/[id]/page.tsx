@@ -17,6 +17,7 @@ import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk } from "@/components/FundaDesks";
 import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk, StockGreeksDesk } from "@/components/QuantDesks";
 import { BookReader } from "@/components/BookDesks";
+import { NbSeasonDesk, NbSmaDesk, NbCorrDesk, NbOptDesk, NbMoversDesk, NbVolDesk, NbSectorDesk, NbIpoDesk, NbTerminalDesk } from "@/components/NotebookDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
@@ -581,6 +582,29 @@ function Inner({ id }: { id: string }) {
           <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>{mod.label.toUpperCase()} · {mod.pyFn} · 12-POINT RISK TERMINAL</div>
         </div>
         <RiskTerminal symbol={symbol} />
+      </Shell>
+    );
+  }
+
+  // Notebook ports 76-84 — same components as workspace panels (no fork).
+  if (["76", "77", "78", "79", "80", "81", "82", "83", "84"].includes(id)) {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <div className="panel panel-glow">
+          <div className="sec-head">
+            <span className="sec-name">{id === "81" ? symbol.replace(".NS", "") : mod.label.toUpperCase()}<span className="suffix"> {id === "81" ? "<EQUITY>" : ""} {code} &lt;GO&gt;</span></span>
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>{mod.label.toUpperCase()} · {mod.pyFn} · NOTEBOOK PORT · LIVE YAHOO TAPE</div>
+        </div>
+        {id === "76" && <NbSeasonDesk />}
+        {id === "77" && <NbSmaDesk />}
+        {id === "78" && <NbCorrDesk />}
+        {id === "79" && <NbOptDesk />}
+        {id === "80" && <NbMoversDesk />}
+        {id === "81" && <NbVolDesk symbol={symbol} />}
+        {id === "82" && <NbSectorDesk />}
+        {id === "83" && <NbIpoDesk />}
+        {id === "84" && <NbTerminalDesk />}
       </Shell>
     );
   }

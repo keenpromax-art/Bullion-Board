@@ -85,6 +85,15 @@ export const MODULES: ModuleInfo[] = [
   m("72", "run_editorials_reader", "Editorials", "News", "Opinion and editorial pages from major outlets, inline reader + AI brief."),
   m("73", "run_prediction_market_oracle", "Prediction Market Oracle", "Market", "Polymarket live markets, edge/Kelly/EV, sentiment, portfolio review, AI chat."),
   m("75", "run_drawdown_scanner", "Drawdown Scanner", "Screener", "52-week dip scan with RSI, breadth, sortable universe."),
+  m("76", "run_nb_seasonality", "Seasonality Scanner (NB)", "Screener", "Notebook port: next-month win-rate/avg/sharpe ranked over 10Y monthly tape (209 F&O or full NSE)."),
+  m("77", "run_nb_sma_cross", "SMA Crossover Screener (NB)", "Screener", "Notebook port: 50/200 SMA at/post/approaching cross with 2% proximity rule."),
+  m("78", "run_nb_correlation", "Correlation Scanner (NB)", "Statistical", "Notebook port: all-pairs negative Pearson filter + single-target inverse top-3."),
+  m("79", "run_nb_safety_first", "Safety-First Optimizer (NB)", "Portfolio", "Notebook port: 4-factor rank to top-25, 10-stock bounded max-Sharpe with monetary legs."),
+  m("80", "run_nb_movers", "Movers Rank (NB)", "Screener", "Notebook port: top/bottom 10 (1D) + top/bottom 5 (1W/1M) over F&O or full NSE."),
+  m("81", "run_nb_vol_range", "Volatility Range Dashboard (NB)", "Risk", "Notebook port: single-ticker daily/weekly/monthly projected low-high from avg swings."),
+  m("82", "run_nb_sector", "Sector Scanner (NB)", "Market", "Notebook port: 208-ticker 19-sector map, 1D/1W/1M means, board + leaders."),
+  m("83", "run_nb_ipo", "IPO Listings (NB)", "Screener", "Notebook port: screener.in upcoming/recent/below-price boards via server proxy."),
+  m("84", "run_nb_terminal", "NSE Intelligence Terminal (NB)", "Market", "Notebook port: 209-ticker 28-metric board — momentum, HV straddle proxy, seasonality, breadth."),
 ];
 
 function t(id: string, code: string, label: string, description: string, route: string): ModuleInfo {
