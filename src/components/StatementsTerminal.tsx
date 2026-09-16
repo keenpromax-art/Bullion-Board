@@ -91,7 +91,12 @@ function LTable({ periods, rows, moneyFmt, heat, sub }: {
         <thead><tr><th style={{ textAlign: "left" }}>LINE</th>{periods.map((p) => <th key={p} style={{ textAlign: "right" }}>{p}</th>)}<th style={{ textAlign: "right", color: "var(--amber)" }}>YOY %</th></tr></thead>
         <tbody>
           {rows.map((r) => {
-            const y = yoyPct(r.values, r.values.length - 1);
+            // Find last two non-null indices for correct YoY
+            let li = -1, pi = -1;
+            for (let k = r.values.length - 1; k >= 0; k--) {
+              if (r.values[k] !== null) { if (li === -1) li = k; else { pi = k; break; } }
+            }
+            const y = li >= 0 && pi >= 0 ? yoyPct(r.values, li) : null;
             const bg = heat && y !== null
               ? y >= 0 ? `rgba(0,214,100,${Math.min(0.22, Math.abs(y) / 100)})` : `rgba(255,69,58,${Math.min(0.22, Math.abs(y) / 100)})`
               : undefined;
@@ -127,6 +132,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
   const [pctMode, setPctMode] = useState(false);
   const [ccy, setCcy] = useState<"INR" | "USD">("INR");
   const [heat, setHeat] = useState(false);
+  const [stmtFilter, setStmtFilter] = useState<"all" | "is" | "bs" | "cf">("all");
   const [est, setEst] = useState<any>(null);
   const [evts, setEvts] = useState<any>(null);
   const [fx, setFx] = useState<number | null>(null);
@@ -312,6 +318,12 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
           <button className={`pill${ccy === "INR" ? " active" : ""}`} onClick={() => setCcy("INR")}>₹ CR</button>
           <button className={`pill${ccy === "USD" ? " active" : ""}`} onClick={() => setCcy("USD")}>USD</button>
           <button className={`pill${heat ? " active" : ""}`} onClick={() => setHeat(!heat)}>HEATMAP</button>
+          <span style={{ borderLeft: "1px solid var(--grid)", margin: "0 4px" }} />
+          {(["all", "is", "bs", "cf"] as const).map((f) => (
+            <button key={f} className={`pill${stmtFilter === f ? " active" : ""}`} onClick={() => setStmtFilter(f)}>
+              {f === "all" ? "ALL" : f === "is" ? "INCOME STMT" : f === "bs" ? "BALANCE SHEET" : "CASH FLOW"}
+            </button>
+          ))}
           <button className="ghost" onClick={exportCSV}>EXPORT CSV</button>
         </div>
         <div className="pills" style={{ marginTop: 8 }}>
@@ -323,23 +335,29 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
       </div>
 
       <div id="t-ledger">
-        <Sec id="t-is" no="§1" title={`Income statement — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
-          {basisTbl.pl ? <LTable periods={P} rows={synthesize(basisTbl.pl.rows, pctDenIS)} moneyFmt={moneyOrPct} heat={heat} /> : <p className="muted">NO SERIES FOR THIS BASIS.</p>}
-        </Sec>
-        <div className="grid grid-2" style={{ marginTop: 10 }}>
-          <Sec id="t-bs-a" no="§2" title={`BS assets — ${unit}${pctMode ? " · % OF ASSETS" : ""}`} src="yahoo timeseries">
-            {st.bs ? <LTable periods={st.pl?.periods ?? []} rows={synthesize(matchRows(st.bs, /assets|inventory|receiv|cash|ppe|goodwill|intangible|invest|prepaid|deferred/i).slice(0, 40), pctDenBS)} moneyFmt={moneyOrPct} heat={heat} /> : <p className="muted">NO SERIES.</p>}
+        {(stmtFilter === "all" || stmtFilter === "is") && (
+          <Sec id="t-is" no="§1" title={`Income statement — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
+            {basisTbl.pl ? <LTable periods={P} rows={synthesize(basisTbl.pl.rows, pctDenIS)} moneyFmt={moneyOrPct} heat={heat} /> : <p className="muted">NO SERIES FOR THIS BASIS.</p>}
           </Sec>
-          <Sec id="t-bs-l" no="§3" title={`BS liabilities & equity — ${unit}`} src="yahoo timeseries">
-            {st.bs ? <LTable periods={st.pl?.periods ?? []} rows={matchRows(st.bs, /liabilit|debt|equity|payable|provision|deferred|capital|shares|retained|minority|treasury/i).slice(0, 40)} moneyFmt={mf} heat={heat} /> : <p className="muted">NO SERIES.</p>}
-          </Sec>
-        </div>
-        <div style={{ marginTop: 10 }}>
-          <Sec id="t-cf" no="§4" title={`Cash flow — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
-            {basisTbl.cf ? <LTable periods={P} rows={synthesize(basisTbl.cf.rows, pctDenIS)} moneyFmt={moneyOrPct} heat={heat} /> : <p className="muted">NO SERIES FOR THIS BASIS.</p>}
-            {basisTbl.bsNote && <p className="faint" style={{ fontSize: 11 }}>{basisTbl.bsNote}</p>}
-          </Sec>
-        </div>
+        )}
+        {(stmtFilter === "all" || stmtFilter === "bs") && (
+          <div className="grid grid-2" style={{ marginTop: 10 }}>
+            <Sec id="t-bs-a" no="§2" title={`BS assets — ${unit}${pctMode ? " · % OF ASSETS" : ""}`} src="yahoo timeseries">
+              {st.bs ? <LTable periods={st.pl?.periods ?? []} rows={synthesize(matchRows(st.bs, /assets|inventory|receiv|cash|ppe|goodwill|intangible|invest|prepaid|deferred/i).slice(0, 40), pctDenBS)} moneyFmt={moneyOrPct} heat={heat} /> : <p className="muted">NO SERIES.</p>}
+            </Sec>
+            <Sec id="t-bs-l" no="§3" title={`BS liabilities & equity — ${unit}`} src="yahoo timeseries">
+              {st.bs ? <LTable periods={st.pl?.periods ?? []} rows={matchRows(st.bs, /liabilit|debt|equity|payable|provision|deferred|capital|shares|retained|minority|treasury/i).slice(0, 40)} moneyFmt={mf} heat={heat} /> : <p className="muted">NO SERIES.</p>}
+            </Sec>
+          </div>
+        )}
+        {(stmtFilter === "all" || stmtFilter === "cf") && (
+          <div style={{ marginTop: 10 }}>
+            <Sec id="t-cf" no="§4" title={`Cash flow — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
+              {basisTbl.cf ? <LTable periods={P} rows={synthesize(basisTbl.cf.rows, pctDenIS)} moneyFmt={moneyOrPct} heat={heat} /> : <p className="muted">NO SERIES FOR THIS BASIS.</p>}
+              {basisTbl.bsNote && <p className="faint" style={{ fontSize: 11 }}>{basisTbl.bsNote}</p>}
+            </Sec>
+          </div>
+        )}
       </div>
 
       <div id="t-growth">
