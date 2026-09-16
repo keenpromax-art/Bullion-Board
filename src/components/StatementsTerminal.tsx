@@ -350,11 +350,27 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
             </Sec>
           </div>
         )}
-        {(stmtFilter === "all" || stmtFilter === "cf") && (
+        {(stmtFilter === "all" || stmtFilter === "cf") && basisTbl.cf && (
           <div style={{ marginTop: 10 }}>
-            <Sec id="t-cf" no="§4" title={`Cash flow — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
-              {basisTbl.cf ? <LTable periods={P} rows={synthesize(basisTbl.cf.rows, pctDenIS)} moneyFmt={moneyOrPct} heat={heat} /> : <p className="muted">NO SERIES FOR THIS BASIS.</p>}
-              {basisTbl.bsNote && <p className="faint" style={{ fontSize: 11 }}>{basisTbl.bsNote}</p>}
+            <Sec id="t-cf" no="§4a" title={`Cash flow from operations — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
+              <LTable periods={P} rows={synthesize(matchRows(basisTbl.cf, /operating cash flow|cash flow from continuing operating|depreciation|amortization|depletion|deferred tax|deferred income tax|stock based comp|excess tax benefit|other non cash|provision|impairment|asset impairment|operating gains|pension|equity invest|gain loss on (invest|securit)|unrealized gain|foreign currency|gain loss on sale of ppe|gain loss on sale of business|net income from continuing|taxes refund paid|interest received cfo|interest paid cfo|dividend received cfo|dividend paid cfo|change in working|change in other|change in payable|change in accrued|change in interest|change in dividend|change in income tax|change in prepaid|change in inventory|change in receivable|changes in account|cash flowsfromusedin operating|taxesrefundpaiddirect|interestreceiveddirect|interestpaiddirect|dividendsreceiveddirect|dividendspaiddirect|classesof cash|othercashpaymentsfrom|paymentsonbehalfof|paymentstosuppliers|classesofcashreceipts|othercashreceiptsfrom|receiptsfrom/i).slice(0, 40), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
+            </Sec>
+            <Sec id="t-cf-i" no="§4b" title={`Cash flow from investing — ${unit}`} src="yahoo timeseries" >
+              <LTable periods={P} rows={synthesize(matchRows(basisTbl.cf, /investing cash flow|cash flow from continuing investing|net other investing|interest received cfi|dividends received cfi|capital expenditure|net ppe purchase|purchase of ppe|sale of ppe|net investment purchase|purchase of investment|sale of investment|net investment properties|purchase of investment properties|sale of investment properties|net business purchase|purchase of business|sale of business|net intangibles purchase|purchase of intangibles|sale of intangibles/i).slice(0, 30), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
+            </Sec>
+            <Sec id="t-cf-f" no="§4c" title={`Cash flow from financing — ${unit}`} src="yahoo timeseries" >
+              <LTable periods={P} rows={synthesize(matchRows(basisTbl.cf, /financing cash flow|cash flow from continuing financing|net other financing|interest paid cff|proceeds from stock option|repurchase of capital stock|issuance of capital stock|net common stock|common stock issuance|common stock payments|net preferred stock|preferred stock issuance|preferred stock payments|cash dividends paid|common stock dividend|preferred stock dividend|repayment of debt|issuance of debt|net issuance payments of debt|net short term debt|short term debt issuance|short term debt payments|net long term debt|long term debt issuance|long term debt payments/i).slice(0, 30), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
+            </Sec>
+            <Sec id="t-cf-s" no="§4d" title="Supplemental & reconciliation" src="yahoo timeseries" >
+              <LTable periods={P} rows={matchRows(basisTbl.cf, /free cash flow|end cash position|beginning cash position|changes in cash|effect of exchange|other cash adjustment|cash flow from discontinued|interest paid supplemental|income tax paid supplemental|foreign sales|domestic sales|adjusted geography/i).slice(0, 15)} moneyFmt={mf} heat={false} />
+            </Sec>
+            {basisTbl.bsNote && <p className="faint" style={{ fontSize: 11 }}>{basisTbl.bsNote}</p>}
+          </div>
+        )}
+        {(stmtFilter === "all" || stmtFilter === "cf") && !basisTbl.cf && (
+          <div style={{ marginTop: 10 }}>
+            <Sec id="t-cf" no="§4" title={`Cash flow — ${unit}`} src="yahoo timeseries">
+              <p className="muted">NO SERIES FOR THIS BASIS.</p>
             </Sec>
           </div>
         )}
