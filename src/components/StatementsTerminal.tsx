@@ -335,9 +335,31 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
       </div>
 
       <div id="t-ledger">
-        {(stmtFilter === "all" || stmtFilter === "is") && (
-          <Sec id="t-is" no="§1" title={`Income statement — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
-            {basisTbl.pl ? <LTable periods={P} rows={synthesize(basisTbl.pl.rows, pctDenIS)} moneyFmt={moneyOrPct} heat={heat} /> : <p className="muted">NO SERIES FOR THIS BASIS.</p>}
+        {(stmtFilter === "all" || stmtFilter === "is") && basisTbl.pl && (
+          <div>
+            <Sec id="t-is" no="§1a" title={`Revenue & COGS — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
+              <LTable periods={basisTbl.pl.periods} rows={synthesize(matchRows(basisTbl.pl, /operating revenue|total revenue|excise|cost of revenue|reconciled cost|gross profit/i).slice(0, 15), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
+            </Sec>
+            <div style={{ marginTop: 10 }}>
+              <Sec id="t-is-opex" no="§1b" title={`Operating expenses — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
+                <LTable periods={basisTbl.pl.periods} rows={synthesize(matchRows(basisTbl.pl, /operating expense|selling general|selling and market|general and admin|other g&a|research and development|other operating|salaries|professional|insurance|rent|occupancy|provision for doubtful|depreciation(?!.*balance)|amortization(?!.*balance)|depletion(?!.*balance)|reconciled depreciation/i).slice(0, 25), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
+              </Sec>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <Sec id="t-is-nonop" no="§1c" title="Non-operating & special items" src="yahoo timeseries">
+                <LTable periods={basisTbl.pl.periods} rows={matchRows(basisTbl.pl, /operating income|ebit(?!da)|net interest|interest expense|interest income|other income|other non operating|special income|gain on sale|write off|impairment|restructuring|securities amortization|earnings from equity|net non operating|total other finance|other taxes/i).slice(0, 25)} moneyFmt={mf} heat={false} />
+              </Sec>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <Sec id="t-is-bottom" no="§1d" title="Tax, net income & EPS" src="yahoo timeseries">
+                <LTable periods={basisTbl.pl.periods} rows={matchRows(basisTbl.pl, /pretax|tax provision|net income(?! from)|minority|preferred stock div|basic eps|diluted eps|basic average|diluted average|dividend per share|normalized/i).slice(0, 20)} moneyFmt={mf} heat={false} />
+              </Sec>
+            </div>
+          </div>
+        )}
+        {(stmtFilter === "all" || stmtFilter === "is") && !basisTbl.pl && (
+          <Sec id="t-is" no="§1" title={`Income statement — ${unit}`} src="yahoo timeseries">
+            <p className="muted">NO SERIES FOR THIS BASIS.</p>
           </Sec>
         )}
         {(stmtFilter === "all" || stmtFilter === "bs") && (
