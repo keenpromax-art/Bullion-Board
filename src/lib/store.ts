@@ -23,6 +23,7 @@ const K = {
   orModel: "iss.openrouter.model",
   fredKey: "iss.fred.key",
   macroExtra: "iss.macro.extra",
+  explainerModel: "iss.explainer.model",
 };
 
 function read<T>(key: string, fallback: T): T {
@@ -134,5 +135,11 @@ export const store = {
   },
   setMacroExtra(ids: string[]): void {
     write(K.macroExtra, ids);
+  },
+  getExplainerModel(fallback = "nvidia/nemotron-3-super-120b-a12b:free"): string {
+    return read<string>(K.explainerModel, fallback);
+  },
+  setExplainerModel(m: string): void {
+    write(K.explainerModel, m);
   },
 };

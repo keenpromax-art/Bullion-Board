@@ -14,6 +14,8 @@ export default function SettingsPage() {
   const [fkey, setFkey] = useState("");
   const [fsaved, setFsaved] = useState("");
   const [fserver, setFserver] = useState<{ hasServerKey: boolean } | null>(null);
+  const [explainerModel, setExplainerModel] = useState("nvidia/nemotron-3-super-120b-a12b:free");
+  const [esaved, setEsaved] = useState("");
   const [withKeys, setWithKeys] = useState(true);
   const [bmsg, setBmsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -24,6 +26,7 @@ export default function SettingsPage() {
     fetch("/api/ai/status").then((r) => r.json()).then(setServer).catch(() => {});
     setFkey(store.getFredKey());
     fetch("/api/macro/key").then((r) => r.json()).then(setFserver).catch(() => {});
+    setExplainerModel(store.getExplainerModel());
   }, []);
 
   return (
@@ -109,6 +112,23 @@ export default function SettingsPage() {
               <button className="btn" onClick={() => { store.setFredKey(fkey); setFsaved("SAVED ✓"); }}>SAVE OVERRIDE</button>
               <button className="ghost" onClick={() => { store.setFredKey(""); setFkey(""); setFsaved("CLEARED — SERVER DEFAULT ACTIVE"); }}>USE SERVER DEFAULT</button>
               <span className="pos">{fsaved}</span>
+            </div>
+          </div>
+        </div>
+        <div className="panel">
+          <p className="p-head">Line-item explainer — AI model for statement tooltips</p>
+          <p className="muted" style={{ fontSize: 12.5 }}>
+            WHEN YOU CLICK A LINE ITEM IN THE FINANCIAL STATEMENTS, AN AI EXPLAINS WHAT IT MEANS.
+            SET THE MODEL BELOW. FREE TIER MODELS HAVE NO COST.
+          </p>
+          <div className="grid" style={{ marginTop: 10 }}>
+            <label style={{ display: "grid", gap: 6, fontSize: 12, color: "var(--sub)" }}>EXPLAINER MODEL
+              <input className="box" value={explainerModel} onChange={(e) => setExplainerModel(e.target.value)} />
+            </label>
+            <div className="toolbar">
+              <button className="btn" onClick={() => { store.setExplainerModel(explainerModel); setEsaved("SAVED ✓"); }}>SAVE</button>
+              <button className="ghost" onClick={() => { const d = "nvidia/nemotron-3-super-120b-a12b:free"; store.setExplainerModel(d); setExplainerModel(d); setEsaved("RESET TO DEFAULT"); }}>RESET</button>
+              <span className="pos">{esaved}</span>
             </div>
           </div>
         </div>

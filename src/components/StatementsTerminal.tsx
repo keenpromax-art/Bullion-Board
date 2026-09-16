@@ -11,6 +11,7 @@ import type { STable } from "./FundaDesks";
 import { LineChart, GroupedBars, BarChart, Donut, HBars } from "./charts";
 import { sectorOf, SECTORS } from "@/lib/sectors";
 import { chatComplete } from "@/lib/ai";
+import { store } from "@/lib/store";
 
 type Num = number | null;
 type Row = { label: string; values: Num[] };
@@ -328,7 +329,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
       const txt = await chatComplete([
         { role: "system", content: "You are a finance tutor explaining Indian equity financial statements. Be concise (2-4 sentences max). Explain what the line item means, why it matters, and any India-specific context. Use uppercase." },
         { role: "user", content: `Explain this financial line item: "${label}"` },
-      ]);
+      ], { model: store.getExplainerModel() });
       setExplText(txt);
     } catch {
       setExplText("COULD NOT LOAD EXPLANATION.");
