@@ -125,8 +125,15 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
     }
 
     function onClick(e: MouseEvent) {
+      const trigger = store.getExplainTrigger();
+      if (trigger === "off") return;
       const hit = findExplainable(e.target as HTMLElement);
       if (!hit || !hit.label) return;
+      // In "click" mode, only fire when EXPLAIN MODE is on
+      // In "hover+click" mode, always fire
+      const modeEl = document.querySelector("[data-explain-mode]");
+      const modeOn = modeEl?.getAttribute("data-explain-mode") === "on";
+      if (trigger === "click" && !modeOn) return;
       const { label, ctx } = hit;
       const rect = hit.el.getBoundingClientRect();
       e.preventDefault();
@@ -388,6 +395,8 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
   return (
     <ExplainCtx.Provider value={api}>
       {children}
+      {/* Hidden marker for delegated listener to detect mode state */}
+      <div data-explain-mode={state.mode ? "on" : "off"} style={{ display: "none" }} />
       {/* EXPLAIN MODE overlay indicator */}
       {state.mode && typeof document !== "undefined" && createPortal(
         <>

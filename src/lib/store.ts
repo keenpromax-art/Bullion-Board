@@ -234,7 +234,7 @@ export const store = {
     return readExplainCache().size;
   },
   getExplainTrigger(): "hover+click" | "click" | "off" {
-    return read<"hover+click" | "click" | "off">(K.explainTrigger, "hover+click");
+    return read<"hover+click" | "click" | "off">(K.explainTrigger, "click");
   },
   setExplainTrigger(v: "hover+click" | "click" | "off"): void {
     write(K.explainTrigger, v);
