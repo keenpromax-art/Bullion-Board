@@ -229,13 +229,11 @@ export async function getNews(symbol: string, feed: NewsFeed, customQ?: string):
     jobs.push(fetchYahooNews(symbol));
     jobs.push(fetchGoogleRSS(`${base} share price`));
   } else if (feed === "wire") {
-    jobs.push(fetchYahooNews(symbol));
-    // Symbol-specific Google keeps <NARROW> working (e.g. SMFG): without
-    // this the wire is only Nifty-market news, so filtering by ticker
-    // always yields 0 ("WIRE QUIET") while the rail shows unfiltered tops.
-    if (base && base.length >= 2) jobs.push(fetchGoogleRSS(`${base} stock`));
-    jobs.push(fetchGoogleRSS("Nifty Sensex stock market today"));
+    // General market wire — NO company-specific feeds. Pure market news.
+    jobs.push(fetchGoogleRSS("Nifty Sensex stock market today India"));
     jobs.push(fetchYahooNews("Nifty"));
+    jobs.push(fetchGoogleRSS("BSE NSE market news today"));
+    jobs.push(fetchYahooNews("Sensex"));
   } else if (feed === "finshots") {
     // Finshots-first: publisher RSS + site-restricted search. No generic
     // Yahoo company wire (that is what made it look like "news, not Finshots").

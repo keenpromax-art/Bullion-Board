@@ -250,12 +250,12 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 .top-src { color: var(--faint); font-size: 11px; min-width: 64px; }
 .top-time { color: var(--sub); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
 .unread { width: 8px; height: 8px; min-width: 8px; background: #4da3ff; border-radius: 1px; align-self: center; box-shadow: 0 0 6px rgba(77, 163, 255, 0.8); }
-.top-rail { border-left: 1px solid var(--grid); padding: 10px 14px; display: grid; gap: 14px; align-content: start; background: #050506; }
-.rail-head { color: var(--amber); font-size: 15px; font-weight: 700; margin: 0 0 4px 0; }
-.rail-sub { color: var(--link); font-size: 12.5px; margin: 0 0 8px 0; }
-.rail-link { font-size: 12.5px; margin-bottom: 7px; line-height: 1.45; }
+.top-rail { border-left: 1px solid var(--grid); padding: 8px 12px; display: grid; gap: 8px; align-content: start; background: #050506; }
+.rail-head { color: var(--amber); font-size: 13px; font-weight: 700; margin: 0 0 3px 0; }
+.rail-sub { color: var(--link); font-size: 11px; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+.rail-link { font-size: 11.5px; margin-bottom: 5px; line-height: 1.35; }
 .rail-link > a { color: var(--amber); }
-.rail-first { font-size: 12.5px; margin-bottom: 8px; line-height: 1.5; }
+.rail-first { font-size: 11.5px; margin-bottom: 5px; line-height: 1.4; }
 .top-tape { border-top: 1px solid var(--grid); background: #000; overflow: hidden; white-space: nowrap; padding: 7px 0; }
 .tape-inner { display: inline-block; animation: tape-scroll 60s linear infinite; }
 .top-tape:hover .tape-inner { animation-play-state: paused; }

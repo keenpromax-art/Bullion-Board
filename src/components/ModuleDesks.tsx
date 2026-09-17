@@ -383,8 +383,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
         <div className="top-rail">
           <div className="rail-panel">
             <div className="rail-head">Top News</div>
-            <div className="rail-sub">Insight | <span className="top-more" onClick={() => setShown((s) => s + 15)}>More »</span></div>
-            {(showingTop ? topItems : items).slice(0, 5).map((n) => (
+            {(showingTop ? topItems : items).slice(0, 3).map((n) => (
               <div key={n.id} className="rail-link">
                 &gt; {n.link
                   ? <span role="link" tabIndex={0} style={{ cursor: "pointer" }} onClick={() => openArticle(n)}
@@ -395,8 +394,8 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
             {data && listItems.length === 0 && <p className="muted" style={{ fontSize: 12 }}>— NO MATCH —</p>}
           </div>
           <div className="rail-panel">
-            <div className="rail-sub">First Word | <span className="top-more" onClick={() => setShown((s) => s + 15)}>More »</span></div>
-            {items.slice(0, 3).map((n) => (
+            <div className="rail-sub">First Word</div>
+            {items.slice(0, 2).map((n) => (
               <div key={n.id} className="rail-first" style={n.link ? { cursor: "pointer" } : undefined}
                 onClick={() => { if (n.link) openArticle(n); }}>
                 <span className="sec">{n.title}</span>
@@ -406,8 +405,8 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
           </div>
           <div className="rail-panel">
             <div className="rail-sub">AI Brief</div>
-            <button className="btn" style={{ padding: "7px 14px", fontSize: 12 }} onClick={brief} disabled={aiLoading || !data}>RUN</button>
-            {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
+            <button className="btn" style={{ padding: "5px 12px", fontSize: 11 }} onClick={brief} disabled={aiLoading || !data}>{aiLoading ? "RUNNING…" : "RUN"}</button>
+            {aiOut && <pre className="ai" style={{ marginTop: 6, fontSize: 11 }}>{aiOut}</pre>}
           </div>
         </div>
       </div>
