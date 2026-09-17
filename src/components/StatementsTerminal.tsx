@@ -10,6 +10,8 @@ import { useStatements, useCompany, RatiosTables } from "./FundaDesks";
 import type { STable } from "./FundaDesks";
 import { LineChart, GroupedBars, BarChart, Donut, HBars } from "./charts";
 import { sectorOf, SECTORS } from "@/lib/sectors";
+import { streamChat, aiSystem } from "@/lib/ai";
+import { store } from "@/lib/store";
 
 type Num = number | null;
 type Row = { label: string; values: Num[] };
@@ -143,6 +145,8 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
   const [bench, setBench] = useState<any[]>([]);
   const [peers, setPeers] = useState<any[] | null>(null);
   const [peersLoading, setPeersLoading] = useState(false);
+  const [aiSummary, setAiSummary] = useState("");
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -209,6 +213,63 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
     a.download = `${st.symbol}-statements.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
+  };
+
+  const generateAISummary = async () => {
+    if (!st || aiSummaryLoading) return;
+    setAiSummaryLoading(true);
+    setAiSummary("");
+
+    // Build data snapshot for the prompt
+    const snap: string[] = [];
+    snap.push(`SYMBOL: ${st.symbol}`);
+    snap.push(`PERIODS: ${(st.pl?.periods ?? st.bs?.periods ?? []).join(", ")}`);
+
+    const dump = (name: string, t: STable | null, maxRows = 25) => {
+      if (!t) return;
+      const lines = t.rows.slice(0, maxRows).map((r) => {
+        const vals = r.values.map((v) => v === null ? "—" : v.toLocaleString("en-IN")).join(", ");
+        return `  ${r.label}: ${vals}`;
+      });
+      snap.push(`\n${name} (₹ Cr):`);
+      snap.push(lines.join("\n"));
+    };
+
+    dump("INCOME STATEMENT", st.pl);
+    dump("BALANCE SHEET ASSETS", st.bs);
+    dump("BALANCE SHEET LIABILITIES", st.bs);
+    dump("CASH FLOW", st.cf);
+    if (st.rat) {
+      const ratLines = st.rat.rows.slice(0, 30).map((r) => {
+        const vals = r.values.map((v) => v === null ? "—" : v.toLocaleString("en-IN")).join(", ");
+        return `  ${r.label}: ${vals}`;
+      });
+      snap.push(`\nRATIOS:`);
+      snap.push(ratLines.join("\n"));
+    }
+
+    const dataStr = snap.join("\n");
+    const periodCount = (st.pl?.periods ?? []).length;
+
+    const msgs = [
+      { role: "system" as const, content: `${aiSystem.explainTerm}\n\nYou are an equity research analyst summarising a company's financial statements. Be concise and structured. Use UPPERCASE for headers and verdict lines, sentence case for body. Focus on trends, inflections, and risks. Reference specific numbers. End with a 2-3 line investment verdict. Output 6-10 short sections.` },
+      { role: "user" as const, content: `Summarise this company's financials across ${periodCount} periods. Key sections: REVENUE & MARGIN TREND, PROFITABILITY, BALANCE SHEET HEALTH, CASH FLOW QUALITY, WORKING CAPITAL, CAPITAL ALLOCATION, KEY RATIOS, RED FLAGS, VERDICT.\n\nDATA:\n${dataStr}` },
+    ];
+
+    let full = "";
+    const ctrl = new AbortController();
+    try {
+      await streamChat(msgs, {
+        model: store.getExplainerModel(),
+        apiKey: store.getORKey(),
+        signal: ctrl.signal,
+        onToken: (t) => { full += t; setAiSummary(full); },
+      });
+    } catch {
+      setAiSummary(full || "AI OFFLINE — TRY AGAIN.");
+    } finally {
+      setAiSummaryLoading(false);
+    }
   };
 
   if (loading) return <div className="panel"><p className="muted">BUILDING STATEMENTS TERMINAL FOR {symbol}…</p></div>;
@@ -335,6 +396,48 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
               onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })}>{l}</button>
           ))}
         </div>
+      </div>
+
+      {/* AI SUMMARY PANEL */}
+      <div className="panel panel-glow">
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <p className="p-head" style={{ flex: 1, margin: 0 }}>§0 · AI SUMMARY — {symbol}</p>
+          <button
+            className={`pill${aiSummaryLoading ? " active" : ""}`}
+            onClick={generateAISummary}
+            disabled={aiSummaryLoading}
+            style={{ fontSize: 10.5 }}
+          >
+            {aiSummaryLoading ? "STREAMING…" : aiSummary ? "REGENERATE" : "GENERATE SUMMARY"}
+          </button>
+        </div>
+        {aiSummary ? (
+          <div style={{
+            marginTop: 8, fontSize: 12, lineHeight: 1.6, color: "#f5f5f4",
+            textTransform: "none", whiteSpace: "pre-wrap", maxHeight: 520, overflowY: "auto",
+          }}>
+            {aiSummary.split("\n").map((line, i) => {
+              const isHeader = /^[A-Z][A-Z &/—:-]{4,}/.test(line) && line.length < 80;
+              return isHeader ? (
+                <div key={i} style={{
+                  fontSize: 10.5, fontWeight: 700, color: "#ffa028",
+                  textTransform: "uppercase", letterSpacing: "0.08em",
+                  marginTop: i > 0 ? 8 : 0, marginBottom: 2,
+                  borderBottom: "1px solid rgba(255,160,40,0.2)", paddingBottom: 2,
+                }}>{line}</div>
+              ) : (
+                <div key={i}>{line}</div>
+              );
+            })}
+            {aiSummaryLoading && (
+              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#ffa028", marginLeft: 2, verticalAlign: "middle" }} />
+            )}
+          </div>
+        ) : !aiSummaryLoading ? (
+          <p className="muted" style={{ fontSize: 11, margin: "6px 0 0" }}>
+            CLICK TO GENERATE A STREAMED AI SUMMARY OF INCOME STATEMENT, BALANCE SHEET, CASH FLOW, AND KEY RATIOS.
+          </p>
+        ) : null}
       </div>
 
       <div id="t-ledger">
