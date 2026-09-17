@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { store } from "@/lib/store";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import { HBars } from "@/components/charts";
 
@@ -39,6 +40,8 @@ export default function CorrPage() {
   const [data, setData] = useState<CorrData | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOut, setAiOut] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -102,6 +105,22 @@ export default function CorrPage() {
     if (hotKey(a, b) || coldKey(a, b)) style.outline = "1px solid var(--amber)";
     return style;
   }
+
+  const askAI = async () => {
+    if (!data || !stats) return;
+    const topPairs = stats.desc.slice(0, 5).map((p) => `${short(p.a)}×${short(p.b)}=${p.v.toFixed(2)}`).join(", ");
+    const loosest = stats.asc.slice(0, 3).map((p) => `${short(p.a)}×${short(p.b)}=${p.v.toFixed(2)}`).join(", ");
+    const summary = `N=${data.n} SECS=${data.labels.length} MEAN_CORR=${stats.mean.toFixed(2)} TIGHTEST=${topPairs} LOOSEST=${loosest} BEST_DIV=${stats.bestDiv ? short(stats.bestDiv.sym) + "=" + stats.bestDiv.avg.toFixed(2) : "—"} MOST_LINKED=${stats.mostLinked ? short(stats.mostLinked.sym) + "=" + stats.mostLinked.avg.toFixed(2) : "—"}`;
+    setAiLoading(true); setAiOut("");
+    try {
+      const r = await chatComplete([
+        { role: "system", content: aiSystem.correlation() },
+        { role: "user", content: `${NO_INVENT}\n\n${summary}` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(r);
+    } catch { setAiOut("AI UNAVAILABLE."); }
+    setAiLoading(false);
+  };
 
   return (
     <>
@@ -213,6 +232,12 @@ export default function CorrPage() {
               }))} />
             </div>
           </div>
+        )}
+        {aiOut && (
+          <div className="panel"><p className="p-head">AI analyst</p><p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{aiOut}</p></div>
+        )}
+        {data && !aiOut && (
+          <div className="panel"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "ANALYSING…" : "RUN AI"}</button></div>
         )}
       </main>
       <StatusBar extra={`CORR${data ? ` · ${data.labels.length} SEC · N=${data.n}` : ""}`} />

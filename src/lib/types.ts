@@ -1,5 +1,4 @@
 // Central shared types — mirrors the dataclasses / dict shapes in special.py
-// (IndicatorSnapshot, DivergenceSignal, GreeksResult, BacktestMetrics, etc.)
 
 export interface OHLCBar {
   date: string; // ISO date
@@ -29,26 +28,6 @@ export interface Quote {
   dividendYield?: number | null;
   fiftyTwoWeekHigh?: number | null;
   fiftyTwoWeekLow?: number | null;
-}
-
-export type Signal = "BULLISH" | "BEARISH" | "NEUTRAL";
-
-export interface IndicatorSnapshot {
-  name: string;
-  value: number | null;
-  signal: Signal;
-  detail: string;
-  velocity: number | null;
-  zscore: number | null;
-  percentile: number | null;
-}
-
-export interface ConfluenceScore {
-  score: number; // -100..+100
-  bullish: number;
-  bearish: number;
-  neutral: number;
-  verdict: string;
 }
 
 export interface PiotroskiResult {
@@ -108,42 +87,6 @@ export interface Greeks {
   extrinsic: number;
   breakeven: number;
   moneyness: number;
-}
-
-export interface RiskStats {
-  sharpe: number;
-  sortino: number;
-  calmar: number | null;
-  maxDrawdownPct: number;
-  volatilityAnn: number;
-  var95: number;
-  cvar95: number;
-  winRate: number;
-  profitFactor: number;
-  cagr: number | null;
-}
-
-export interface BacktestTrade {
-  entryDate: string;
-  exitDate: string;
-  side: "LONG";
-  entry: number;
-  exit: number;
-  returnPct: number;
-  barsHeld: number;
-}
-
-export interface StrategyMetrics {
-  name: string;
-  totalReturnPct: number;
-  cagrPct: number;
-  sharpe: number;
-  sortino: number;
-  maxDrawdownPct: number;
-  winRatePct: number;
-  numTrades: number;
-  profitFactor: number;
-  finalEquity: number;
 }
 
 export interface Note {

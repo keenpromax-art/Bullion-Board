@@ -95,3 +95,24 @@ export function percentile(sorted: number[], p: number): number {
   if (lo === hi) return sorted[lo];
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export async function retryFetch(url: string, init?: RequestInit, retries = 2, timeoutMs = 15000): Promise<Response> {
+  let lastErr: string = "";
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) return res;
+      lastErr = `${res.status}`;
+      if (![429, 500, 502, 503].includes(res.status)) break;
+    } catch (e: unknown) {
+      lastErr = e instanceof Error ? e.message : "network failed";
+    }
+    if (attempt < retries) await sleep(1200 * (attempt + 1));
+  }
+  throw new Error(lastErr || "fetch failed");
+}

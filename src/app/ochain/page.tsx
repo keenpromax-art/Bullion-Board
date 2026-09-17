@@ -6,6 +6,7 @@ import OpenInWorkspace from "@/components/terminal/OpenInWorkspace";
 import { LineChart, BarChart, HBars } from "@/components/charts";
 import { store } from "@/lib/store";
 import { blackScholes } from "@/lib/options";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import {
   analyseChain, calcSuggestion, supportResistance, payoffData, thetaDecay,
   suggestionAccuracy, expiryToDays, solveIV, OC_RISK_FREE,
@@ -57,6 +58,26 @@ export default function OChainPage() {
   const rf = mode === "Index" ? 1000 : 10;
   const unit = mode === "Index" ? "K" : "×10";
   const instKey = `${mode}|${symbol}|${expiry}`;
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOut, setAiOut] = useState("");
+
+  const askAI = async () => {
+    if (!rows.length) return;
+    const pcr = rows.reduce((a, r) => a + r.ceOI, 0) / (rows.reduce((a, r) => a + r.peOI, 0) || 1);
+    const topCall = [...rows].sort((a, b) => b.ceOI - a.ceOI)[0];
+    const topPut = [...rows].sort((a, b) => b.peOI - a.peOI)[0];
+    const summary = `SYMBOL=${symbol} SPOT=${underlying} EXPIRY=${expiry} PCR=${pcr.toFixed(3)} MAX_CALL_OI=${topCall?.strike ?? "—"}(${topCall?.ceOI ?? 0}) MAX_PUT_OI=${topPut?.strike ?? "—"}(${topPut?.peOI ?? 0}) ROWS=${rows.length}`;
+    setAiLoading(true); setAiOut("");
+    try {
+      const r = await chatComplete([
+        { role: "system", content: aiSystem.optionChain() },
+        { role: "user", content: `${NO_INVENT}\n\n${summary}` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(r);
+    } catch { setAiOut("AI UNAVAILABLE."); }
+    setAiLoading(false);
+  };
 
   useEffect(() => {
     fetch("/api/ochain/symbols").then((r) => r.json()).then((j) => {
@@ -474,6 +495,12 @@ export default function OChainPage() {
               </div>
             </div>
           </div>
+        )}
+        {aiOut && (
+          <div className="panel"><p className="p-head">AI analyst</p><p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{aiOut}</p></div>
+        )}
+        {rows.length > 0 && !aiOut && (
+          <div className="panel"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "ANALYSING…" : "RUN AI"}</button></div>
         )}
       </main>
       <StatusBar extra={`OC ${symbol} ${expiry}`} />

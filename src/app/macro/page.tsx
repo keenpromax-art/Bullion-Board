@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import OpenInWorkspace from "@/components/terminal/OpenInWorkspace";
 import { store } from "@/lib/store";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 
 interface MRow {
   id: string; label: string; group: string; unit: string;
@@ -83,6 +84,8 @@ function EcoCalendar() {
   const [grp, setGrp] = useState("ALL");
   const [imp, setImp] = useState("ALL");
   const [narrow, setNarrow] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOut, setAiOut] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -106,6 +109,20 @@ function EcoCalendar() {
     (!narrow || (r.event + " " + r.series).toUpperCase().includes(narrow.toUpperCase()));
   const upF = up.filter(pass), recF = rec.filter(pass);
   const inLbl = (d: number) => (d === 0 ? "TODAY" : d > 0 ? `D-${d}` : `D+${Math.abs(d)}`);
+
+  const askAI = useCallback(async () => {
+    setAiLoading(true); setAiOut("");
+    try {
+      const upcoming = upF.slice(0, 10).map((r) => `${r.event} ${r.series} ACT=${r.actual} PRIOR=${r.prior} IMP=${r.imp} IN=${r.inDays}d`).join("; ");
+      const recent = recF.slice(0, 5).map((r) => `${r.event} ${r.series} ACT=${r.actual} PRIOR=${r.prior}`).join("; ");
+      const txt = await chatComplete([
+        { role: "system", content: aiSystem.macroCalendar() },
+        { role: "user", content: `UPCOMING: ${upcoming || "NONE"}. RECENT: ${recent || "NONE"}. TASK: KEY THEME + TOP 3 EVENTS + SURPRISES READ + 2 RISKS. ${NO_INVENT}` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(txt);
+    } catch (e: any) { setAiOut(`AI ERR: ${e.message}`); }
+    finally { setAiLoading(false); }
+  }, [upF, recF]);
 
   const tbl = (rows: CalRow[], showIn: boolean) => (
     <table className="plain">
@@ -175,6 +192,11 @@ function EcoCalendar() {
       <p className="muted" style={{ fontSize: 11.5, marginBottom: 0 }}>
         SURV(M) OMITTED — NO FREE CONSENSUS FEED EXISTS ON FRED. TIMES = TYPICAL ET RELEASE TIMES (STATIC). PERIOD = REPORTED MONTH DERIVED FROM RELEASE DATE.
       </p>
+      <div style={{ borderTop: "1px solid #26262b", marginTop: 10, paddingTop: 10 }}>
+        <p className="p-head">AI analyst — ECO</p>
+        <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "RUNNING…" : "RUN AI ON CALENDAR"}</button></div>
+        {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
+      </div>
     </div>
   );
 }

@@ -1,17 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { loadActive, saveActive, uid, MAX_PANELS } from "@/lib/terminal/workspaceStore";
 
 // Lightweight "Open in workspace ▸" action for deep-link routes.
-// Adds the current desk as a panel to the saved workspace, then jumps to /terminal.
+// Adds the current desk as a panel to the saved workspace.
+// Does NOT navigate — the terminal page reads state from localStorage on mount.
 export default function OpenInWorkspace({ funcId, symbol, task }: { funcId: string; symbol: string; task?: string | null }) {
-  const router = useRouter();
   function open() {
     try {
       const active = loadActive();
       if (active.panels.length >= MAX_PANELS) {
-        // At the 4-panel cap reuse the focused panel instead of adding.
         const target = active.focusedId ?? active.panels[0]?.id;
         saveActive({
           ...active,
@@ -26,15 +24,13 @@ export default function OpenInWorkspace({ funcId, symbol, task }: { funcId: stri
           focusedId: active.panels.length ? active.focusedId : null,
           dirty: true,
         });
-        // Ensure focus lands on the newly added panel after navigation.
         try {
           const cur = loadActive();
           const last = cur.panels[cur.panels.length - 1];
           if (last) saveActive({ ...cur, focusedId: last.id });
         } catch { /* ignore */ }
       }
-    } catch { /* storage unavailable — still navigate */ }
-    router.push(`/terminal?symbol=${encodeURIComponent(symbol)}&func=${encodeURIComponent(funcId)}${task ? `&task=${encodeURIComponent(task)}` : ""}`);
+    } catch { /* storage unavailable */ }
   }
   return (
     <button className="btn" onClick={open} title="Add this desk to your terminal workspace">

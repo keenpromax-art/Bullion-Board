@@ -17,7 +17,6 @@ export default function SinglePanelHost({ spec }: { spec: PanelSpec }) {
       const active = loadActive();
       const next: PanelSpec = { ...spec, id: uid() };
       if (active.panels.length >= MAX_PANELS) {
-        // At the 4-panel cap reuse the focused panel instead of adding.
         const target = active.focusedId ?? active.panels[0]?.id;
         saveActive({
           ...active,
@@ -29,7 +28,6 @@ export default function SinglePanelHost({ spec }: { spec: PanelSpec }) {
         saveActive({ ...active, panels: [...active.panels, next], focusedId: next.id, dirty: true });
       }
     } catch { /* storage unavailable */ }
-    router.push("/terminal");
   }
   return (
     <div className="term-grid" data-layout="1-up">

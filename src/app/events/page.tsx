@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { store } from "@/lib/store";
 import { normalizeTicker } from "@/lib/utils";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import { AreaChart, BarChart } from "@/components/charts";
 
@@ -13,6 +14,8 @@ const RANGES: Range[] = ["1mo", "3mo", "6mo", "1y", "3y", "5y"];
 
 export default function EventsPage() {
   const [symbol, setSymbol] = useState("RELIANCE.NS");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOut, setAiOut] = useState("");
   const [input, setInput] = useState("RELIANCE.NS");
   const [tab, setTab] = useState<Tab>("HIST");
   const [range, setRange] = useState<Range>("1y");
@@ -20,6 +23,24 @@ export default function EventsPage() {
   const [ev, setEv] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [shown, setShown] = useState(60);
+
+  const askAI = async () => {
+    const barCount = hist.length;
+    const last = hist[hist.length - 1];
+    const first = hist[0];
+    const chg = first && last ? ((last.close - first.open) / first.open * 100).toFixed(2) : "—";
+    const dvdCount = ev?.dividends?.length ?? 0;
+    const splitCount = ev?.splits?.length ?? 0;
+    setAiLoading(true); setAiOut("");
+    try {
+      const r = await chatComplete([
+        { role: "system", content: aiSystem.corpActions() },
+        { role: "user", content: `${NO_INVENT}\n\nSYMBOL=${symbol} BARS=${barCount} PERIOD=${first?.date ?? "—"} TO ${last?.date ?? "—"} TOTAL_RETURN=${chg}% DIVIDENDS=${dvdCount} SPLITS=${splitCount}` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(r);
+    } catch { setAiOut("AI UNAVAILABLE."); }
+    setAiLoading(false);
+  };
 
   async function run(sym: string, rg: Range) {
     setLoading(true);
@@ -191,6 +212,12 @@ export default function EventsPage() {
             </table>
             {(!ev || ev.splits?.length === 0) && <p className="muted">NO SPLITS ON FEED FOR THIS WINDOW.</p>}
           </div>
+        )}
+        {aiOut && (
+          <div className="panel"><p className="p-head">AI analyst</p><p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{aiOut}</p></div>
+        )}
+        {!aiOut && hist.length > 0 && (
+          <div className="panel"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "ANALYSING…" : "RUN AI"}</button></div>
         )}
       </main>
       <StatusBar ticker={symbol} extra={`EVTS · ${hist.length} BARS`} />

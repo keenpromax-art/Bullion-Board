@@ -267,12 +267,3 @@ export function AIMini({ symbol, onFull }: { symbol: string; onFull: () => void 
     </div>
   );
 }
-
-// Symbol list shared with the tape fallback.
-export function miniWatchlist(): string[] {
-  try {
-    const w = store.getWatchlist();
-    if (w.length > 0) return w.slice(0, 8);
-  } catch { /* ignore */ }
-  return [...WATCHLIST.slice(0, 8)];
-}

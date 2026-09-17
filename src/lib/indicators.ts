@@ -129,9 +129,18 @@ export function macd(close: number[], fast = 12, slow = 26, signal = 9) {
   const ef = ema(close, fast).map((v) => v ?? NaN);
   const es = ema(close, slow).map((v) => v ?? NaN);
   const line = ef.map((v, i) => v - (es[i] as number));
-  const sig = ema(line.map((v) => (isFinite(v) ? v : 0)), signal);
-  const hist = line.map((v, i) => (sig[i] === null ? null : v - (sig[i] as number)));
-  return { line, signal: sig, hist };
+  // Start signal EMA only after both fast and slow EMAs are valid.
+  let start = -1;
+  for (let i = 0; i < line.length; i++) {
+    if (isFinite(line[i]) && isFinite(es[i] as number)) { start = i; break; }
+  }
+  const sigInput = line.map((v, i) => (i >= start && isFinite(v) ? v : NaN));
+  const sig = ema(sigInput.map((v) => (isFinite(v) ? v : 0)), signal);
+  // Null out signal values before the warm-up window completes.
+  const warmup = slow + signal;
+  const hist = line.map((v, i) => (i < warmup || sig[i] == null || !isFinite(sig[i] as number) ? null : v - (sig[i] as number)));
+  const sigOut = sig.map((v, i) => (i < warmup ? null : v));
+  return { line, signal: sigOut, hist };
 }
 
 export function adx(high: number[], low: number[], close: number[], period = 14) {

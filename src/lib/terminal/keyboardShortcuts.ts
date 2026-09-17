@@ -2,6 +2,8 @@
 // double-handling inside inputs/textareas). Callers in the terminal shell
 // register intent callbacks; this module owns the key wiring only.
 
+import { store } from "../store";
+
 export interface ShortcutIntents {
   focusCommand: () => void;
   clearOrBlur: () => void;
@@ -31,9 +33,9 @@ export function installShortcuts(intents: ShortcutIntents): () => void {
       const k = e.key.toUpperCase();
       const n = Number(k.slice(1));
       if (n >= 1 && n <= 12) {
-        // Don't fight browser-reserved keys: if the browser consumes it
-        // (help, devtools), our preventDefault is a no-op fallback.
-        try { e.preventDefault(); } catch { /* noop */ }
+        if (store.getCaptureBrowserKeys()) {
+          try { e.preventDefault(); } catch { /* noop */ }
+        }
         intents.triggerFunctionKey(k);
         return;
       }
@@ -54,13 +56,13 @@ export function installShortcuts(intents: ShortcutIntents): () => void {
 
     // Ctrl/Cmd+W — close focused panel (confirm if last).
     if ((e.ctrlKey || e.metaKey) && (e.key === "w" || e.key === "W")) {
-      e.preventDefault();
+      if (store.getCaptureBrowserKeys()) e.preventDefault();
       intents.closeFocused();
       return;
     }
     // Ctrl/Cmd+M — maximize/restore focused panel.
     if ((e.ctrlKey || e.metaKey) && (e.key === "m" || e.key === "M")) {
-      e.preventDefault();
+      if (store.getCaptureBrowserKeys()) e.preventDefault();
       intents.maximizeFocused();
       return;
     }

@@ -157,13 +157,3 @@ export function calcReverseDCF(price: number, fcfBase: number, shares: number, w
   else { verdict = "Market implies shrinkage"; cls = "neg"; }
   return { impliedGrowthPct: Math.round(g * 10000) / 100, verdict, cssClass: cls, waccUsed: wacc, terminalGUsed: terminalG };
 }
-
-export function cagr(start: number, end: number, years: number): number | null {
-  if (!start || !end || years <= 0 || start <= 0 || end <= 0) return null;
-  return Math.pow(end / start, 1 / years) - 1;
-}
-
-export function yoy(prev: number | null, curr: number | null): number | null {
-  if (prev === null || curr === null || !prev) return null;
-  return (curr - prev) / Math.abs(prev);
-}

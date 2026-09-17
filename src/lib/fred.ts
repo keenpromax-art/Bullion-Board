@@ -2,6 +2,8 @@
 // Keyless CSVs (used by /api/macro values) keep working without one; the key
 // unlocks series search + official metadata (titles, units, frequency).
 
+import { retryFetch } from "./utils";
+
 export function fredKey(paramKey?: string | null): string {
   return (paramKey || process.env.FRED_API_KEY || "").trim();
 }
@@ -16,7 +18,7 @@ export interface FredSeriesMeta {
 }
 
 export async function fredSearch(query: string, apiKey: string): Promise<FredSeriesMeta[]> {
-  const r = await fetch(
+  const r = await retryFetch(
     `https://api.stlouisfed.org/fred/series/search?search_text=${encodeURIComponent(query)}&api_key=${encodeURIComponent(apiKey)}&file_type=json&limit=10&order_by=popularity&sort_order=desc`,
     { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 86400 } }
   );
@@ -32,7 +34,7 @@ export async function fredSearch(query: string, apiKey: string): Promise<FredSer
   }));
 }
 
-export async function fredMeta(id: string, apiKey: string): Promise<FredSeriesMeta> {  const r = await fetch(
+export async function fredMeta(id: string, apiKey: string): Promise<FredSeriesMeta> {  const r = await retryFetch(
     `https://api.stlouisfed.org/fred/series?series_id=${encodeURIComponent(id)}&api_key=${encodeURIComponent(apiKey)}&file_type=json`,
     { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 86400 } }
   );
@@ -55,7 +57,7 @@ export interface FredObs { date: string; value: number }
 
 // Latest observations, newest first.
 export async function fredObservations(seriesId: string, apiKey: string, limit = 6): Promise<FredObs[]> {
-  const r = await fetch(
+  const r = await retryFetch(
     `https://api.stlouisfed.org/fred/series/observations?series_id=${encodeURIComponent(seriesId)}&api_key=${encodeURIComponent(apiKey)}&file_type=json&limit=${limit}&sort_order=desc`,
     { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 21600 } }
   );
@@ -73,7 +75,7 @@ const releaseIdCache = new Map<string, { ts: number; id: number; name: string }>
 export async function fredSeriesRelease(seriesId: string, apiKey: string): Promise<{ id: number; name: string }> {
   const hit = releaseIdCache.get(seriesId);
   if (hit && Date.now() - hit.ts < 7 * 86400000) return { id: hit.id, name: hit.name };
-  const r = await fetch(
+  const r = await retryFetch(
     `https://api.stlouisfed.org/fred/series/release?series_id=${encodeURIComponent(seriesId)}&api_key=${encodeURIComponent(apiKey)}&file_type=json`,
     { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 86400 } }
   );
@@ -89,7 +91,7 @@ export async function fredSeriesRelease(seriesId: string, apiKey: string): Promi
 // Release dates (past + scheduled), newest first. FRED has no times —
 // attach typical ET release times per event on the caller side.
 export async function fredReleaseDates(releaseId: number, apiKey: string, limit = 40): Promise<string[]> {
-  const r = await fetch(
+  const r = await retryFetch(
     `https://api.stlouisfed.org/fred/release/dates?release_id=${releaseId}&api_key=${encodeURIComponent(apiKey)}&file_type=json&include_release_dates_with_no_data=true&limit=${limit}&sort_order=desc`,
     { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 21600 } }
   );

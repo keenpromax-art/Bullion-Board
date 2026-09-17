@@ -38,11 +38,6 @@ export function funcCode(id: string): string {
   return FUNC_CODES[id] ?? id;
 }
 
-export function funcLabel(id: string): string {
-  const m = MODULE_MAP[id];
-  return m ? `${funcCode(id)} — ${m.label}` : id;
-}
-
 export interface ParsedCommand {
   ticker: string | null;
   funcId: string | null;

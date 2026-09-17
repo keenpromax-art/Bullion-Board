@@ -110,11 +110,8 @@ export function analysePayoff(legs: StrategyLeg[], spot: number): PayoffAnalysis
   const headSlope = pnls[edgeN] - pnls[0];
   const tailSlope = pnls[pnls.length - 1] - pnls[pnls.length - 1 - edgeN];
   const maxProfitUnlimited = tailSlope > Math.abs(maxP - Math.min(...pnls)) * 0.02 && tailSlope > 0 && maxP === pnls[pnls.length - 1];
-  const tailUp = tailSlope > 0 && pnls[pnls.length - 1] >= maxP - 1e-9;
-  const headDown = headSlope > 0 && pnls[0] <= maxL + 1e-9; // falling to the left = unlimited on downside for puts
-  void headSlope;
-  void tailUp;
-  void headDown;
+  const headSlopeNeg = headSlope < -Math.abs(maxP - Math.min(...pnls)) * 0.02 && headSlope < 0 && maxL === pnls[0];
+  const maxLossUnlimited = headSlopeNeg || (headSlope < 0 && pnls[0] <= maxL + 1e-9 && Math.abs(headSlope) > Math.abs(maxP - maxL) * 0.02);
   const bes: number[] = [];
   for (let i = 0; i < pnls.length - 1; i++) {
     if (pnls[i] * pnls[i + 1] <= 0 && pnls[i] !== pnls[i + 1]) {
@@ -133,7 +130,7 @@ export function analysePayoff(legs: StrategyLeg[], spot: number): PayoffAnalysis
     maxProfit: maxP,
     maxLoss: maxL,
     maxProfitUnlimited,
-    maxLossUnlimited: false,
+    maxLossUnlimited,
     breakevens: merged,
     probProfit: pop,
     riskReward: rr,

@@ -24,6 +24,7 @@ const K = {
   fredKey: "iss.fred.key",
   macroExtra: "iss.macro.extra",
   explainerModel: "iss.explainer.model",
+  captureBrowserKeys: "iss.captureBrowserKeys",
 };
 
 function read<T>(key: string, fallback: T): T {
@@ -141,5 +142,11 @@ export const store = {
   },
   setExplainerModel(m: string): void {
     write(K.explainerModel, m);
+  },
+  getCaptureBrowserKeys(): boolean {
+    return read<boolean>(K.captureBrowserKeys, true);
+  },
+  setCaptureBrowserKeys(v: boolean): void {
+    write(K.captureBrowserKeys, v);
   },
 };

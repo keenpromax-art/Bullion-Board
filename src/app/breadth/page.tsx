@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { store } from "@/lib/store";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import { Histogram, HBars } from "@/components/charts";
 
@@ -15,6 +16,25 @@ export default function BreadthPage() {
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOut, setAiOut] = useState("");
+
+  const askAI = async () => {
+    if (!data) return;
+    const top5 = data.top.slice(0, 5).map((r) => `${r.symbol} +${r.dayChgPct.toFixed(2)}%`).join(", ");
+    const bot5 = data.bottom.slice(0, 5).map((r) => `${r.symbol} ${r.dayChgPct.toFixed(2)}%`).join(", ");
+    const gap5 = data.gaps.slice(0, 5).map((r) => `${r.symbol} ${r.gapPct >= 0 ? "+" : ""}${r.gapPct.toFixed(2)}%`).join(", ");
+    const summary = `ADV=${data.adv} DEC=${data.dec} A/D=${data.dec ? (data.adv / data.dec).toFixed(2) : "—"} PCT_ABOVE_20DMA=${data.pctAbove20}% VERDICT=${data.adv > data.dec * 1.5 ? "RISK-ON" : data.dec > data.adv * 1.5 ? "RISK-OFF" : "MIXED"} TOP_MOVERS_UP=${top5} TOP_MOVERS_DOWN=${bot5} GAP_LEADERS=${gap5}`;
+    setAiLoading(true); setAiOut("");
+    try {
+      const r = await chatComplete([
+        { role: "system", content: aiSystem.marketBreadth() },
+        { role: "user", content: `${NO_INVENT}\n\n${summary}` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(r);
+    } catch { setAiOut("AI UNAVAILABLE."); }
+    setAiLoading(false);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -88,6 +108,12 @@ export default function BreadthPage() {
             {secTable("Volume shockers ×AVG20", data.shockers, (r) => `${r.volRatio.toFixed(1)}×`)}
             {secTable("Gaps ≥1.5%", data.gaps, (r) => `${r.gapPct >= 0 ? "+" : ""}${r.gapPct.toFixed(2)}%`, (r) => (r.gapPct >= 0 ? "pos" : "neg"))}
           </div>
+        )}
+        {aiOut && (
+          <div className="panel"><p className="p-head">AI analyst</p><p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{aiOut}</p></div>
+        )}
+        {data && !aiOut && (
+          <div className="panel"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "ANALYSING…" : "RUN AI"}</button></div>
         )}
       </main>
       <StatusBar extra="BRTH" />

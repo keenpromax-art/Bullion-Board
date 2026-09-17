@@ -25,6 +25,7 @@ import { CalcDesks } from "@/components/CalcDesks";
 import { SeasonDesks } from "@/components/SeasonDesks";
 import { BookReader } from "@/components/BookDesks";
 import { NbSeasonDesk, NbSmaDesk, NbCorrDesk, NbOptDesk, NbMoversDesk, NbVolDesk, NbSectorDesk, NbIpoDesk, NbTerminalDesk } from "@/components/NotebookDesks";
+import { NotesMini } from "@/components/NotesDesk";
 import SettingsDesk from "./SettingsDesk";
 import { analyseChain, calcSuggestion, expiryToDays } from "@/lib/ochain";
 
@@ -73,34 +74,6 @@ function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
       <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
         {mod.label.toUpperCase()} · {mod.pyFn} · {mod.category.toUpperCase()}
       </div>
-    </div>
-  );
-}
-
-function NotesMini() {
-  const [notes, setNotes] = useState(() => { try { return store.getNotes(); } catch { return []; } });
-  const [text, setText] = useState("");
-  const [title, setTitle] = useState("");
-  function add() {
-    const id = notes.length ? Math.max(...notes.map((x) => x.id)) + 1 : 1;
-    const now = new Date().toISOString();
-    const next = [...notes, { id, title: title || "UNTITLED", content: text, ticker: null, tags: [], pinned: false, created: now, modified: now }];
-    setNotes(next);
-    store.setNotes(next);
-    setTitle(""); setText("");
-  }
-  return (
-    <div className="grid" style={{ gap: 8 }}>
-      <div className="toolbar">
-        <input className="box" value={title} onChange={(e) => setTitle(e.target.value.toUpperCase())} placeholder="TITLE…" style={{ flex: 1 }} />
-      </div>
-      <textarea className="box" value={text} onChange={(e) => setText(e.target.value)} placeholder="THESIS…" rows={3} style={{ width: "100%" }} />
-      <div><button className="btn" onClick={add}>+ NEW NOTE</button></div>
-      {notes.slice(-8).reverse().map((n) => (
-        <div key={n.id} className="kv"><span className="muted">#{n.id} {n.title}</span><strong style={{ fontSize: 12 }}>{n.content.slice(0, 80)}</strong></div>
-      ))}
-      {notes.length === 0 && <p className="muted">NO RECORDS — LOG FIRST THESIS ABOVE.</p>}
-      <a href="/notes" style={{ fontSize: 12 }}>FULL NOTES DESK →</a>
     </div>
   );
 }
@@ -731,7 +704,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   }
 
   if (funcId === "DIR") return <DirectoryMini symbol={sym} onPickHere={(id) => go(id, sym)} onPickNew={onOpenNew ? (id) => onOpenNew(id, sym) : undefined} />;
-  if (funcId === "NOTE") return <NotesMini />;
+  if (funcId === "NOTE") return <NotesMini symbol={sym} />;
   if (funcId === "SET") return <SettingsDesk />;
   // Terminal-native hosted routes: light minis for the two heaviest,
   // isolated iframes for the rest (no viewport assumptions, no rewrites).

@@ -18,10 +18,8 @@ export function sortino(dailyReturns: number[], rfAnnual = 0.06, tradingDays = 2
   const ex = dailyReturns.map((r) => r - rfD);
   const m = ex.reduce((a, b) => a + b, 0) / ex.length;
   const neg = dailyReturns.filter((r) => r < 0);
-  const allSd = Math.sqrt(ex.reduce((s, v) => s + (v - m) ** 2, 0) / (ex.length - 1));
-  const ds = neg.length > 1
-    ? Math.sqrt(neg.reduce((s, v) => s + (v - m) ** 2, 0) / (neg.length - 1))
-    : allSd;
+  if (neg.length <= 1) return NaN;
+  const ds = Math.sqrt(neg.reduce((s, v) => s + (v - m) ** 2, 0) / (neg.length - 1));
   return ds > 0 ? (m / ds) * Math.sqrt(tradingDays) : 0;
 }
 
@@ -60,16 +58,6 @@ export function kelly(winRate: number, avgWin: number, avgLoss: number): number 
   return p - q / b;
 }
 
-export function streaks(pnls: number[]): { maxWin: number; maxLoss: number } {
-  let mw = 0, ml = 0, cw = 0, cl = 0;
-  for (const p of pnls) {
-    if (p > 0) { cw++; cl = 0; mw = Math.max(mw, cw); }
-    else if (p < 0) { cl++; cw = 0; ml = Math.max(ml, cl); }
-    else { cw = 0; cl = 0; }
-  }
-  return { maxWin: mw, maxLoss: ml };
-}
-
 // EWMA volatility (RiskMetrics, lambda=0.94) — used by _m3_ewma_vol / GARCH-lite
 export function ewmaVol(returns: number[], lambda = 0.94): number[] {
   const out: number[] = [];
@@ -79,13 +67,6 @@ export function ewmaVol(returns: number[], lambda = 0.94): number[] {
     out.push(Math.sqrt(Math.max(v, 0)));
   }
   return out;
-}
-
-export function atrPositionSize(equity: number, riskPct: number, atr: number, entry: number, stopMult = 2): { shares: number; riskRs: number } {
-  const riskRs = equity * riskPct;
-  const stopDist = atr * stopMult;
-  if (stopDist <= 0 || entry <= 0) return { shares: 0, riskRs };
-  return { shares: Math.floor(riskRs / stopDist), riskRs };
 }
 
 // GBM Monte-Carlo fan — port of _m3_run_monte_carlo / QuantRiskSimulator
@@ -128,5 +109,3 @@ export function tradeStats(returns: number[]) {
   const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
   return { winRate, avgWin, avgLoss, kellyF: kelly(winRate, avgWin, Math.abs(avgLoss)), profitFactor: profitFactor(returns) };
 }
-
-export { safeDiv };

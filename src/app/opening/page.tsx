@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import { AreaChart, HBars } from "@/components/charts";
 import { store } from "@/lib/store";
@@ -382,6 +383,28 @@ export default function OpeningPage() {
 
   useEffect(() => { load(); setTicker(store.getTicker()); }, []);
   const [ticker, setTicker] = useState("RELIANCE.NS");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOut, setAiOut] = useState("");
+
+  const askAI = async () => {
+    if (!snap) return;
+    const parts: string[] = [];
+    if (snap.usFutures) parts.push(`US_FUTURES=${JSON.stringify(snap.usFutures)}`);
+    if (snap.sgx) parts.push(`SGX_NIFTY=${snap.sgx}`);
+    if (snap.vix != null) parts.push(`INDIA_VIX=${snap.vix}`);
+    if (snap.niftyO) parts.push(`NIFTY_O=${snap.niftyO} H=${snap.niftyH} L=${snap.niftyL} C=${snap.niftyC}`);
+    if (snap.adRatio) parts.push(`A/D=${JSON.stringify(snap.adRatio)}`);
+    if (snap.signals?.length) parts.push(`SIGNALS=${snap.signals.map((s: any) => `${s.label}=${s.value}`).join(", ")}`);
+    setAiLoading(true); setAiOut("");
+    try {
+      const r = await chatComplete([
+        { role: "system", content: aiSystem.preMarket() },
+        { role: "user", content: `${NO_INVENT}\n\n${parts.join("\n")}` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(r);
+    } catch { setAiOut("AI UNAVAILABLE."); }
+    setAiLoading(false);
+  };
 
   return (
     <>
@@ -397,6 +420,12 @@ export default function OpeningPage() {
         </div>
         {tab === "live" && (snap ? <LiveTab snap={snap} /> : !err && <div className="panel"><p className="muted">PULLING PRE-MARKET TAPE…</p></div>)}
         {tab === "hist" && <HistoryTab />}
+        {aiOut && (
+          <div className="panel"><p className="p-head">AI analyst</p><p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{aiOut}</p></div>
+        )}
+        {snap && !aiOut && (
+          <div className="panel"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "ANALYSING…" : "RUN AI"}</button></div>
+        )}
       </main>
       <StatusBar extra="PRE" />
     </>

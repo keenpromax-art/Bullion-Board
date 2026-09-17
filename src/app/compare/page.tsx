@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { store } from "@/lib/store";
 import { pctReturns } from "@/lib/indicators";
 import { sharpe, maxDrawdown } from "@/lib/risk";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import { LineChart } from "@/components/charts";
 
@@ -18,6 +19,22 @@ export default function ComparePage() {
   const [range, setRange] = useState("1y");
   const [data, setData] = useState<Series[]>([]);
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOut, setAiOut] = useState("");
+
+  const askAI = async () => {
+    if (!data.length) return;
+    const tbl = data.map((d) => `${d.sym}: ret=${d.ret.toFixed(1)}% vol=${d.vol.toFixed(1)}% sharpe=${d.sharpe.toFixed(2)} maxDD=${d.maxDD.toFixed(1)}%`).join("\n");
+    setAiLoading(true); setAiOut("");
+    try {
+      const r = await chatComplete([
+        { role: "system", content: aiSystem.relativePerf() },
+        { role: "user", content: `${NO_INVENT}\n\nSYMBOLS:\n${tbl}` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(r);
+    } catch { setAiOut("AI UNAVAILABLE."); }
+    setAiLoading(false);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -88,6 +105,12 @@ export default function ComparePage() {
               </tbody>
             </table>
           </div>
+        )}
+        {aiOut && (
+          <div className="panel"><p className="p-head">AI analyst</p><p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{aiOut}</p></div>
+        )}
+        {data.length > 0 && !aiOut && (
+          <div className="panel"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "ANALYSING…" : "RUN AI"}</button></div>
         )}
       </main>
       <StatusBar extra="COMP" />

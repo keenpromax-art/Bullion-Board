@@ -43,7 +43,6 @@ export function fitLayout(n: number): TilingPreset {
 
 const ACTIVE_KEY = "bb.workspace.active.v2";
 const NAMES_KEY = "bb.workspace.saved";
-const LEGACY_NOTE = "bb.workspace.legacyWarned";
 
 export function uid(): string {
   return `p${Date.now().toString(36)}${Math.floor(Math.random() * 0xffff).toString(36)}`;
@@ -315,12 +314,4 @@ export function importWorkspace(json: string): ActiveState | null {
   } catch {
     return null;
   }
-}
-
-export function legacyWarned(): boolean {
-  return read<boolean>(LEGACY_NOTE, false);
-}
-
-export function markLegacyWarned(): void {
-  write(LEGACY_NOTE, true);
 }

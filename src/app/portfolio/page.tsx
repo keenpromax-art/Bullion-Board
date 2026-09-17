@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { store, type Position } from "@/lib/store";
 import { normalizeTicker } from "@/lib/utils";
+import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import { HBars } from "@/components/charts";
 
@@ -13,11 +14,29 @@ interface Live extends Position {
 
 export default function PortfolioPage() {
   const [positions, setPositions] = useState<Position[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOut, setAiOut] = useState("");
   const [live, setLive] = useState<Live[]>([]);
   const [loading, setLoading] = useState(false);
   const [sym, setSym] = useState("");
   const [qty, setQty] = useState("10");
   const [avg, setAvg] = useState("");
+
+  const askAI = async () => {
+    if (!live.length) return;
+    const lines = live.map((r) => `${r.symbol}: qty=${r.qty} avg=₹${r.avg.toFixed(2)} ltp=₹${r.price.toFixed(2)} pnl=${r.pnl >= 0 ? "+" : ""}₹${Math.round(r.pnl)}`).join("\n");
+    const totalPnl = live.reduce((a, r) => a + r.pnl, 0);
+    const totalVal = live.reduce((a, r) => a + r.value, 0);
+    setAiLoading(true); setAiOut("");
+    try {
+      const r = await chatComplete([
+        { role: "system", content: aiSystem.portfolioBlotter() },
+        { role: "user", content: `${NO_INVENT}\n\nTOTAL_VALUE=₹${Math.round(totalVal).toLocaleString("en-IN")} TOTAL_PNL=${totalPnl >= 0 ? "+" : ""}₹${Math.round(totalPnl).toLocaleString("en-IN")} LINES=${live.length}\n\n${lines}` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(r);
+    } catch { setAiOut("AI UNAVAILABLE."); }
+    setAiLoading(false);
+  };
 
   useEffect(() => { setPositions(store.getPositions()); }, []);
 
@@ -127,6 +146,12 @@ export default function PortfolioPage() {
             </div>
           )}
           {live.length === 0 && <p className="muted">EMPTY BOOK — ADD FIRST LOT ABOVE. STORED IN THIS BROWSER ONLY.</p>}
+          {aiOut && (
+            <div className="panel"><p className="p-head">AI analyst</p><p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{aiOut}</p></div>
+          )}
+          {live.length > 0 && !aiOut && (
+            <div className="panel"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "ANALYSING…" : "RUN AI"}</button></div>
+          )}
         </div>
       </main>
       <StatusBar extra="HOLD" />

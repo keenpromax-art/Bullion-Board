@@ -32,6 +32,7 @@ export function HoverTip({ idx, count, date, rows }: {
   return (
     <div
       className="chart-tip"
+      role="tooltip"
       style={{ left: `${left}%`, transform: flip ? "translateX(calc(-100% - 14px))" : "translateX(14px)" }}
     >
       {date && <div className="chart-tip-date">{date}</div>}
@@ -117,10 +118,11 @@ export function LineChart({ series, height = 140, yFmt = (v: number) => v.toFixe
   const yOf = (v: number) => height - 8 - ((v - mn) / (mx - mn || 1)) * (height - 16);
   const xOf = (i: number) => (i / Math.max(n - 1, 1)) * W;
   const showDots = n <= 12;
+  const ariaLabel = series.map((s) => `${s.label}: last ${yFmt(lastOf(s.values) ?? 0)}`).join(", ");
   return (
     <div>
       <div className="chart-wrap">
-        <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" {...bind}>
+        <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" role="img" aria-label={ariaLabel} tabIndex={0} {...bind}>
           {[0.25, 0.5, 0.75].map((f) => <line key={f} x1="0" x2={W} y1={height * f} y2={height * f} stroke="#1e1e24" strokeWidth="1" />)}
           {tseries.map((s) => segments(s.values, mn, mx, height).map((d, i) => (
             <polyline key={`${s.label}${i}`} points={d} fill="none" stroke={s.color} strokeWidth="2" strokeDasharray={s.dashed ? "5 3" : undefined} strokeLinejoin="round" strokeLinecap="round" />
@@ -187,7 +189,7 @@ export function AreaChart({ values, height = 120, color = "#ffb000", fill = "rgb
   return (
     <div>
       <div className="chart-wrap">
-        <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" {...bind}>
+        <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" role="img" aria-label={`${label}: last ${hv !== null && isFinite(hv) ? fmt(hv) : "—"}`} tabIndex={0} {...bind}>
           <polygon points={`0,${height} ${pts.join(" ")} ${W},${height}`} fill={fill} />
           <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="1.8" />
           {hover !== null && (
@@ -231,7 +233,7 @@ export function BarChart({ values, labels, height = 120, posColor = "#00d664", n
   return (
     <div>
       <div className="chart-wrap">
-        <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" {...bind}>
+        <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" role="img" aria-label={`Bar chart: peak ${peak.toLocaleString("en-IN", { maximumFractionDigits: 1 })}, N=${f.length}`} tabIndex={0} {...bind}>
           <line x1="0" x2={W} y1={zeroY} y2={zeroY} stroke="#3a3a42" strokeWidth="1" />
           {vals.map((v, i) => {
             if (v === null || !isFinite(v)) return null;
@@ -384,7 +386,7 @@ export function Histogram({ values, bins = 20, height = 110, color = "#ffa028", 
   const meanX = isFinite(mean) ? ((mean - lo) / (hi - lo || 1)) * W : null;
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none">
+      <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" role="img" aria-label={`Histogram: N=${totalN}, range ${lo.toLocaleString("en-IN", { maximumFractionDigits: 0 })} to ${hi.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`} tabIndex={0}>
         {counts.map((c, i) => {
           const h = Math.max(1, (c / mx) * (height - 8));
           return <rect key={i} x={i * bw + 0.5} y={height - 4 - h} width={Math.max(1, bw - 1)} height={h} fill={color} opacity="0.8" />;

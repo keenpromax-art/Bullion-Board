@@ -3,6 +3,7 @@
 // RSS (no key). Sentiment via finance-tuned lexicon scorer.
 
 import { yahooHeaders } from "./yahoo";
+import { retryFetch } from "./utils";
 
 export interface NewsItem {
   id: string;
@@ -48,7 +49,7 @@ function decodeEntities(s: string): string {
 async function fetchYahooNews(query: string): Promise<NewsItem[]> {
   try {
     const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=50`;
-    const r = await fetch(url, { headers: yahooHeaders(), next: { revalidate: 300 } });
+    const r = await retryFetch(url, { headers: yahooHeaders(), next: { revalidate: 300 } });
     if (!r.ok) return [];
     const j = await r.json();
     const quotes: string[] = (j?.quotes ?? [])
@@ -101,7 +102,7 @@ async function fetchFinshotsRSS(): Promise<NewsItem[]> {
 async function fetchBingRSS(query: string, limit = 12): Promise<NewsItem[]> {
   try {
     const url = `https://www.bing.com/news/search?q=${encodeURIComponent(query)}&format=rss&cc=in`;
-    const r = await fetch(url, { headers: yahooHeaders(), next: { revalidate: 300 } });
+    const r = await retryFetch(url, { headers: yahooHeaders(), next: { revalidate: 300 } });
     if (!r.ok) return [];
     const xml = await r.text();
     const items: NewsItem[] = [];
@@ -150,7 +151,7 @@ async function fetchBingRSS(query: string, limit = 12): Promise<NewsItem[]> {
 
 async function fetchRSS(url: string, sourceOverride: string | null, limit: number): Promise<NewsItem[]> {
   try {
-    const r = await fetch(url, { headers: yahooHeaders(), next: { revalidate: 300 } });
+    const r = await retryFetch(url, { headers: yahooHeaders(), next: { revalidate: 300 } });
     if (!r.ok) return [];
     const xml = await r.text();
     const items: NewsItem[] = [];

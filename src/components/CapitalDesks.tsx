@@ -410,6 +410,8 @@ export function CastDesk({ symbol }: { symbol: string }) {
   const [beta, setBeta] = useState("1");
   const [erp, setErp] = useState("6");
   const [rd, setRd] = useState("9");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiOut, setAiOut] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -429,6 +431,21 @@ export function CastDesk({ symbol }: { symbol: string }) {
       .catch((e) => { if (alive) setErr(e.message); });
     return () => { alive = false; };
   }, [symbol]);
+
+  const askAI = async () => {
+    if (!co && !st) return;
+    const mcap = co?.quote?.marketCap ? `${(co.quote.marketCap / 1e7).toFixed(0)} Cr` : "—";
+    const pe = co?.quote?.trailingPE?.toFixed(1) ?? "—";
+    setAiLoading(true); setAiOut("");
+    try {
+      const r = await chatComplete([
+        { role: "system", content: aiSystem.capitalStructure() },
+        { role: "user", content: `${NO_INVENT}\n\nSYMBOL=${symbol} MCAP=${mcap} PE=${pe} RF=${rf}% BETA=${beta} ERP=${erp}% RD=${rd}%` },
+      ], { apiKey: store.getORKey(), model: store.getORModel() });
+      setAiOut(r);
+    } catch { setAiOut("AI UNAVAILABLE."); }
+    setAiLoading(false);
+  };
 
   if (err) return <div className="panel"><p className="neg">CAST ERR: {err}</p></div>;
   if (!co && !st) return <div className="panel"><p className="muted">BUILDING CAPITAL STACK…</p></div>;
@@ -579,6 +596,12 @@ export function CastDesk({ symbol }: { symbol: string }) {
           </>
         )}
       </div>
+      {aiOut && (
+        <div className="panel"><p className="p-head">AI analyst</p><p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{aiOut}</p></div>
+      )}
+      {!aiOut && (co || st) && (
+        <div className="panel"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "ANALYSING…" : "RUN AI"}</button></div>
+      )}
     </div>
   );
 }

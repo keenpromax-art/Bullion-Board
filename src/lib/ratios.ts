@@ -8,13 +8,6 @@ type Row = { label: string; values: (number | null)[] };
 
 const nn = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-function buildIndex(t: YFTable | null): Map<string, (number | null)[]> {
-  const m = new Map<string, (number | null)[]>();
-  if (!t) return m;
-  for (const r of t.rows) m.set(nn(r.label), r.values);
-  return m;
-}
-
 // Exact match first, else shortest label containing the candidate.
 function getRow(t: YFTable | null, cands: string[]): (number | null)[] | null {
   if (!t) return null;
@@ -65,7 +58,6 @@ function align(
   }
   if (!hit) return refPeriods.map(() => null);
   const idx = new Map(t.periods.map((p, i) => [p, i]));
-  void buildIndex;
   return refPeriods.map((p) => {
     const i = idx.get(p);
     return i === undefined ? null : hit!.values[i];
@@ -375,8 +367,4 @@ export function buildRatios(pl: YFTable | null, bs: YFTable | null, cf: YFTable 
       raw: d.vals.map((v) => (v === null ? "—" : v.toLocaleString("en-IN"))),
     })),
   };
-}
-
-export function getRowValues(t: YFTable | null, cands: string[]): (number | null)[] | null {
-  return getRow(t, cands);
 }
