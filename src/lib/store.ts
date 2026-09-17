@@ -25,7 +25,55 @@ const K = {
   macroExtra: "iss.macro.extra",
   explainerModel: "iss.explainer.model",
   captureBrowserKeys: "iss.captureBrowserKeys",
+  explainCache: "iss.explain.cache.v1",
+  explainTrigger: "iss.explain.trigger",
+  explainAI: "iss.explain.ai",
 };
+
+// ---------- Explain cache (LRU, capped ~400 entries / ~400KB) ----------
+
+interface ExplainCacheEntry { ts: number; text: string; def?: boolean }
+const EXPLAIN_CACHE_MAX = 400;
+const EXPLAIN_CACHE_MAX_BYTES = 400 * 1024;
+const EXPLAIN_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h for read: entries
+
+function readExplainCache(): Map<string, ExplainCacheEntry> {
+  if (typeof window === "undefined") return new Map();
+  try {
+    const raw = window.localStorage.getItem(K.explainCache);
+    if (!raw) return new Map();
+    const arr = JSON.parse(raw) as [string, ExplainCacheEntry][];
+    return new Map(arr);
+  } catch { return new Map(); }
+}
+
+function writeExplainCache(m: Map<string, ExplainCacheEntry>): void {
+  if (typeof window === "undefined") return;
+  try {
+    // Evict oldest if over cap
+    if (m.size > EXPLAIN_CACHE_MAX) {
+      const arr = [...m.entries()].sort((a, b) => a[1].ts - b[1].ts);
+      while (arr.length > EXPLAIN_CACHE_MAX * 0.8) {
+        const [k] = arr.shift()!;
+        m.delete(k);
+      }
+    }
+    // Check byte size
+    const json = JSON.stringify([...m.entries()]);
+    if (json.length > EXPLAIN_CACHE_MAX_BYTES) {
+      const arr = [...m.entries()].sort((a, b) => a[1].ts - b[1].ts);
+      while (JSON.stringify([...m.entries()]).length > EXPLAIN_CACHE_MAX_BYTES * 0.7) {
+        const [k] = arr.shift()!;
+        if (k) m.delete(k);
+        else break;
+      }
+    }
+    window.localStorage.setItem(K.explainCache, JSON.stringify([...m.entries()]));
+  } catch { /* quota */ }
+}
+
+// In-flight dedup
+const inFlightExplain = new Map<string, Promise<string>>();
 
 function read<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -148,5 +196,53 @@ export const store = {
   },
   setCaptureBrowserKeys(v: boolean): void {
     write(K.captureBrowserKeys, v);
+  },
+  // Explain cache
+  getExplainCacheEntry(key: string): string | null {
+    const m = readExplainCache();
+    const e = m.get(key);
+    if (!e) return null;
+    // Def entries never expire; read: entries TTL 24h
+    if (!e.def && Date.now() - e.ts > EXPLAIN_CACHE_TTL) {
+      m.delete(key);
+      writeExplainCache(m);
+      return null;
+    }
+    // Move to end (most recently used)
+    m.delete(key);
+    m.set(key, e);
+    writeExplainCache(m);
+    return e.text;
+  },
+  setExplainCacheEntry(key: string, text: string, def = false): void {
+    const m = readExplainCache();
+    m.set(key, { ts: Date.now(), text, def });
+    writeExplainCache(m);
+  },
+  getExplainInFlight(key: string): Promise<string> | undefined {
+    return inFlightExplain.get(key);
+  },
+  setExplainInFlight(key: string, p: Promise<string>): void {
+    inFlightExplain.set(key, p);
+    p.finally(() => inFlightExplain.delete(key));
+  },
+  clearExplainCache(): void {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.removeItem(K.explainCache); } catch { /* noop */ }
+  },
+  getExplainCacheSize(): number {
+    return readExplainCache().size;
+  },
+  getExplainTrigger(): "hover+click" | "click" | "off" {
+    return read<"hover+click" | "click" | "off">(K.explainTrigger, "hover+click");
+  },
+  setExplainTrigger(v: "hover+click" | "click" | "off"): void {
+    write(K.explainTrigger, v);
+  },
+  getExplainAI(): boolean {
+    return read<boolean>(K.explainAI, true);
+  },
+  setExplainAI(v: boolean): void {
+    write(K.explainAI, v);
   },
 };

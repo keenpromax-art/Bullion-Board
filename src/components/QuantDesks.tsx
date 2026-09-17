@@ -11,8 +11,8 @@ import { store } from "@/lib/store";
 import { BarChart, LineChart, HBars, Histogram, AreaChart, EquityDrawdown } from "./charts";
 import { mulberry32 } from "@/lib/utils";
 
-function KV({ k, v, cls }: { k: string; v: string; cls?: string }) {
-  return <div className="kv"><span className="muted">{k}</span><strong className={cls}>{v}</strong></div>;
+function KV({ k, v, cls, explain }: { k: string; v: string; cls?: string; explain?: boolean }) {
+  return <div className="kv"><span className="muted" data-explain={explain ? k : undefined}>{k}</span><strong className={cls}>{v}</strong></div>;
 }
 
 function Spark({ data, h = 64 }: { data: number[]; h?: number }) {
@@ -40,11 +40,11 @@ export function VolTerm({ closes }: { closes: number[] }) {
   return (
     <div className="panel">
       <p className="p-head">Vol term — annualised</p>
-      <KV k="HV 10D" v={`${(h10 * 100).toFixed(1)}%`} />
-      <KV k="HV 30D" v={`${(h30 * 100).toFixed(1)}%`} />
-      <KV k="HV 252D" v={`${(h252 * 100).toFixed(1)}%`} />
-      <KV k="EWMA NOW" v={`${ewLast.toFixed(1)}%`} />
-      <KV k="REGIME" v={volRegime(h10, h252)} cls={volRegime(h10, h252).includes("EXPAND") ? "neg" : volRegime(h10, h252).includes("COMPRESS") ? "pos" : ""} />
+      <KV k="HV 10D" v={`${(h10 * 100).toFixed(1)}%`} explain />
+      <KV k="HV 30D" v={`${(h30 * 100).toFixed(1)}%`} explain />
+      <KV k="HV 252D" v={`${(h252 * 100).toFixed(1)}%`} explain />
+      <KV k="EWMA NOW" v={`${ewLast.toFixed(1)}%`} explain />
+      <KV k="REGIME" v={volRegime(h10, h252)} cls={volRegime(h10, h252).includes("EXPAND") ? "neg" : volRegime(h10, h252).includes("COMPRESS") ? "pos" : ""} explain />
     </div>
   );
 }
@@ -97,11 +97,11 @@ export function MLDossier({ id, closes }: { id: string; closes: number[] }) {
       <p className="p-head">{spec.name} — live feature snapshot</p>
       <KV k="ARCH" v={spec.arch} />
       <KV k="INPUTS" v={spec.inputs} />
-      <KV k="TREND 20/50" v={trend} cls={trend === "UP" ? "pos" : "neg"} />
-      <KV k="RSI 14" v={r.toFixed(1)} />
-      <KV k="HV 30D" v={`${(hv * 100).toFixed(1)}%`} />
-      <KV k="HURST" v={hu.toFixed(2)} cls={hu > 0.55 ? "pos" : hu < 0.45 ? "neg" : ""} />
-      <KV k="MAX DD" v={`${dd.toFixed(1)}%`} cls="neg" />
+      <KV k="TREND 20/50" v={trend} cls={trend === "UP" ? "pos" : "neg"} explain />
+      <KV k="RSI 14" v={r.toFixed(1)} explain />
+      <KV k="HV 30D" v={`${(hv * 100).toFixed(1)}%`} explain />
+      <KV k="HURST" v={hu.toFixed(2)} cls={hu > 0.55 ? "pos" : hu < 0.45 ? "neg" : ""} explain />
+      <KV k="MAX DD" v={`${dd.toFixed(1)}%`} cls="neg" explain />
       <p className="muted" style={{ fontSize: 11.5 }}>GPU TRAINING RUNS OFF-TERMINAL — THIS DOSSIER + CRITIC IS THE LIVE DESK SURFACE.</p>
       <div><button className="btn" onClick={critic} disabled={aiLoading}>{aiLoading ? "RUNNING…" : "RUN MODEL CRITIC"}</button></div>
       {aiOut && <pre className="ai" style={{ marginTop: 10 }}>{aiOut}</pre>}
@@ -2664,8 +2664,8 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
           <p className="p-head">Capture vs Nifty — 60D · R² {f2(g.r2)}</p>
           <HBars rows={capRows} />
           <div style={{ marginTop: 8 }}>
-            <KV k="ALPHA 60D ANN" v={fsgn(g.alpha60ann, 1) + "%"} cls={dirCls(g.alpha60ann)} />
-            <KV k="CORR 60D" v={f2(g.corr)} />
+            <KV k="ALPHA 60D ANN" v={fsgn(g.alpha60ann, 1) + "%"} cls={dirCls(g.alpha60ann)} explain />
+            <KV k="CORR 60D" v={f2(g.corr)} explain />
           </div>
         </div>
         <div className="panel">

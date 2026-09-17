@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MODULES } from "@/lib/modules";
 import { useClock } from "@/components/TerminalChrome";
 import { store } from "@/lib/store";
+import { useExplain } from "@/components/Explain";
 import SettingsDesk, { SETTINGS_CHANGED_EVENT } from "./SettingsDesk";
 import type { TilingPreset } from "@/lib/terminal/workspaceStore";
 
@@ -54,6 +55,7 @@ export default function StatusBar({
   onTour?: () => void;
 }) {
   const clock = useClock();
+  const { mode: explainMode, toggleMode: toggleExplain } = useExplain();
   // Global settings: one control for every panel (key/model/FRED live in
   // one browser store — this drop-up edits the same values everywhere).
   const [setOpen, setSetOpen] = useState(false);
@@ -174,6 +176,14 @@ export default function StatusBar({
           aria-label="Replay guided tour"
         >? TOUR</button>
       )}
+      <button
+        className="add-btn"
+        onClick={toggleExplain}
+        style={explainMode ? { color: "#ffa028", borderColor: "#ffa028" } : undefined}
+        title="Toggle EXPLAIN MODE — every label becomes explainable (Alt+E)"
+        aria-label="Toggle explain mode"
+        aria-pressed={explainMode}
+      >{explainMode ? "EXPLAIN ● ON" : "EXPLAIN"}</button>
       <span>{clock} IST</span>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import OpenInWorkspace from "@/components/terminal/OpenInWorkspace";
 import { store } from "@/lib/store";
@@ -52,6 +52,54 @@ function Spark({ data }: { data: number[] }) {  if (!data || data.length < 2) re
   );
 }
 
+const INDICATOR_INFO: Record<string, { title: string; what: string; why: string; freq: string; source: string }> = {
+  PAYEMS: { title: "NFP PAYROLLS", what: "Total nonfarm payrolls — net new jobs added in the US economy.", why: "Broadest labor market gauge. A strong print = hawkish Fed, risk-on; weak = dovish, recession risk. Moves equities, bonds, FX within seconds.", freq: "MONTHLY · FIRST FRIDAY", source: "BLS · establishment survey" },
+  UNRATE: { title: "UNEMPLOYMENT RATE", what: "Percentage of the labor force that is jobless and actively seeking work.", why: "Below 4% = tight labor market, wage pressure. Rising trend = weakening economy. Lagging indicator but drives Fed policy.", freq: "MONTHLY · WITH NFP", source: "BLS · household survey" },
+  CPIAUCSL: { title: "CPI", what: "Consumer Price Index — measures change in prices paid by urban consumers for a basket of goods & services.", why: "Headline inflation gauge. Above target = hawkish pressure; below = rate-cut hopes. Energy/food swings cause noise — core strips those.", freq: "MONTHLY · MID-MONTH", source: "BLS" },
+  PCEPILFE: { title: "CORE PCE", what: "Personal Consumption Expenditures price index excluding food & energy — the Fed's preferred inflation measure.", why: "What the Fed targets at 2%. Sticky above 2% = rates stay higher for longer. Key for FOMC dot plot and forward guidance.", freq: "MONTHLY · LATE MONTH", source: "BEA" },
+  PPIACO: { title: "PPI", what: "Producer Price Index — measures price changes received by domestic producers for their output.", why: "Leading indicator for CPI — wholesale cost pressures filter to consumers with a lag. Rising PPI = future CPI upside.", freq: "MONTHLY · MID-MONTH", source: "BLS" },
+  PPIFIS: { title: "PPI FINAL DEMAND", what: "PPI for final demand goods & services — the headline PPI series.", why: "Same as PPI but the primary published series. Watch for pipeline inflation building at producer level.", freq: "MONTHLY · MID-MONTH", source: "BLS" },
+  CPILFESL: { title: "CORE CPI IDX", what: "CPI excluding food & energy — strips volatile components for underlying inflation trend.", why: "More persistent than headline. Drives the 'sticky inflation' narrative. Key input for real rate calculations.", freq: "MONTHLY · WITH CPI", source: "BLS" },
+  CPIAUCNS: { title: "CPI NSA IDX", what: "CPI not seasonally adjusted — raw index level without seasonal adjustments.", why: "Used for indexation (TIPS, Social Security). Not for month-over-month analysis — seasonal patterns dominate.", freq: "MONTHLY · WITH CPI", source: "BLS" },
+  PCEPI: { title: "PCE DEFLATOR", what: "Headline PCE price index including food & energy.", why: "Broad inflation measure. Divergence from core PCE signals energy/food shocks affecting consumption.", freq: "MONTHLY · WITH CORE PCE", source: "BEA" },
+  GDPCTPI: { title: "GDP PRICE IDX", what: "GDP deflator — broadest inflation gauge covering all domestically produced goods & services.", why: "Catches inflation CPI/PCE miss (government spending, exports). Useful for long-run real GDP calculations.", freq: "QUARTERLY", source: "BEA" },
+  CES0500000003: { title: "AVG HOURLY EARNINGS", what: "Average hourly earnings of all employees on private nonfarm payrolls.", why: "Wage growth proxy. Rising = inflationary pressure via wages-prices spiral. Impacts consumer spending outlook.", freq: "MONTHLY · WITH NFP", source: "BLS · establishment survey" },
+  ICSA: { title: "JOBLESS CLAIMS", what: "Initial unemployment insurance claims — new filings for unemployment benefits.", why: "Real-time labor market pulse. Spike above 300K = red flag for economy. Weekly, so most timely labor data available.", freq: "WEEKLY · THURSDAY", source: "DOL" },
+  RSAFS: { title: "RETAIL SALES", what: "Advance retail and food services sales — total receipts at retail and food services stores.", why: "Consumer spending = ~70% of US GDP. Strong sales = growth resilient; weakness = demand cracking. Watch control group for GDP impact.", freq: "MONTHLY · MID-MONTH", source: "Census Bureau" },
+  INDPRO: { title: "IND PRODUCTION", what: "Industrial Production Index — output of factories, mines, and utilities.", why: "Manufacturing/growth gauge. Below 100 = below pre-pandemic trend. Declining trend = recession signal.", freq: "MONTHLY · MID-MONTH", source: "Fed" },
+  GACDISA066MSFRBNY: { title: "EMPIRE MFG IDX", what: "NY Fed Empire State Manufacturing Survey — diffusion index of business conditions in NY state.", why: "Regional manufacturing pulse. >0 = expansion, <0 = contraction. Leading indicator for national ISM PMI.", freq: "MONTHLY · 1ST BUSINESS DAY", source: "NY Fed" },
+  GDP: { title: "GDP SAAR", what: "Gross Domestic Product, seasonally adjusted annual rate — total value of all goods & services produced.", why: "The headline growth number. Positive = expansion, negative = recession. Market moves on surprise vs prior estimate.", freq: "QUARTERLY", source: "BEA" },
+  BOPGSTB: { title: "TRADE BALANCE", what: "Trade balance — exports minus imports of goods & services.", why: "Widening deficit = USD strength headwind, capital inflows. Narrowing = potential growth drag from net exports.", freq: "MONTHLY", source: "Census / BEA" },
+  UMCSENT: { title: "MICHIGAN SENTIMENT", what: "University of Michigan Consumer Sentiment Index — survey of consumer confidence.", why: "Forward-looking spending gauge. Low sentiment = cautious consumers = slower growth. Inflation expectations component watched by Fed.", freq: "MONTHLY · MID & END", source: "U. of Michigan" },
+  CPALTT01INM659N: { title: "INDIA CPI", what: "India Consumer Price Index — measures inflation for Indian consumers.", why: "RBI's primary inflation target gauge. Above 6% upper band = hawkish RBI; below = rate cut room. Drives India bond/equity flows.", freq: "MONTHLY · MID-MONTH", source: "MOSPI · India" },
+  IRSTCI01INM156N: { title: "INDIA CALL RATE", what: "India overnight call money rate — interbank lending rate proxy for policy stance.", why: "Reflects RBI liquidity management. Above repo = tight; below = surplus. Signals money market stress or ease.", freq: "MONTHLY", source: "RBI" },
+};
+
+function IndicatorTooltip({ series, event, anchor }: { series: string; event: string; anchor: { x: number; y: number } | null }) {
+  if (!anchor) return null;
+  const info = INDICATOR_INFO[series];
+  const title = info?.title ?? event;
+  const what = info?.what ?? "Economic release tracked by FRED.";
+  const why = info?.why ?? "Market impact depends on surprise vs consensus.";
+  const freq = info?.freq ?? "";
+  const source = info?.source ?? "FRED";
+  return (
+    <div style={{
+      position: "fixed", left: anchor.x + 12, top: anchor.y - 8, zIndex: 9999,
+      maxWidth: 380, minWidth: 280, background: "#0a0a0c", border: "1px solid #ffa028",
+      borderRadius: 3, padding: "10px 12px", fontFamily: "var(--mono)", fontSize: 12,
+      lineHeight: 1.55, color: "#c9c9cf", pointerEvents: "none",
+      boxShadow: "0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,160,40,0.15)",
+    }}>
+      <div style={{ color: "#ffa028", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{title}</div>
+      <div style={{ marginBottom: 5 }}><span style={{ color: "#666" }}>WHAT: </span>{what}</div>
+      <div style={{ marginBottom: 5 }}><span style={{ color: "#666" }}>WHY IT MATTERS: </span>{why}</div>
+      {freq && <div style={{ marginBottom: 3 }}><span style={{ color: "#666" }}>CADENCE: </span>{freq}</div>}
+      <div style={{ color: "#555", fontSize: 10, marginTop: 4 }}>SOURCE: {source}</div>
+    </div>
+  );
+}
+
 interface CalRow {
   date: string; inDays: number; timeET: string; timeIST: string;
   event: string; group: string; imp: string; period: string;
@@ -86,6 +134,10 @@ function EcoCalendar() {
   const [narrow, setNarrow] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiOut, setAiOut] = useState("");
+  const [tipSeries, setTipSeries] = useState<string | null>(null);
+  const [tipEvent, setTipEvent] = useState("");
+  const [tipAnchor, setTipAnchor] = useState<{ x: number; y: number } | null>(null);
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -141,7 +193,20 @@ function EcoCalendar() {
             <td style={{ whiteSpace: "nowrap" }}>{r.date.slice(5).replace("-", "/")}<span className="faint"> {r.date.slice(0, 4)}</span></td>
             <td className="faint">{r.timeET}</td>
             <td className="faint">{r.timeIST}</td>
-            <td><strong>{r.event}</strong>{r.statik && <span className="faint" style={{ fontSize: 10 }}> · STATIC</span>}<div className="faint" style={{ fontSize: 10.5 }}>{r.series}</div></td>
+            <td
+              onMouseEnter={(e) => {
+                if (tipTimer.current) clearTimeout(tipTimer.current);
+                const rect = e.currentTarget.getBoundingClientRect();
+                setTipSeries(r.series); setTipEvent(r.event);
+                setTipAnchor({ x: rect.right + 4, y: rect.top });
+              }}
+              onMouseLeave={() => {
+                tipTimer.current = setTimeout(() => { setTipSeries(null); setTipAnchor(null); }, 120);
+              }}
+              style={{ cursor: "help" }}
+            >
+              <strong>{r.event}</strong>{r.statik && <span className="faint" style={{ fontSize: 10 }}> · STATIC</span>}<div className="faint" style={{ fontSize: 10.5 }}>{r.series}</div>
+            </td>
             <td>{r.period}</td>
             <td style={{ textAlign: "right" }} className="muted">{r.prior}</td>
             <td style={{ textAlign: "right" }}>{r.actual === "—" ? <span className="faint">—</span> : <strong className="sec">{r.actual}</strong>}</td>
@@ -197,6 +262,7 @@ function EcoCalendar() {
         <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "RUNNING…" : "RUN AI ON CALENDAR"}</button></div>
         {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
       </div>
+      <IndicatorTooltip series={tipSeries ?? ""} event={tipEvent} anchor={tipAnchor} />
     </div>
   );
 }

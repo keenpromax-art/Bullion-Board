@@ -93,8 +93,8 @@ function Dead({ items, need }: { items: string[]; need: string }) {
     </div>
   );
 }
-function KV({ k, v, cls }: { k: string; v: string; cls?: string }) {
-  return <div className="kv"><span className="muted">{k}</span><strong className={cls}>{v}</strong></div>;
+function KV({ k, v, cls, explain }: { k: string; v: string; cls?: string; explain?: boolean }) {
+  return <div className="kv"><span className="muted" data-explain={explain ? k : undefined}>{k}</span><strong className={cls}>{v}</strong></div>;
 }
 
 const NAV: Array<[string, string]> = [

@@ -141,70 +141,7 @@ function YahooHolders({ symbol, coQ }: { symbol: string; coQ: any }) {
   );
 }
 
-// RATIOS hover guide: what the ratio means + how it is computed from the Yahoo ledger.
-const RATIO_INFO: Record<string, { what: string; how: string }> = {
-  "Gross Margin %": { what: "Share of revenue left after direct production costs.", how: "Gross Profit ÷ Total Revenue × 100" },
-  "Operating Margin %": { what: "Share of revenue from core operations, before interest and tax.", how: "Operating Income ÷ Total Revenue × 100" },
-  "EBIT Margin %": { what: "Operating earnings power before interest and tax.", how: "EBIT ÷ Total Revenue × 100" },
-  "EBITDA Margin %": { what: "Cash-like operating margin before depreciation and amortisation.", how: "EBITDA ÷ Total Revenue × 100" },
-  "Pretax Margin %": { what: "Share of revenue left before paying tax.", how: "Pretax Income ÷ Total Revenue × 100" },
-  "Net Margin %": { what: "Final share of revenue kept as profit for shareholders.", how: "Net Income ÷ Total Revenue × 100" },
-  "Effective Tax Rate %": { what: "Actual tax bite out of pretax profit.", how: "Tax Provision ÷ Pretax Income × 100" },
-  "ROE %": { what: "Profit generated per rupee of shareholder equity.", how: "Net Income ÷ Stockholders Equity × 100" },
-  "ROA %": { what: "Profit generated per rupee of total assets.", how: "Net Income ÷ Total Assets × 100" },
-  "ROCE %": { what: "Return on capital actually employed in the business.", how: "EBIT ÷ (Total Assets − Current Liabilities) × 100" },
-  "ROIC %": { what: "After-tax operating return on invested capital.", how: "Operating Income × (1 − tax rate) ÷ Invested Capital × 100" },
-  "Return on Tangible Equity %": { what: "ROE without goodwill and intangibles flattering equity.", how: "Net Income ÷ Tangible Book Value × 100" },
-  "Dividend Payout %": { what: "Share of profit paid out as dividends.", how: "Cash Dividends Paid ÷ Net Income × 100" },
-  "Retention Ratio %": { what: "Share of profit reinvested in the business.", how: "100 − Dividend Payout %" },
-  "Current Ratio x": { what: "Can short-term assets cover short-term bills? Above 1 is comfortable.", how: "Current Assets ÷ Current Liabilities" },
-  "Quick Ratio x": { what: "Same as current ratio but excludes inventory that may not sell fast.", how: "(Current Assets − Inventory) ÷ Current Liabilities" },
-  "Cash Ratio x": { what: "Bills payable from cash alone, no sales or collections needed.", how: "Cash & Equivalents ÷ Current Liabilities" },
-  "Working Capital Rs Cr": { what: "Short-term buffer in rupees. Negative means bills exceed liquid assets.", how: "Current Assets − Current Liabilities" },
-  "Net Cash Rs Cr": { what: "Cash left after repaying all debt. Negative means net debt.", how: "Cash & Equivalents − Total Debt" },
-  "Debt to Equity x": { what: "Rupees of debt per rupee of equity. Higher means more leveraged.", how: "Total Debt ÷ Stockholders Equity" },
-  "Debt to Assets x": { what: "Share of assets funded by debt.", how: "Total Debt ÷ Total Assets" },
-  "Equity Ratio x": { what: "Share of assets funded by shareholders.", how: "Stockholders Equity ÷ Total Assets" },
-  "Long Term Debt to Equity x": { what: "Structural leverage ignoring short-term borrowings.", how: "Long Term Debt ÷ Stockholders Equity" },
-  "Interest Coverage x": { what: "How many times operating profit covers the interest bill.", how: "EBIT ÷ |Interest Expense|" },
-  "Debt to EBITDA x": { what: "Years of EBITDA needed to repay all debt.", how: "Total Debt ÷ EBITDA" },
-  "Net Debt to EBITDA x": { what: "Same, after subtracting cash on hand.", how: "Net Debt ÷ EBITDA" },
-  "Assets to Equity x": { what: "DuPont leverage multiplier — assets supported per rupee of equity.", how: "Total Assets ÷ Stockholders Equity" },
-  "Asset Turnover x": { what: "Revenue squeezed from each rupee of assets.", how: "Total Revenue ÷ Total Assets" },
-  "Equity Turnover x": { what: "Revenue per rupee of equity.", how: "Total Revenue ÷ Stockholders Equity" },
-  "Fixed Asset Turnover x": { what: "How hard plant and equipment work to produce sales.", how: "Total Revenue ÷ Net PPE" },
-  "Working Capital Turnover x": { what: "Sales supported per rupee of working capital.", how: "Total Revenue ÷ Working Capital" },
-  "Inventory Turnover x": { what: "How often inventory is sold and replaced each year.", how: "Cost of Revenue ÷ Inventory" },
-  "Receivables Turnover x": { what: "How fast customers pay, in times per year.", how: "Total Revenue ÷ Receivables" },
-  "Payables Turnover x": { what: "How fast suppliers are paid, in times per year.", how: "Cost of Revenue ÷ Payables" },
-  "Days Sales Outstanding days": { what: "Average days to collect cash from a sale.", how: "365 ÷ Receivables Turnover" },
-  "Days Inventory Outstanding days": { what: "Average days stock sits before being sold.", how: "365 ÷ Inventory Turnover" },
-  "Days Payable Outstanding days": { what: "Average days taken to pay suppliers.", how: "365 ÷ Payables Turnover" },
-  "Cash Conversion Cycle days": { what: "Days cash is locked in operations. Negative means suppliers fund you.", how: "DSO + DIO − DPO" },
-  "OCF Margin %": { what: "Cash from operations per rupee of revenue.", how: "Operating Cash Flow ÷ Total Revenue × 100" },
-  "FCF Margin %": { what: "Free cash left per rupee of revenue after capex.", how: "Free Cash Flow ÷ Total Revenue × 100" },
-  "OCF to Net Income x": { what: "Are profits backed by cash? Above 1 means cash-backed earnings.", how: "Operating Cash Flow ÷ Net Income" },
-  "FCF to Net Income x": { what: "Share of profit convertible to free cash.", how: "Free Cash Flow ÷ Net Income" },
-  "Capex to OCF %": { what: "Share of operating cash eaten by capital spending.", how: "|Capital Expenditure| ÷ Operating Cash Flow × 100" },
-  "Capex to Revenue %": { what: "Investment intensity of each revenue rupee.", how: "|Capital Expenditure| ÷ Total Revenue × 100" },
-  "Dividend to OCF %": { what: "Share of operating cash paid as dividends.", how: "|Dividends Paid| ÷ Operating Cash Flow × 100" },
-  "Revenue Growth %": { what: "Year-on-year sales expansion.", how: "(Revenue − Prior Revenue) ÷ |Prior Revenue| × 100" },
-  "Gross Profit Growth %": { what: "Year-on-year growth in gross profit.", how: "(Gross Profit − Prior) ÷ |Prior| × 100" },
-  "Operating Income Growth %": { what: "Year-on-year growth in core operating profit.", how: "(Operating Income − Prior) ÷ |Prior| × 100" },
-  "Net Income Growth %": { what: "Year-on-year bottom-line growth.", how: "(Net Income − Prior) ÷ |Prior| × 100" },
-  "EPS Diluted Growth %": { what: "Year-on-year growth in earnings per share.", how: "(Diluted EPS − Prior) ÷ |Prior| × 100" },
-  "OCF Growth %": { what: "Year-on-year growth in operating cash flow.", how: "(OCF − Prior) ÷ |Prior| × 100" },
-  "FCF Growth %": { what: "Year-on-year growth in free cash flow.", how: "(FCF − Prior) ÷ |Prior| × 100" },
-  "Total Assets Growth %": { what: "Year-on-year balance-sheet expansion.", how: "(Total Assets − Prior) ÷ |Prior| × 100" },
-  "Equity Growth %": { what: "Year-on-year growth in shareholder funds.", how: "(Equity − Prior) ÷ |Prior| × 100" },
-  "Diluted EPS Rs": { what: "Profit per share after all convertible dilution.", how: "Yahoo Diluted EPS, in rupees" },
-  "Basic EPS Rs": { what: "Profit per outstanding share, undiluted.", how: "Yahoo Basic EPS, in rupees" },
-  "Dividend Per Share Rs": { what: "Dividend declared per share.", how: "Yahoo Dividend Per Share, in rupees" },
-  "Book Value Per Share Rs": { what: "Equity backing each share.", how: "Stockholders Equity (₹ Cr × 1 Cr) ÷ Avg Shares" },
-  "FCF Per Share Rs": { what: "Free cash flow attributable to each share.", how: "Free Cash Flow (₹ Cr × 1 Cr) ÷ Avg Shares" },
-  "Tax Burden x": { what: "DuPont: profit kept after tax per rupee of pretax profit.", how: "Net Income ÷ Pretax Income" },
-  "Interest Burden x": { what: "DuPont: pretax profit per rupee of EBIT — debt cost drag.", how: "Pretax Income ÷ EBIT" },
-};
+// RATIOS hover guide — RATIO_INFO promoted to shared GLOSSARY in explain.ts.
 const RATIO_CATS: Array<{ head: string; labels: string[] }> = [
   {
     head: "Profitability",
@@ -258,13 +195,6 @@ const RATIO_CATS: Array<{ head: string; labels: string[] }> = [
 export function RatiosTables({ rat }: { rat: STable }) {
   const byLabel = new Map(rat.rows.map((r) => [r.label, r]));
   const seen = new Set<string>();
-  const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(null);
-  const showTip = (text: string, e: { clientX: number; clientY: number }) => {
-    const w = 350;
-    const x = Math.min(e.clientX + 14, Math.max(8, window.innerWidth - w - 12));
-    const y = Math.min(e.clientY + 16, Math.max(8, window.innerHeight - 90));
-    setTip({ text, x, y });
-  };
   const groups = RATIO_CATS.map((c) => ({
     head: c.head,
     rows: c.labels
@@ -293,48 +223,21 @@ export function RatiosTables({ rat }: { rat: STable }) {
                 </tr>
               </thead>
               <tbody>
-                {g.rows.map((r) => {
-                  const info = RATIO_INFO[r.label];
-                  const tipText = info ? `${info.what} ▸ ${info.how}` : r.label;
-                  return (
-                    <tr key={r.label}>
-                      <td>
-                        <strong
-                          onMouseEnter={(e) => showTip(tipText, e)}
-                          onMouseMove={(e) => showTip(tipText, e)}
-                          onMouseLeave={() => setTip(null)}
-                          style={{ borderBottom: "1px dotted var(--faint)", cursor: "help" }}
-                        >
-                          {r.label}
-                        </strong>
+                {g.rows.map((r) => (
+                  <tr key={r.label}>
+                    <td><strong data-explain={r.label}>{r.label}</strong></td>
+                    {r.values.map((v, i) => (
+                      <td key={i} style={{ textAlign: "right" }}>
+                        {v === null || v === undefined ? "—" : v.toLocaleString("en-IN")}
                       </td>
-                      {r.values.map((v, i) => (
-                        <td key={i} style={{ textAlign: "right" }}>
-                          {v === null || v === undefined ? "—" : v.toLocaleString("en-IN")}
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
+                    ))}
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       ))}
-      {tip && (
-        <div
-          style={{
-            position: "fixed", left: tip.x, top: tip.y, zIndex: 200,
-            maxWidth: 350, background: "#000", color: "var(--text)",
-            border: "1px solid var(--amber)", borderRadius: 3,
-            boxShadow: "0 12px 32px rgba(0,0,0,0.85)",
-            padding: "8px 10px", fontSize: 11.5, lineHeight: 1.55,
-            pointerEvents: "none",
-          }}
-        >
-          {tip.text}
-        </div>
-      )}
     </>
   );
 }

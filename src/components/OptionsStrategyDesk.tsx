@@ -9,8 +9,8 @@ import {
 } from "@/lib/strategyEngine";
 import { blackScholes } from "@/lib/options";
 
-function KV({ k, v, cls }: { k: string; v: string; cls?: string }) {
-  return <div className="kv"><span className="muted">{k}</span><strong className={cls}>{v}</strong></div>;
+function KV({ k, v, cls, explain }: { k: string; v: string; cls?: string; explain?: boolean }) {
+  return <div className="kv"><span className="muted" data-explain={explain ? k : undefined}>{k}</span><strong className={cls}>{v}</strong></div>;
 }
 
 function fmtINR(v: number | null | undefined, dp = 0): string {
@@ -198,17 +198,17 @@ export default function OptionsStrategyDesk({ symbol, data }: { symbol: string; 
           <KV k="BIAS SCORE" v={`${bias.biasScore >= 0 ? "+" : ""}${bias.biasScore.toFixed(1)}`} cls={bias.biasScore >= 0 ? "pos" : "neg"} />
           <KV k="MOM 5D" v={fmtPct(bias.momentum5dPct)} cls={bias.momentum5dPct >= 0 ? "pos" : "neg"} />
           <KV k="VS MA20 / MA50" v={`${fmtPct(bias.priceVsMA20Pct, 1)} / ${fmtPct(bias.priceVsMA50Pct, 1)}`} />
-          <KV k="RSI / ADX" v={`${fmtN(bias.rsi, 1)} / ${fmtN(bias.adx, 1)}`} />
-          <KV k="MACD HIST" v={fmtN(bias.macdHist, 3)} cls={(bias.macdHist ?? 0) >= 0 ? "pos" : "neg"} />
-          <KV k="HURST" v={fmtN(bias.hurst, 3)} />
+          <KV k="RSI / ADX" v={`${fmtN(bias.rsi, 1)} / ${fmtN(bias.adx, 1)}`} explain />
+          <KV k="MACD HIST" v={fmtN(bias.macdHist, 3)} cls={(bias.macdHist ?? 0) >= 0 ? "pos" : "neg"} explain />
+          <KV k="HURST" v={fmtN(bias.hurst, 3)} explain />
         </div>
         <div className="panel">
           <p className="p-head">Vol — term + IV</p>
-          <KV k="HV 10 / 30 / 252" v={`${(hv10 * 100).toFixed(1)} / ${(hv30 * 100).toFixed(1)} / ${(hv252 * 100).toFixed(1)}`} />
-          <KV k="HV REGIME" v={regime} cls={regime.includes("EXPAND") ? "neg" : regime.includes("COMPRESS") ? "pos" : ""} />
-          <KV k="IV USED" v={`${bias.ivPct.toFixed(1)}% · ${bias.ivRegime.toUpperCase()}`} cls={bias.ivRegime === "Low" ? "pos" : bias.ivRegime !== "Normal" ? "neg" : ""} />
-          <KV k="VOL EXPANDING" v={bias.volExpanding ? "YES" : "NO"} cls={bias.volExpanding ? "neg" : "pos"} />
-          <KV k="EXP MOVE ±1SD" v={`${fmtINR(expMove)} · ${((expMove / spot) * 100).toFixed(1)}%`} />
+          <KV k="HV 10 / 30 / 252" v={`${(hv10 * 100).toFixed(1)} / ${(hv30 * 100).toFixed(1)} / ${(hv252 * 100).toFixed(1)}`} explain />
+          <KV k="HV REGIME" v={regime} cls={regime.includes("EXPAND") ? "neg" : regime.includes("COMPRESS") ? "pos" : ""} explain />
+          <KV k="IV USED" v={`${bias.ivPct.toFixed(1)}% · ${bias.ivRegime.toUpperCase()}`} cls={bias.ivRegime === "Low" ? "pos" : bias.ivRegime !== "Normal" ? "neg" : ""} explain />
+          <KV k="VOL EXPANDING" v={bias.volExpanding ? "YES" : "NO"} cls={bias.volExpanding ? "neg" : "pos"} explain />
+          <KV k="EXP MOVE ±1SD" v={`${fmtINR(expMove)} · ${((expMove / spot) * 100).toFixed(1)}%`} explain />
           <KV k="RANGE" v={`${fmtINR(spot - expMove, 0)} – ${fmtINR(spot + expMove, 0)}`} />
         </div>
         <div className="panel panel-glow">

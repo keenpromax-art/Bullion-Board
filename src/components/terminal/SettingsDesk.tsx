@@ -22,6 +22,9 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
   const [saved, setSaved] = useState("");
   const [server, setServer] = useState<{ hasServerKey: boolean; model: string } | null>(null);
   const [fserver, setFserver] = useState<{ hasServerKey: boolean } | null>(null);
+  const [explTrigger, setExplTrigger] = useState<"hover+click" | "click" | "off">("click");
+  const [explAI, setExplAI] = useState(true);
+  const [explCacheSize, setExplCacheSize] = useState(0);
 
   useEffect(() => {
     try {
@@ -30,6 +33,9 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
       setModel(m);
       if (!FREE_MODELS.some((x) => x.id === m)) setCustomModel(m);
       setFkey(store.getFredKey());
+      setExplTrigger(store.getExplainTrigger());
+      setExplAI(store.getExplainAI());
+      setExplCacheSize(store.getExplainCacheSize());
     } catch { /* ignore */ }
     fetch("/api/ai/status").then((r) => r.json()).then(setServer).catch(() => {});
     fetch("/api/macro/key").then((r) => r.json()).then(setFserver).catch(() => {});
@@ -41,6 +47,8 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
       store.setORKey(key.trim());
       store.setORModel(effectiveModel.trim() || DEFAULT_MODEL);
       store.setFredKey(fkey.trim());
+      store.setExplainTrigger(explTrigger);
+      store.setExplainAI(explAI);
       setSaved("SAVED ✓ — APPLIES TO ALL PANELS");
       notifySettingsChanged();
     } catch {
@@ -132,6 +140,44 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
           aria-label="FRED API key override"
         />
       </label>
+
+      {/* EXPLAIN MODE SETTINGS */}
+      <div style={{ borderTop: "1px solid #26262b", paddingTop: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#ffa028", letterSpacing: "0.08em", marginBottom: 6 }}>
+          EXPLAIN MODE
+        </div>
+        <div style={{ display: "grid", gap: 6 }}>
+          <label style={{ display: "grid", gap: 4, fontSize: 11, color: "var(--sub)" }}>
+            TRIGGER
+            <select
+              className="box" value={explTrigger}
+              onChange={(e) => setExplTrigger(e.target.value as typeof explTrigger)}
+              aria-label="Explain trigger mode"
+            >
+              <option value="click">CLICK — click labels to explain</option>
+              <option value="hover+click">HOVER — hover for tooltip, click for full</option>
+              <option value="off">OFF — disable explain on labels</option>
+            </select>
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--sub)", cursor: "pointer" }}>
+            <input
+              type="checkbox" checked={explAI}
+              onChange={(e) => setExplAI(e.target.checked)}
+              style={{ accentColor: "#ffa028" }}
+            />
+            AI EXPLANATIONS (TIER 2) — USES {store.getExplainerModel().split("/").pop()?.toUpperCase() ?? "NEMOTRON"}
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--sub)" }}>
+            <span>CACHE: {explCacheSize} ENTRIES</span>
+            <button
+              className="ghost" style={{ fontSize: 10, padding: "2px 6px" }}
+              onClick={() => { store.clearExplainCache(); setExplCacheSize(0); }}
+            >
+              CLEAR
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="toolbar">
         <button className="btn" onClick={save}>SAVE</button>

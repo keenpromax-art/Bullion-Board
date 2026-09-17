@@ -5,13 +5,11 @@
 // Sources per section are labeled; anything needing a feed Yahoo lacks is an
 // explicit NEEDS-FEED panel, never silently missing.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStatements, useCompany, RatiosTables } from "./FundaDesks";
 import type { STable } from "./FundaDesks";
 import { LineChart, GroupedBars, BarChart, Donut, HBars } from "./charts";
 import { sectorOf, SECTORS } from "@/lib/sectors";
-import { chatComplete } from "@/lib/ai";
-import { store } from "@/lib/store";
 
 type Num = number | null;
 type Row = { label: string; values: Num[] };
@@ -82,10 +80,9 @@ function Dead({ items, need }: { items: string[]; need: string }) {
   );
 }
 
-function LTable({ periods, rows, moneyFmt, heat, sub, onLabelClick }: {
+function LTable({ periods, rows, moneyFmt, heat, sub }: {
   periods: string[]; rows: Row[];
   moneyFmt: (v: number) => string; heat: boolean; sub?: (label: string, i: number) => string | null;
-  onLabelClick?: (label: string, e: React.MouseEvent) => void;
 }) {
   if (!rows.length) return <p className="muted">NO ROWS ON FEED.</p>;
   return (
@@ -106,9 +103,7 @@ function LTable({ periods, rows, moneyFmt, heat, sub, onLabelClick }: {
             return (
               <tr key={r.label}>
                 <td>
-                  {onLabelClick
-                    ? <strong style={{ cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: 3 }} onClick={(e) => onLabelClick(r.label, e)}>{r.label}</strong>
-                    : <strong>{r.label}</strong>}
+                  <strong data-explain={r.label}>{r.label}</strong>
                   {sub && <div className="faint" style={{ fontSize: 10.5 }}>{sub(r.label, r.values.length - 1)}</div>}
                 </td>
                 {r.values.map((v, i) => <td key={i} style={{ textAlign: "right" }}>{v === null ? "—" : moneyFmt(v)}</td>)}
@@ -141,11 +136,6 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
   const [ccy, setCcy] = useState<"INR" | "USD">("INR");
   const [heat, setHeat] = useState(false);
   const [stmtFilter, setStmtFilter] = useState<"all" | "is" | "bs" | "cf">("all");
-  const [explLabel, setExplLabel] = useState<string | null>(null);
-  const [explText, setExplText] = useState<string>("");
-  const [explLoading, setExplLoading] = useState(false);
-  const [explPos, setExplPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const explRef = useRef<HTMLDivElement>(null);
   const [est, setEst] = useState<any>(null);
   const [evts, setEvts] = useState<any>(null);
   const [fx, setFx] = useState<number | null>(null);
@@ -319,25 +309,6 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
     return cl.map((v) => (v === null ? null : (v / first) * 100));
   };
 
-  const handleLabelClick = async (label: string, e: React.MouseEvent) => {
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
-    setExplLabel(label);
-    setExplText("");
-    setExplLoading(true);
-    setExplPos({ x: rect.left, y: rect.bottom + 8 });
-    try {
-      const txt = await chatComplete([
-        { role: "system", content: "You are a finance tutor explaining Indian equity financial statements. Be concise (2-4 sentences max). Explain what the line item means, why it matters, and any India-specific context. Use uppercase." },
-        { role: "user", content: `Explain this financial line item: "${label}"` },
-      ], { model: store.getExplainerModel() });
-      setExplText(txt);
-    } catch {
-      setExplText("COULD NOT LOAD EXPLANATION.");
-    } finally {
-      setExplLoading(false);
-    }
-  };
-
   return (
     <div className="grid">
       <div className="panel panel-glow stmt-toolbar">
@@ -370,21 +341,21 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
         {(stmtFilter === "all" || stmtFilter === "is") && basisTbl.pl && (
           <div>
             <Sec id="t-is" no="§1a" title={`Revenue & COGS — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
-              <LTable periods={basisTbl.pl.periods} rows={synthesize(matchRows(basisTbl.pl, /operating revenue|total revenue|excise|cost of revenue|reconciled cost|gross profit/i).slice(0, 15), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} onLabelClick={handleLabelClick} />
+              <LTable periods={basisTbl.pl.periods} rows={synthesize(matchRows(basisTbl.pl, /operating revenue|total revenue|excise|cost of revenue|reconciled cost|gross profit/i).slice(0, 15), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
             </Sec>
             <div style={{ marginTop: 10 }}>
               <Sec id="t-is-opex" no="§1b" title={`Operating expenses — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
-                <LTable periods={basisTbl.pl.periods} rows={synthesize(matchRows(basisTbl.pl, /operating expense|selling general|selling and market|general and admin|other g&a|research and development|other operating|salaries|professional|insurance|rent|occupancy|provision for doubtful|depreciation(?!.*balance)|amortization(?!.*balance)|depletion(?!.*balance)|reconciled depreciation/i).slice(0, 25), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} onLabelClick={handleLabelClick} />
+                <LTable periods={basisTbl.pl.periods} rows={synthesize(matchRows(basisTbl.pl, /operating expense|selling general|selling and market|general and admin|other g&a|research and development|other operating|salaries|professional|insurance|rent|occupancy|provision for doubtful|depreciation(?!.*balance)|amortization(?!.*balance)|depletion(?!.*balance)|reconciled depreciation/i).slice(0, 25), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
               </Sec>
             </div>
             <div style={{ marginTop: 10 }}>
               <Sec id="t-is-nonop" no="§1c" title="Non-operating & special items" src="yahoo timeseries">
-                <LTable periods={basisTbl.pl.periods} rows={matchRows(basisTbl.pl, /operating income|ebit(?!da)|net interest|interest expense|interest income|other income|other non operating|special income|gain on sale|write off|impairment|restructuring|securities amortization|earnings from equity|net non operating|total other finance|other taxes/i).slice(0, 25)} moneyFmt={mf} heat={false} onLabelClick={handleLabelClick} />
+                <LTable periods={basisTbl.pl.periods} rows={matchRows(basisTbl.pl, /operating income|ebit(?!da)|net interest|interest expense|interest income|other income|other non operating|special income|gain on sale|write off|impairment|restructuring|securities amortization|earnings from equity|net non operating|total other finance|other taxes/i).slice(0, 25)} moneyFmt={mf} heat={false} />
               </Sec>
             </div>
             <div style={{ marginTop: 10 }}>
               <Sec id="t-is-bottom" no="§1d" title="Tax, net income & EPS" src="yahoo timeseries">
-                <LTable periods={basisTbl.pl.periods} rows={matchRows(basisTbl.pl, /pretax|tax provision|net income(?! from)|minority|preferred stock div|basic eps|diluted eps|basic average|diluted average|dividend per share|normalized/i).slice(0, 20)} moneyFmt={mf} heat={false} onLabelClick={handleLabelClick} />
+                <LTable periods={basisTbl.pl.periods} rows={matchRows(basisTbl.pl, /pretax|tax provision|net income(?! from)|minority|preferred stock div|basic eps|diluted eps|basic average|diluted average|dividend per share|normalized/i).slice(0, 20)} moneyFmt={mf} heat={false} />
               </Sec>
             </div>
           </div>
@@ -397,26 +368,26 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
         {(stmtFilter === "all" || stmtFilter === "bs") && (
           <div className="grid grid-2" style={{ marginTop: 10 }}>
             <Sec id="t-bs-a" no="§2" title={`BS assets — ${unit}${pctMode ? " · % OF ASSETS" : ""}`} src="yahoo timeseries">
-              {st.bs ? <LTable periods={st.pl?.periods ?? []} rows={synthesize(matchRows(st.bs, /assets|inventory|receiv|cash|ppe|goodwill|intangible|invest|prepaid|deferred/i).slice(0, 40), pctDenBS)} moneyFmt={moneyOrPct} heat={heat} onLabelClick={handleLabelClick} /> : <p className="muted">NO SERIES.</p>}
+              {st.bs ? <LTable periods={st.pl?.periods ?? []} rows={synthesize(matchRows(st.bs, /assets|inventory|receiv|cash|ppe|goodwill|intangible|invest|prepaid|deferred/i).slice(0, 40), pctDenBS)} moneyFmt={moneyOrPct} heat={heat} /> : <p className="muted">NO SERIES.</p>}
             </Sec>
             <Sec id="t-bs-l" no="§3" title={`BS liabilities & equity — ${unit}`} src="yahoo timeseries">
-              {st.bs ? <LTable periods={st.pl?.periods ?? []} rows={matchRows(st.bs, /liabilit|debt|equity|payable|provision|deferred|capital|shares|retained|minority|treasury/i).slice(0, 40)} moneyFmt={mf} heat={heat} onLabelClick={handleLabelClick} /> : <p className="muted">NO SERIES.</p>}
+              {st.bs ? <LTable periods={st.pl?.periods ?? []} rows={matchRows(st.bs, /liabilit|debt|equity|payable|provision|deferred|capital|shares|retained|minority|treasury/i).slice(0, 40)} moneyFmt={mf} heat={heat} /> : <p className="muted">NO SERIES.</p>}
             </Sec>
           </div>
         )}
         {(stmtFilter === "all" || stmtFilter === "cf") && basisTbl.cf && (
           <div style={{ marginTop: 10 }}>
             <Sec id="t-cf" no="§4a" title={`Cash flow from operations — ${unit}${pctMode ? " · % OF REVENUE" : ""}`} src="yahoo timeseries">
-              <LTable periods={basisTbl.cf.periods} rows={synthesize(matchRows(basisTbl.cf, /operating cash flow|cash flow from continuing operating|depreciation|amortization|depletion|deferred tax|deferred income tax|stock based comp|excess tax benefit|other non cash|provision|impairment|asset impairment|operating gains|pension|equity invest|gain loss on (invest|securit)|unrealized gain|foreign currency|gain loss on sale of ppe|gain loss on sale of business|net income from continuing|taxes refund paid|interest received cfo|interest paid cfo|dividend received cfo|dividend paid cfo|change in working|change in other|change in payable|change in accrued|change in interest|change in dividend|change in income tax|change in prepaid|change in inventory|change in receivable|changes in account|cash flowsfromusedin operating|taxesrefundpaiddirect|interestreceiveddirect|interestpaiddirect|dividendsreceiveddirect|dividendspaiddirect|classesof cash|othercashpaymentsfrom|paymentsonbehalfof|paymentstosuppliers|classesofcashreceipts|othercashreceiptsfrom|receiptsfrom/i).slice(0, 40), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} onLabelClick={handleLabelClick} />
+              <LTable periods={basisTbl.cf.periods} rows={synthesize(matchRows(basisTbl.cf, /operating cash flow|cash flow from continuing operating|depreciation|amortization|depletion|deferred tax|deferred income tax|stock based comp|excess tax benefit|other non cash|provision|impairment|asset impairment|operating gains|pension|equity invest|gain loss on (invest|securit)|unrealized gain|foreign currency|gain loss on sale of ppe|gain loss on sale of business|net income from continuing|taxes refund paid|interest received cfo|interest paid cfo|dividend received cfo|dividend paid cfo|change in working|change in other|change in payable|change in accrued|change in interest|change in dividend|change in income tax|change in prepaid|change in inventory|change in receivable|changes in account|cash flowsfromusedin operating|taxesrefundpaiddirect|interestreceiveddirect|interestpaiddirect|dividendsreceiveddirect|dividendspaiddirect|classesof cash|othercashpaymentsfrom|paymentsonbehalfof|paymentstosuppliers|classesofcashreceipts|othercashreceiptsfrom|receiptsfrom/i).slice(0, 40), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
             </Sec>
             <Sec id="t-cf-i" no="§4b" title={`Cash flow from investing — ${unit}`} src="yahoo timeseries" >
-              <LTable periods={basisTbl.cf.periods} rows={synthesize(matchRows(basisTbl.cf, /investing cash flow|cash flow from continuing investing|net other investing|interest received cfi|dividends received cfi|capital expenditure|net ppe purchase|purchase of ppe|sale of ppe|net investment purchase|purchase of investment|sale of investment|net investment properties|purchase of investment properties|sale of investment properties|net business purchase|purchase of business|sale of business|net intangibles purchase|purchase of intangibles|sale of intangibles/i).slice(0, 30), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} onLabelClick={handleLabelClick} />
+              <LTable periods={basisTbl.cf.periods} rows={synthesize(matchRows(basisTbl.cf, /investing cash flow|cash flow from continuing investing|net other investing|interest received cfi|dividends received cfi|capital expenditure|net ppe purchase|purchase of ppe|sale of ppe|net investment purchase|purchase of investment|sale of investment|net investment properties|purchase of investment properties|sale of investment properties|net business purchase|purchase of business|sale of business|net intangibles purchase|purchase of intangibles|sale of intangibles/i).slice(0, 30), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
             </Sec>
             <Sec id="t-cf-f" no="§4c" title={`Cash flow from financing — ${unit}`} src="yahoo timeseries" >
-              <LTable periods={basisTbl.cf.periods} rows={synthesize(matchRows(basisTbl.cf, /financing cash flow|cash flow from continuing financing|net other financing|interest paid cff|proceeds from stock option|repurchase of capital stock|issuance of capital stock|net common stock|common stock issuance|common stock payments|net preferred stock|preferred stock issuance|preferred stock payments|cash dividends paid|common stock dividend|preferred stock dividend|repayment of debt|issuance of debt|net issuance payments of debt|net short term debt|short term debt issuance|short term debt payments|net long term debt|long term debt issuance|long term debt payments/i).slice(0, 30), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} onLabelClick={handleLabelClick} />
+              <LTable periods={basisTbl.cf.periods} rows={synthesize(matchRows(basisTbl.cf, /financing cash flow|cash flow from continuing financing|net other financing|interest paid cff|proceeds from stock option|repurchase of capital stock|issuance of capital stock|net common stock|common stock issuance|common stock payments|net preferred stock|preferred stock issuance|preferred stock payments|cash dividends paid|common stock dividend|preferred stock dividend|repayment of debt|issuance of debt|net issuance payments of debt|net short term debt|short term debt issuance|short term debt payments|net long term debt|long term debt issuance|long term debt payments/i).slice(0, 30), pctDenIS)} moneyFmt={moneyOrPct} heat={heat} />
             </Sec>
             <Sec id="t-cf-s" no="§4d" title="Supplemental & reconciliation" src="yahoo timeseries" >
-              <LTable periods={basisTbl.cf.periods} rows={matchRows(basisTbl.cf, /free cash flow|end cash position|beginning cash position|changes in cash|effect of exchange|other cash adjustment|cash flow from discontinued|interest paid supplemental|income tax paid supplemental|foreign sales|domestic sales|adjusted geography/i).slice(0, 15)} moneyFmt={mf} heat={false} onLabelClick={handleLabelClick} />
+              <LTable periods={basisTbl.cf.periods} rows={matchRows(basisTbl.cf, /free cash flow|end cash position|beginning cash position|changes in cash|effect of exchange|other cash adjustment|cash flow from discontinued|interest paid supplemental|income tax paid supplemental|foreign sales|domestic sales|adjusted geography/i).slice(0, 15)} moneyFmt={mf} heat={false} />
             </Sec>
             {basisTbl.bsNote && <p className="faint" style={{ fontSize: 11 }}>{basisTbl.bsNote}</p>}
           </div>
@@ -443,7 +414,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
               ]}
               moneyFmt={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
               heat={heat}
-              onLabelClick={handleLabelClick}
+             
             />
           ) : <p className="muted">NO RATIO SERIES.</p>}
         </Sec>
@@ -482,7 +453,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
         <Sec id="t-vals" no="§11" title="Valuation multiples — FY-end prices × current shares" src="yahoo prices + ledger">
           {valRows.length ? (
             <>
-              <LTable periods={valPeriods} rows={valRows} moneyFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 2 })} heat={heat} onLabelClick={handleLabelClick} />
+              <LTable periods={valPeriods} rows={valRows} moneyFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 2 })} heat={heat} />
               <div className="grid grid-2" style={{ marginTop: 10 }}>
                 <div><p className="p-head">P/E · P/B · EV/EBITDA</p>
                   <LineChart dates={valPeriods} yFmt={(v) => `${v.toFixed(1)}x`} series={[
@@ -584,7 +555,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
           </div>
           <div style={{ marginTop: 10 }}>
             <p className="p-head">Contingency / provision rows on the ledger</p>
-            <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /contingen|guarantee/i), ...matchRows(st.pl, /provision|write.?off|impair/i), ...matchRows(st.cf, /provision|write.?off|impair/i)].slice(0, 20)} moneyFmt={mf} heat={false} onLabelClick={handleLabelClick} />
+            <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /contingen|guarantee/i), ...matchRows(st.pl, /provision|write.?off|impair/i), ...matchRows(st.cf, /provision|write.?off|impair/i)].slice(0, 20)} moneyFmt={mf} heat={false} />
           </div>
         </Sec>
         <div style={{ marginTop: 10 }}>
@@ -604,7 +575,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
             />
           </div>
           <div style={{ marginTop: 10 }}>
-            <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /deferred tax|tax payable|taxes receivable|mat credit/i), ...matchRows(st.pl, [/tax provision/]), ...matchRows(st.cf, [/deferred tax|income tax paid/i])].slice(0, 20)} moneyFmt={mf} heat={false} onLabelClick={handleLabelClick} />
+            <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /deferred tax|tax payable|taxes receivable|mat credit/i), ...matchRows(st.pl, [/tax provision/]), ...matchRows(st.cf, [/deferred tax|income tax paid/i])].slice(0, 20)} moneyFmt={mf} heat={false} />
           </div>
         </Sec>
         <div style={{ marginTop: 10 }}>
@@ -639,7 +610,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
             </div>
           </div>
           <div style={{ marginTop: 10 }}>
-            <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /raw materials|work in process|finished goods|inventor|receiv|allowance|payable|prepaid|deferred.*(asset|revenue)/i)].slice(0, 30)} moneyFmt={mf} heat={heat} onLabelClick={handleLabelClick} />
+            <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /raw materials|work in process|finished goods|inventor|receiv|allowance|payable|prepaid|deferred.*(asset|revenue)/i)].slice(0, 30)} moneyFmt={mf} heat={heat} />
             <p className="faint" style={{ fontSize: 11 }}>RECEIVABLES AGEING BUCKETS NOT DISCLOSED ON YAHOO — ALLOWANCE ROWS ABOVE ARE THE PROXY.</p>
           </div>
         </Sec>
@@ -651,7 +622,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
             ...matchRows(st.cf, /capital expenditure|depreciation|amortization|purchase of ppe|sale of ppe/i),
             ...matchRows(st.cf, /repurchase|buyback|issuance|repayment|dividend/i),
             ...matchRows(st.pl, [/depreciation/, /dividend per share/]),
-          ].slice(0, 30)} moneyFmt={mf} heat={false} onLabelClick={handleLabelClick} />
+          ].slice(0, 30)} moneyFmt={mf} heat={false} />
           <p className="faint" style={{ fontSize: 11 }}>RIGHTS/QIP SHOW UP AS COMMON-STOCK ISSUANCE ABOVE · REFINANCING VIA ISSUANCE−REPAYMENT PAIRS.</p>
         </Sec>
       </div>
@@ -725,7 +696,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
             ...matchRows(st.pl, [/research and development/, /rent expense/]),
             ...matchRows(st.cf, [/stock based compensation/, /excess tax benefit/]),
             ...matchRows(st.bs, [/capital lease|leases|treasury stock|foreign currency translation|unrealized gain/i]),
-          ].slice(0, 40)} moneyFmt={mf} heat={false} onLabelClick={handleLabelClick} />
+          ].slice(0, 40)} moneyFmt={mf} heat={false} />
         </Sec>
         <div style={{ marginTop: 10 }}>
           <Dead items={["Prior-period restatement flags", "Related-party transaction detail", "Actuarial gains/losses schedule", "ESOP vesting schedules"]} need="NEEDS FILINGS FEED" />
@@ -814,7 +785,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
 
       <div id="t-cash">
         <Sec id="t-cashs" no="§23" title="Cash & investment composition" src="ledger finder">
-          <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /cash|short.?term investment|trading securit|restricted|financial asset|held.?to.?maturity|available.?for.?sale/i)].slice(0, 20)} moneyFmt={mf} heat={false} onLabelClick={handleLabelClick} />
+          <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /cash|short.?term investment|trading securit|restricted|financial asset|held.?to.?maturity|available.?for.?sale/i)].slice(0, 20)} moneyFmt={mf} heat={false} />
           <p className="p-head" style={{ marginTop: 10 }}>Treasury contribution — interest & investment income vs PBT %</p>
           <LineChart
             dates={st.pl?.periods ?? []}
@@ -830,7 +801,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
 
       <div id="t-off">
         <Sec id="t-offs" no="§24" title="Off-balance-sheet & structural" src="ledger finder">
-          <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /lease|capital lease|derivative|pension|employee benefit|provisions/i)].slice(0, 20)} moneyFmt={mf} heat={false} onLabelClick={handleLabelClick} />
+          <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /lease|capital lease|derivative|pension|employee benefit|provisions/i)].slice(0, 20)} moneyFmt={mf} heat={false} />
         </Sec>
         <div style={{ marginTop: 10 }}>
           <Dead items={["Guarantees / LCs outstanding", "Derivative notional & hedge detail", "Pending litigation exposure", "Carbon intensity & green capex", "ESG-linked covenants"]} need="NEEDS FILINGS/ESG FEED (§24/§26)" />
@@ -845,22 +816,6 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
         </p>
       </div>
 
-      {explLabel && (
-        <div ref={explRef} style={{
-          position: "fixed", left: Math.min(explPos.x, window.innerWidth - 420), top: Math.min(explPos.y, window.innerHeight - 200),
-          maxWidth: 400, zIndex: 9999, background: "#121214", border: "1px solid var(--amber)", borderRadius: 3,
-          padding: "12px 14px", boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ color: "var(--amber)", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }}>{explLabel.toUpperCase()}</span>
-            <button onClick={() => setExplLabel(null)} style={{ background: "none", border: "none", color: "var(--sub)", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
-          </div>
-          {explLoading
-            ? <p className="muted" style={{ margin: 0, fontSize: 12 }}>LOADING…</p>
-            : <p style={{ margin: 0, fontSize: 12, color: "var(--text)", lineHeight: 1.5 }}>{explText}</p>
-          }
-        </div>
-      )}
     </div>
   );
 }

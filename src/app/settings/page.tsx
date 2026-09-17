@@ -18,6 +18,9 @@ export default function SettingsPage() {
   const [esaved, setEsaved] = useState("");
   const [withKeys, setWithKeys] = useState(true);
   const [bmsg, setBmsg] = useState("");
+  const [explTrigger, setExplTrigger] = useState<"hover+click" | "click" | "off">("click");
+  const [explAI, setExplAI] = useState(true);
+  const [explCacheSize, setExplCacheSize] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -27,6 +30,9 @@ export default function SettingsPage() {
     setFkey(store.getFredKey());
     fetch("/api/macro/key").then((r) => r.json()).then(setFserver).catch(() => {});
     setExplainerModel(store.getExplainerModel());
+    setExplTrigger(store.getExplainTrigger());
+    setExplAI(store.getExplainAI());
+    setExplCacheSize(store.getExplainCacheSize());
   }, []);
 
   return (
@@ -116,18 +122,61 @@ export default function SettingsPage() {
           </div>
         </div>
         <div className="panel">
-          <p className="p-head">Line-item explainer — AI model for statement tooltips</p>
+          <p className="p-head">EXPLAIN MODE — UNDERSTAND ANY LABEL</p>
           <p className="muted" style={{ fontSize: 12.5 }}>
-            WHEN YOU CLICK A LINE ITEM IN THE FINANCIAL STATEMENTS, AN AI EXPLAINS WHAT IT MEANS.
-            SET THE MODEL BELOW. FREE TIER MODELS HAVE NO COST.
+            ALT+E TOGGLES EXPLAIN MODE. CLICK ANY LABEL, METRIC, OR HEADER TO GET AN INSTANT
+            GLOSSARY DEFINITION (TIER 1) OR A STREAMED AI EXPLANATION (TIER 2). SELECT TEXT ANYWHERE TO SEE AN "EXPLAIN" CHIP.
           </p>
+          <div className="cells" style={{ marginBottom: 12 }}>
+            <div className="cell">
+              <div className="lbl">Trigger</div>
+              <div className="val" style={{ fontSize: 14 }}>{explTrigger.toUpperCase()}</div>
+              <div className="sub">how labels activate</div>
+            </div>
+            <div className="cell">
+              <div className="lbl">AI tier</div>
+              <div className={`val ${explAI ? "pos" : ""}`} style={{ fontSize: 14 }}>{explAI ? "ON" : "OFF"}</div>
+              <div className="sub">streamed explanations</div>
+            </div>
+            <div className="cell">
+              <div className="lbl">Cache</div>
+              <div className="val" style={{ fontSize: 14 }}>{explCacheSize}</div>
+              <div className="sub">entries stored</div>
+            </div>
+          </div>
           <div className="grid" style={{ marginTop: 10 }}>
+            <label style={{ display: "grid", gap: 6, fontSize: 12, color: "var(--sub)" }}>TRIGGER MODE
+              <select className="box" value={explTrigger} onChange={(e) => setExplTrigger(e.target.value as typeof explTrigger)}>
+                <option value="click">CLICK — click labels to explain</option>
+                <option value="hover+click">HOVER — hover for tooltip, click for full</option>
+                <option value="off">OFF — disable explain on labels</option>
+              </select>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--sub)", cursor: "pointer" }}>
+              <input type="checkbox" checked={explAI} onChange={(e) => setExplAI(e.target.checked)} style={{ accentColor: "#ffa028" }} />
+              AI EXPLANATIONS (TIER 2)
+            </label>
             <label style={{ display: "grid", gap: 6, fontSize: 12, color: "var(--sub)" }}>EXPLAINER MODEL
               <input className="box" value={explainerModel} onChange={(e) => setExplainerModel(e.target.value)} />
             </label>
             <div className="toolbar">
-              <button className="btn" onClick={() => { store.setExplainerModel(explainerModel); setEsaved("SAVED ✓"); }}>SAVE</button>
-              <button className="ghost" onClick={() => { const d = "nvidia/nemotron-3-super-120b-a12b:free"; store.setExplainerModel(d); setExplainerModel(d); setEsaved("RESET TO DEFAULT"); }}>RESET</button>
+              <button className="btn" onClick={() => {
+                store.setExplainerModel(explainerModel);
+                store.setExplainTrigger(explTrigger);
+                store.setExplainAI(explAI);
+                setEsaved("SAVED ✓");
+              }}>SAVE</button>
+              <button className="ghost" onClick={() => {
+                const d = "nvidia/nemotron-3-super-120b-a12b:free";
+                store.setExplainerModel(d);
+                store.setExplainTrigger("click");
+                store.setExplainAI(true);
+                setExplainerModel(d);
+                setExplTrigger("click");
+                setExplAI(true);
+                setEsaved("RESET TO DEFAULTS");
+              }}>RESET</button>
+              <button className="ghost" onClick={() => { store.clearExplainCache(); setExplCacheSize(0); }}>CLEAR CACHE</button>
               <span className="pos">{esaved}</span>
             </div>
           </div>
