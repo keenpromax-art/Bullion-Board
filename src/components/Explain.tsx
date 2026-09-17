@@ -88,7 +88,7 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
       return { label: explainAttr, ctx, rect };
     }
 
-    // Find the nearest explainable ancestor (explicit data-explain OR implicit .p-head/.cell .lbl/table th)
+    // Find the nearest explainable ancestor (explicit data-explain OR implicit .p-head/.cell .lbl/table th/td strong)
     function findExplainable(target: HTMLElement): { el: HTMLElement; label: string; ctx: ExplainContext } | null {
       // 1. Explicit data-explain
       const explicit = target.closest("[data-explain]");
@@ -111,6 +111,15 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
       // 4. Implicit: table th (column header)
       if (target.matches("table th")) {
         return { el: target, label: target.textContent?.trim() ?? "", ctx: {} };
+      }
+      // 5. Implicit: <strong> inside table td (row label — first strong in the row)
+      const tdStrong = target.closest("td strong");
+      if (tdStrong) {
+        const text = tdStrong.textContent?.trim() ?? "";
+        // Only explain short labels (skip long values/numbers)
+        if (text.length > 0 && text.length < 60 && !/^\d/.test(text)) {
+          return { el: tdStrong as HTMLElement, label: text, ctx: {} };
+        }
       }
       return null;
     }

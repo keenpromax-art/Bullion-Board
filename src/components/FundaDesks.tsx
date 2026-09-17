@@ -1861,9 +1861,9 @@ export function ForensicDesk({ symbol }: { symbol: string }) {
   const ocfNiL = ocfNi[n - 1];
   if (ocfNiL !== null) push("Cash Conversion", `OCF/NI = ${ocfNiL.toFixed(2)}x`, ocfNiL < 0.8 ? "red" : ocfNiL < 1 ? "amber" : "green");
   const dsriL = bL?.dsri ?? null;
-  if (dsriL !== null) push("Receivables Spike (DSRI)", `DSRI = ${r2(dsriL)}`, dsriL > 1.2 ? "red" : dsriL > 1.05 ? "amber" : "green");
+  if (dsriL !== null) push("DSRI", `DSRI = ${r2(dsriL)}`, dsriL > 1.2 ? "red" : dsriL > 1.05 ? "amber" : "green");
   const tataL = bL?.tata ?? null;
-  if (tataL !== null) push("Total Accruals (TATA)", `TATA = ${r2(tataL)}`, Math.abs(tataL) > 0.05 ? "red" : Math.abs(tataL) > 0.02 ? "amber" : "green");
+  if (tataL !== null) push("TATA", `TATA = ${r2(tataL)}`, Math.abs(tataL) > 0.05 ? "red" : Math.abs(tataL) > 0.02 ? "amber" : "green");
   const rgL = revG[n - 1], rcgL = recvG[n - 1];
   if (rgL !== null && rcgL !== null) {
     const gap = rcgL - rgL;
@@ -1919,7 +1919,7 @@ export function ForensicDesk({ symbol }: { symbol: string }) {
                 varRow("LVGI", (b) => b?.lvgi, "> 1.10"),
               ].map(([l, v, w]) => (
                 <tr key={l as string}>
-                  <td><strong>{l}</strong></td>
+                  <td><strong data-explain={l as string}>{l}</strong></td>
                   <td style={{ textAlign: "right" }}>{v}</td>
                   <td style={{ textAlign: "right" }} className="faint">{w}</td>
                 </tr>
