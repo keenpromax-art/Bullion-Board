@@ -138,6 +138,7 @@ function EcoCalendar() {
   const [tipEvent, setTipEvent] = useState("");
   const [tipAnchor, setTipAnchor] = useState<{ x: number; y: number } | null>(null);
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showExplain, setShowExplain] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -195,6 +196,7 @@ function EcoCalendar() {
             <td className="faint">{r.timeIST}</td>
             <td
               onMouseEnter={(e) => {
+                if (!showExplain) return;
                 if (tipTimer.current) clearTimeout(tipTimer.current);
                 const rect = e.currentTarget.getBoundingClientRect();
                 setTipSeries(r.series); setTipEvent(r.event);
@@ -203,7 +205,7 @@ function EcoCalendar() {
               onMouseLeave={() => {
                 tipTimer.current = setTimeout(() => { setTipSeries(null); setTipAnchor(null); }, 120);
               }}
-              style={{ cursor: "help" }}
+              style={{ cursor: showExplain ? "help" : undefined }}
             >
               <strong>{r.event}</strong>{r.statik && <span className="faint" style={{ fontSize: 10 }}> · STATIC</span>}<div className="faint" style={{ fontSize: 10.5 }}>{r.series}</div>
             </td>
@@ -238,6 +240,7 @@ function EcoCalendar() {
         {(upF.length > 0 || recF.length > 0) && (
           <button className="ghost" onClick={() => downloadCalCSV("eco-calendar.csv", [...upF, ...recF])}>↓ CSV</button>
         )}
+        <button className={`pill${showExplain ? " active" : ""}`} onClick={() => setShowExplain(!showExplain)}>{showExplain ? "EXPLAIN ● ON" : "EXPLAIN OFF"}</button>
       </div>
       {loading && <p className="muted">PULLING RELEASE SCHEDULE…</p>}
       {err && <p className="neg">ERR: {err} — {err.includes("FRED key") ? <a href="/settings">SET KEY IN SETTINGS ↗</a> : "RETRY"}</p>}
@@ -262,7 +265,7 @@ function EcoCalendar() {
         <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "RUNNING…" : "RUN AI ON CALENDAR"}</button></div>
         {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
       </div>
-      <IndicatorTooltip series={tipSeries ?? ""} event={tipEvent} anchor={tipAnchor} />
+      {showExplain && <IndicatorTooltip series={tipSeries ?? ""} event={tipEvent} anchor={tipAnchor} />}
     </div>
   );
 }
