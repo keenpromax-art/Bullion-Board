@@ -192,6 +192,12 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
     `/api/news?symbol=${encodeURIComponent(symbol)}&feed=${effFeed}${effQ ? `&q=${encodeURIComponent(effQ)}` : ""}`
   );
 
+  // Auto-refresh every 60 seconds
+  useEffect(() => {
+    const id = setInterval(reload, 60_000);
+    return () => clearInterval(id);
+  }, [reload]);
+
   function markRead(id: string) {
     setRead((prev) => {
       if (prev.includes(id)) return prev;
@@ -297,7 +303,10 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
             {t.label}
           </button>
         ))}
-        <span className="top-count">{data ? `${listItems.length} STORIES` : "…"}</span>
+        <span className="top-count">
+          <span className="feed-dot" /> LIVE · {data ? `${listItems.length} STORIES` : "…"}
+          <button className="ghost" style={{ padding: "2px 8px", marginLeft: 6, fontSize: 10 }} onClick={reload} title="Refresh now">↻</button>
+        </span>
       </div>
 
       {tab === "custom" && (
