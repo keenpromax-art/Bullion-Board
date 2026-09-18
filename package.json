@@ -2,7 +2,7 @@
   "name": "bullion-board",
   "version": "1.0.0",
   "private": true,
-  "description": "Bullion Board — Bloomberg-style NSE quant terminal (Next.js, Vercel-ready)",
+  "description": "Bullion Board — NSE quant terminal (Next.js, Vercel-ready)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

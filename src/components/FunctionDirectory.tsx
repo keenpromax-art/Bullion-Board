@@ -25,7 +25,7 @@ function readFavs(): string[] {
   }
 }
 
-// Function directory: Bloomberg-style grouped menu (category columns, numbered
+// Function directory: terminal-style grouped menu (category columns, numbered
 // rows) + favorite tiles on top. Clicking a row/tile opens its desk directly
 // for the active ticker. Group collapse persists in localStorage
 // (bb.dir.collapsed). Star (★) toggles a favorite — favorites persist in
@@ -119,7 +119,7 @@ export default function FunctionDirectory({
     });
   }, []);
 
-  // Bloomberg menu: category columns in registry order, numbered rows.
+  // Category columns in registry order, numbered rows.
   const groups = useMemo(() => {
     const order = CATEGORIES.length ? CATEGORIES : Array.from(new Set(modules.map((m) => m.category)));
     return order

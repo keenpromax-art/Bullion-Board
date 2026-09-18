@@ -19,7 +19,7 @@ export interface ChatMessage {
 
 // ---------- Centralized terminal prompting ----------
 // Every desk shares one house style so free-tier models stay consistent:
-// terse UPPERCASE Bloomberg lines, NSE-native units, numbers-first,
+// terse UPPERCASE terminal lines, NSE-native units, numbers-first,
 // never invent missing data, risk before upside.
 
 export const TERMINAL_HOUSE_STYLE =

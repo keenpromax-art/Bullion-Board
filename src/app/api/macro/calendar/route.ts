@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fredKey, fredObservations, fredReleaseDates, fredSeriesRelease } from "@/lib/fred";
 
-// Bloomberg ECO-style economic calendar, powered by the FRED key:
+// Terminal ECO-style economic calendar, powered by the FRED key:
 // official release schedules (fred/release/dates) + latest observations
 // for Prior/Actual. FRED publishes no consensus survey and no intraday
 // times — typical ET times are attached statically and flagged as such.

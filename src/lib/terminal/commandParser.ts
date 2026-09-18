@@ -1,4 +1,4 @@
-// Command parser for the Bloomberg-style terminal shell.
+// Command parser for the terminal shell.
 // READ-ONLY over src/lib/modules.ts registry + src/lib/terminal.ts codes.
 // Does NOT touch any math/data logic — navigation only.
 

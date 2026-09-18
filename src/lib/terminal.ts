@@ -1,4 +1,4 @@
-// Bloomberg-style function codes + command parser.
+// Terminal function codes + command parser.
 // Every module gets a short FNC mnemonic (like GP, FA, DCF). The command bar
 // accepts `TICKER FNC`, `FNC`, `TICKER`, e.g. `RELIANCE GP <GO>`.
 

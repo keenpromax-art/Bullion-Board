@@ -59,7 +59,7 @@ export const MODULES: ModuleInfo[] = [
   m("44", "run_finshots_reader", "Finshots Reader", "News", "Finshots headlines + full-story reader."),
   m("45", "run_nbfc_news_scanner", "NBFC News Scanner", "News", "NBFC-focused RSS engine with sentiment + themes + AI chat.", true),
   m("46", "run_livemint_news", "Livemint Live Wire", "News", "Livemint/Mint feed wire with sentiment + AI scan.", true),
-  m("47", "run_bloomberg_latest", "Bloomberg Live Wire", "News", "Multi-source wire, category sentiment, breaking panel, AI memo."),
+  m("47", "run_market_wire", "Market Wire", "News", "Multi-source wire, category sentiment, breaking panel, AI memo."),
   m("48", "run_stat_arb_engine", "Stat-Arb Engine", "Statistical", "Pair alignment, cointegration proxies, backtest, pair screener, AI chat."),
   m("49", "run_bible_terminal", "Bible Terminal", "Reading", "Scripture reader + AI commentary (general-knowledge module from original suite)."),
   m("51", "run_wikipedia", "Wikipedia Terminal", "Reading", "Search, article hub, section reader, AI explain/quiz/finance-lens."),

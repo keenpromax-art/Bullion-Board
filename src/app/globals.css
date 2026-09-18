@@ -1,6 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap");
 
-/* Bloomberg Terminal skin — tokens from DESIGN.md */
+/* Terminal skin — tokens from DESIGN.md */
 :root {
   --bg: #030304;
   --panel: #0c0c0e;
@@ -137,7 +137,7 @@ a:hover { text-decoration: underline; }
 .fndir-panel { padding: 0; overflow: hidden; }
 .fndir-panel > .p-head { padding: 14px 14px 0 14px; }
 .fndir-panel > .muted { padding: 0 14px 14px 14px; }
-/* ---------- Bloomberg grouped menu ---------- */
+/* ---------- terminal grouped menu ---------- */
 .bbmenu { columns: 300px 3; column-gap: 28px; padding: 12px 14px 14px 14px; }
 .bbgroup { break-inside: avoid; margin-bottom: 14px; }
 .bbgroup-head {
@@ -206,8 +206,8 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
   max-width: 190px;
 }
 
-/* ---------- Bloomberg TOP news screen ---------- */
-.top { display: grid; gap: 0; border: 1px solid var(--grid); border-radius: 3px; overflow: hidden; background: #000; }
+/* ---------- news wire screen ---------- */
+.top { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--grid); border-radius: 3px; overflow: hidden; background: #000; height: 100%; }
 .top-tabs { display: flex; gap: 2px; align-items: center; background: #8f0000; padding: 5px 8px; }
 .top-tab {
   background: transparent; border: none; border-radius: 0; color: #ffd9d9;
@@ -235,9 +235,9 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .top-check:hover { color: var(--text); box-shadow: none; transform: none; background: none; }
 .top-check.active { color: var(--amber); font-weight: 700; }
-.top-cols { display: grid; grid-template-columns: 1fr 300px; }
+.top-cols { display: grid; grid-template-columns: 1fr 300px; flex: 1; min-height: 0; }
 @media (max-width: 900px) { .top-cols { grid-template-columns: 1fr; } .top-rail { border-left: none !important; border-top: 1px solid var(--grid); } }
-.top-main { padding: 10px 14px 14px 14px; min-width: 0; }
+.top-main { padding: 10px 14px 14px 14px; min-width: 0; min-height: 0; overflow: auto; }
 .top-sec { color: var(--amber); font-size: 13px; font-weight: 600; margin: 0 0 8px 0; }
 .top-more { color: var(--link); cursor: pointer; }
 .top-more:hover { text-decoration: underline; }
@@ -250,7 +250,7 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 .top-src { color: var(--faint); font-size: 11px; min-width: 64px; }
 .top-time { color: var(--sub); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
 .unread { width: 8px; height: 8px; min-width: 8px; background: #4da3ff; border-radius: 1px; align-self: center; box-shadow: 0 0 6px rgba(77, 163, 255, 0.8); }
-.top-rail { border-left: 1px solid var(--grid); padding: 8px 12px; display: grid; gap: 8px; align-content: start; background: #050506; }
+.top-rail { border-left: 1px solid var(--grid); padding: 8px 12px; display: grid; gap: 8px; align-content: start; background: #050506; min-height: 0; overflow: auto; }
 .rail-head { color: var(--amber); font-size: 13px; font-weight: 700; margin: 0 0 3px 0; }
 .rail-sub { color: var(--link); font-size: 11px; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
 .rail-link { font-size: 11.5px; margin-bottom: 5px; line-height: 1.35; }

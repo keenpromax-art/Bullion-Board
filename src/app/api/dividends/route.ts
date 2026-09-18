@@ -3,7 +3,7 @@ import { normalizeTicker } from "@/lib/utils";
 import { yahooHeaders } from "@/lib/yahoo";
 
 // Full dividend + split ledger back to listing (Yahoo chart events, range=max),
-// plus summary stats in the spirit of Bloomberg DVD.
+// plus summary stats in the spirit of a terminal DVD screen.
 export async function GET(req: NextRequest) {
   const symbol = normalizeTicker(req.nextUrl.searchParams.get("symbol") || "RELIANCE.NS");
   const currency = symbol.endsWith(".NS") ? "INR" : symbol.endsWith(".BO") ? "INR" : "USD";

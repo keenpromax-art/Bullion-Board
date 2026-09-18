@@ -30,7 +30,7 @@ const ALIASES: LookupRow[] = [
   { symbol: "ETH-USD", name: "ETHEREUM USD", exch: "CCC", type: "CRYPTO", local: true },
 ];
 
-// Bloomberg-style security lookup: live Yahoo search first,
+// Terminal-style security lookup: live Yahoo search first,
 // local 2,260-symbol watchlist as fallback/merge.
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get("q") || "").trim().toUpperCase();

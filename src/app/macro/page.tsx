@@ -121,7 +121,7 @@ function downloadCalCSV(name: string, rows: CalRow[]) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// Bloomberg ECO<GO>-style agenda: FRED official release dates + prior/actual.
+// Terminal ECO-style agenda: FRED official release dates + prior/actual.
 // Custom calendar = group + importance + text filters; needs FRED key
 // (server env key works — override in SETTINGS).
 function EcoCalendar() {

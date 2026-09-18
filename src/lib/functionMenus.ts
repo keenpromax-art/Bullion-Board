@@ -1,4 +1,4 @@
-// Per-desk task menus — powers the Bloomberg-style gateway directory.
+// Per-desk task menus — powers the terminal-style gateway directory.
 // Selecting a function row expands its task list; picking a task deep-links to
 // /module/[id]?symbol=XXX&task=YYY (or the terminal-native route equivalent).
 // Curated tasks mirror what each desk actually renders; anything not curated
