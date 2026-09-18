@@ -188,8 +188,9 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
 
   const effFeed = tab === "custom" ? "wire" : tab;
   const effQ = tab === "custom" ? appliedQ : tab === feed ? (initialQ ?? "") : "";
+  const isWire = effFeed === "wire";
   const { data, err, loading, reload } = useJson<NewsPayload>(
-    `/api/news?symbol=${encodeURIComponent(symbol)}&feed=${effFeed}${effQ ? `&q=${encodeURIComponent(effQ)}` : ""}`
+    `/api/news?${isWire ? "" : `symbol=${encodeURIComponent(symbol)}&`}feed=${effFeed}${effQ ? `&q=${encodeURIComponent(effQ)}` : ""}`
   );
 
   // Auto-refresh every 60 seconds
@@ -345,7 +346,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
       <div className="top-cols">
         <div className="top-main">
           <div className="top-sec">{showingTop ? "★ Top Headlines — Today" : `Top Stories ${title}`} | <span className="top-more" onClick={() => setShown((s) => s + 15)}>More »</span></div>
-          {loading && <p className="muted">PULLING WIRE FOR {symbol}…</p>}
+          {loading && <p className="muted">{isWire ? "PULLING WIRE…" : `PULLING WIRE FOR ${symbol}…`}</p>}
           {err && <p className="neg">ERR: {err} <button className="ghost" onClick={reload}>RETRY</button></p>}
           <ol className="top-list">
             {visible.map((n, i) => {
