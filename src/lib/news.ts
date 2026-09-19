@@ -230,10 +230,12 @@ export async function getNews(symbol: string, feed: NewsFeed, customQ?: string):
     jobs.push(fetchGoogleRSS(`${base} share price`));
   } else if (feed === "wire") {
     // General market wire — NO company-specific feeds. Pure market news.
+    // Queries must contain spaces so fetchYahooNews skips the ticker
+    // relatedTickers filter and returns all broad-market results.
     jobs.push(fetchGoogleRSS("Nifty Sensex stock market today India"));
-    jobs.push(fetchYahooNews("Nifty"));
+    jobs.push(fetchYahooNews("Nifty 50 index India market"));
     jobs.push(fetchGoogleRSS("BSE NSE market news today"));
-    jobs.push(fetchYahooNews("Sensex"));
+    jobs.push(fetchYahooNews("Sensex BSE index market today"));
   } else if (feed === "finshots") {
     // Finshots-first: publisher RSS + site-restricted search. No generic
     // Yahoo company wire (that is what made it look like "news, not Finshots").
