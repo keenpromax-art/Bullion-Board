@@ -876,15 +876,33 @@ export function DayDesk({ symbol }: { symbol: string }) {
   const up1 = vwapS.map((v, i) => (v === null ? null : v + sd[i]));
   const lo1 = vwapS.map((v, i) => (v === null ? null : v - sd[i]));
 
-  // Delta proxy: volume signed by close-location-value, cumulated
-  const delta = bars.map((b) => {
+  // Delta proxy: volume signed by close-location-value, cumulated.
+  // Honest proxy from 5M bars — NOT exchange orderflow. Buy/sell split keeps
+  // the CLV sign per print for the profile + velocity reads below.
+  const clv = bars.map((b) => {
     const r = b.high - b.low;
-    const clv = r ? ((b.close - b.low) - (b.high - b.close)) / r : 0;
-    return clv * (b.volume || 0);
+    return r ? ((b.close - b.low) - (b.high - b.close)) / r : 0;
   });
+  const delta = bars.map((b, i) => clv[i] * (b.volume || 0));
+  const buyVolArr = bars.map((b, i) => ((1 + clv[i]) / 2) * (b.volume || 0));
+  const sellVolArr = bars.map((b, i) => ((1 - clv[i]) / 2) * (b.volume || 0));
   let cdAcc = 0;
   const cumD = delta.map((d) => (cdAcc += d));
   const cumDLast = cumD[cumD.length - 1] ?? 0;
+  // Sec-to-sec flow: per-print Δ change + Δ velocity (last-3 vs prior-3).
+  const dChg = delta.map((d, i) => (i === 0 ? 0 : d - delta[i - 1]));
+  const sumLast3 = delta.slice(-3).reduce((a, b) => a + b, 0);
+  const sumPrev3 = delta.slice(-6, -3).reduce((a, b) => a + b, 0);
+  const dVel = sumLast3 - sumPrev3;
+  const totBuy = buyVolArr.reduce((a, b) => a + b, 0);
+  const totSell = sellVolArr.reduce((a, b) => a + b, 0);
+  // Absorption (heavy vol, tiny range, indecision) vs sweep (heavy vol,
+  // close on extreme, wide range) — footprint-style print tags.
+  const ranges = bars.map((b) => b.high - b.low);
+  const medRange = (() => {
+    const s = [...ranges].sort((a, b) => a - b);
+    return s.length ? s[Math.floor(s.length / 2)] : 0;
+  })();
 
   const last = closes[n - 1];
   const open = bars[0].open;
@@ -898,16 +916,24 @@ export function DayDesk({ symbol }: { symbol: string }) {
   const ibL = Math.min(...ibBars.map((b) => b.low));
   const ibPos = last > ibH ? "ABOVE IB" : last < ibL ? "BELOW IB" : "INSIDE IB";
 
-  // Volume profile across 14 price levels → POC + 70% value area
+  // Volume profile across 14 price levels → POC + 70% value area.
+  // Each level splits buy/sell via the print CLV so the profile reads
+  // aggressor dominance, not just heaviness.
   const NB = 14;
   const bins = new Array(NB).fill(0);
-  bars.forEach((b) => {
+  const buyBins = new Array(NB).fill(0);
+  const sellBins = new Array(NB).fill(0);
+  const binOf = (px: number) => Math.min(NB - 1, Math.max(0, Math.floor(((px - lo) / ((hi - lo) || 1)) * NB)));
+  bars.forEach((b, bi) => {
     const v = b.volume || 0;
     if (!v || hi === lo) return;
     for (let k = 0; k < NB; k++) {
       const e0 = lo + ((hi - lo) * k) / NB, e1 = lo + ((hi - lo) * (k + 1)) / NB;
       const ov = Math.max(0, Math.min(b.high, e1) - Math.max(b.low, e0));
-      bins[k] += v * (ov / ((b.high - b.low) || 1));
+      const w = ov / ((b.high - b.low) || 1);
+      bins[k] += v * w;
+      buyBins[k] += buyVolArr[bi] * w;
+      sellBins[k] += sellVolArr[bi] * w;
     }
   });
   if (hi === lo) bins[Math.floor(NB / 2)] = totV;
@@ -923,8 +949,73 @@ export function DayDesk({ symbol }: { symbol: string }) {
     else break;
   }
   const pxAt = (k: number) => lo + ((hi - lo) * (k + 0.5)) / NB;
-
+  const vah = pxAt(vaHi), val = pxAt(vaLo);
+  const netBins = buyBins.map((v: number, k: number) => v - sellBins[k]);
   const avgV = totV / Math.max(n, 1);
+
+  // POC migration: first-half vs second-half point of control.
+  const halfBins = (list: typeof bars) => {
+    const hb = new Array(NB).fill(0);
+    list.forEach((b) => {
+      const v = b.volume || 0;
+      if (!v || hi === lo) return;
+      for (let k = 0; k < NB; k++) {
+        const e0 = lo + ((hi - lo) * k) / NB, e1 = lo + ((hi - lo) * (k + 1)) / NB;
+        const ov = Math.max(0, Math.min(b.high, e1) - Math.max(b.low, e0));
+        hb[k] += v * (ov / ((b.high - b.low) || 1));
+      }
+    });
+    return hb;
+  };
+  const mid = Math.floor(n / 2);
+  const hb1 = halfBins(bars.slice(0, mid));
+  const pocH1 = pxAt(hb1.indexOf(Math.max(...hb1)));
+  const hb2 = halfBins(bars.slice(mid));
+  const pocH2 = pxAt(hb2.indexOf(Math.max(...hb2)));
+  const pocMigPct = last ? ((pocH2 - pocH1) / last) * 100 : 0;
+
+  // Intraday session Greeks — per-print units (NOT annualised: √252
+  // annualisation is meaningless on 5M bars, so drag/decay read per print).
+  const driftSess = open ? ((last - open) / open) * 100 : 0;
+  const ref6 = closes.length > 6 ? closes[n - 7] : open;
+  const driftRecent = ref6 ? ((last - ref6) / ref6) * 100 : 0;
+  const refH1 = closes.length > mid ? closes[0] : open;
+  const driftH1 = refH1 ? ((closes[Math.max(0, mid - 1)] - refH1) / refH1) * 100 : 0;
+  const accelSess = driftRecent - driftH1;
+  const rets5m: number[] = [];
+  for (let i = 1; i < closes.length; i++) rets5m.push(closes[i - 1] > 0 ? (closes[i] - closes[i - 1]) / closes[i - 1] : 0);
+  const sigPrint = (() => {
+    const w = rets5m.slice(-14);
+    if (w.length < 2) return 0;
+    const m = w.reduce((a, b) => a + b, 0) / w.length;
+    return Math.sqrt(w.reduce((s, v) => s + (v - m) ** 2, 0) / (w.length - 1));
+  })();
+  const volDragBps = -((sigPrint * sigPrint) / 2) * 10000; // decay per print, bps
+  const atrPrint = (() => {
+    const w = ranges.slice(-14);
+    return w.length ? w.reduce((a, b) => a + b, 0) / w.length : 0;
+  })();
+  const expNextPct = last ? (atrPrint / last) * 100 : 0;
+  const rangePos = hi !== lo ? ((last - lo) / (hi - lo)) * 100 : 50;
+
+  // Biggest print-to-print Δ swings (flow shifts) for the shifts table.
+  const shifts = dChg
+    .map((c, i) => ({ i, c }))
+    .filter((s) => s.i > 0)
+    .sort((a, b) => Math.abs(b.c) - Math.abs(a.c))
+    .slice(0, 6);
+
+  const tagOf = (i: number): string => {    const v = vol[i] || 0;
+    if (!(v > 2 * avgV) || !medRange) return vol[i] > 2 * avgV ? "⚡" : "";
+    const smallRange = ranges[i] < 0.5 * medRange;
+    const wideRange = ranges[i] > 1.5 * medRange;
+    if (smallRange && Math.abs(clv[i]) < 0.3) return "ABS";
+    if (wideRange && Math.abs(clv[i]) > 0.7) return "SWP";
+    return "⚡";
+  };
+  const absCount = vol.filter((_, i) => tagOf(i) === "ABS").length;
+  const swpCount = vol.filter((_, i) => tagOf(i) === "SWP").length;
+
   const bigCount = vol.filter((v) => v > 2 * avgV).length;
   const f1 = (v: number) => v.toLocaleString("en-IN", { maximumFractionDigits: 1 });
 
@@ -942,6 +1033,21 @@ export function DayDesk({ symbol }: { symbol: string }) {
           <div className="cell"><div className="lbl">Day chg</div><div className={`val ${last >= open ? "pos" : "neg"}`}>{(((last - open) / open) * 100).toFixed(2)}%</div><div className="sub">open→last</div></div>
           <div className="cell"><div className="lbl">Cum Δ</div><div className={`val ${cumDLast >= 0 ? "pos" : "neg"}`}>{cumDLast >= 0 ? "+" : ""}{(cumDLast / 1e6).toFixed(2)}M</div><div className="sub">signed flow</div></div>
           <div className="cell"><div className="lbl">Volume</div><div className="val">{(totV / 1e6).toFixed(1)}M</div><div className="sub">{bigCount} big prints</div></div>
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          <p className="p-head">Session Greeks — intraday read · per-print units (not annualised)</p>
+          <div className="cells">
+            <div className="cell"><div className="lbl">Drift sess</div><div className={`val ${driftSess >= 0 ? "pos" : "neg"}`}>{driftSess >= 0 ? "+" : ""}{driftSess.toFixed(2)}%</div><div className="sub">open→last</div></div>
+            <div className="cell"><div className="lbl">Accel</div><div className={`val ${accelSess >= 0 ? "pos" : "neg"}`}>{accelSess >= 0 ? "+" : ""}{accelSess.toFixed(2)}pp</div><div className="sub">recent−H1</div></div>
+            <div className="cell"><div className="lbl">Vol-drag</div><div className="val neg">{volDragBps.toFixed(1)}bp</div><div className="sub">decay/print</div></div>
+            <div className="cell"><div className="lbl">Exp next</div><div className="val">±{expNextPct.toFixed(2)}%</div><div className="sub">ATR14 prints</div></div>
+            <div className="cell"><div className="lbl">Range pos</div><div className="val">{rangePos.toFixed(0)}%</div><div className="sub">lo→hi</div></div>
+            <div className="cell"><div className="lbl">Buy / Sell</div><div className="val" style={{ fontSize: 15 }}>{(totBuy / 1e6).toFixed(2)} / {(totSell / 1e6).toFixed(2)}M</div><div className="sub">CLV split</div></div>
+            <div className="cell"><div className="lbl">Δ veloc</div><div className={`val ${dVel >= 0 ? "pos" : "neg"}`}>{dVel >= 0 ? "+" : ""}{(dVel / 1e3).toFixed(0)}k</div><div className="sub">last3−prev3</div></div>
+            <div className="cell"><div className="lbl">POC mig</div><div className={`val ${pocMigPct >= 0 ? "pos" : "neg"}`}>{pocMigPct >= 0 ? "+" : ""}{pocMigPct.toFixed(2)}%</div><div className="sub">H1→H2</div></div>
+            <div className="cell"><div className="lbl">Abs / Swp</div><div className="val">{absCount} / {swpCount}</div><div className="sub">prints</div></div>
+          </div>
         </div>
 
         <div style={{ marginTop: 10 }}>
@@ -969,16 +1075,54 @@ export function DayDesk({ symbol }: { symbol: string }) {
             />
           </div>
           <div>
-            <p className="p-head">Volume profile — POC {f1(pocPx)}</p>
+            <p className="p-head">Volume profile — POC {f1(pocPx)} · VA {f1(val)}–{f1(vah)} · H1 POC {f1(pocH1)} → H2 {f1(pocH2)}</p>
             <HBars
-              rows={bins.map((v, k) => ({
-                label: f1(pxAt(k)),
-                value: v,
-                display: `${(v / 1e6).toFixed(2)}M`,
-                color: k === pocI ? "#ffa028" : k >= vaLo && k <= vaHi ? "#8f7bff" : "#5b5b62",
-              })).reverse()}
+              rows={bins.map((v, k) => {
+                const net = netBins[k] ?? 0;
+                const tiny = Math.abs(net) < totP * 0.005;
+                return {
+                  label: f1(pxAt(k)),
+                  value: v,
+                  display: `${(v / 1e6).toFixed(2)}M ${net >= 0 ? "+" : ""}${(net / 1e3).toFixed(0)}k`,
+                  color: k === pocI ? "#ffa028" : tiny ? "#5b5b62" : net > 0 ? "#00d664" : "#ff453a",
+                };
+              }).reverse()}
+            />
+            <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>AMBER POC · GREEN NET-BUY / RED NET-SELL (CLV SPLIT) · Δ = LEVEL NET FLOW</p>
+          </div>
+        </div>
+
+        <div className="grid grid-2" style={{ marginTop: 10 }}>
+          <div>
+            <p className="p-head">Per-print Δ — sec-to-sec orderflow</p>
+            <BarChart values={delta} labels={times} height={110} posColor="#00d664" negColor="#ff453a" />
+          </div>
+          <div>
+            <p className="p-head">Δ velocity — flow acceleration print-to-print</p>
+            <LineChart
+              series={[{ label: "Δ CHG", color: "#ffa028", values: dChg }]}
+              height={110} yFmt={(v) => `${v >= 0 ? "+" : ""}${(v / 1e3).toFixed(0)}k`} dates={times} xLabels={x3}
             />
           </div>
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          <p className="p-head">Flow shifts — biggest print-to-print Δ swings</p>
+          <table className="plain">
+            <thead><tr><th>TIME</th><th style={{ textAlign: "right" }}>CLOSE</th><th style={{ textAlign: "right" }}>Δ PRINT</th><th style={{ textAlign: "right" }}>Δ SWING</th><th style={{ textAlign: "right" }}>TAG</th></tr></thead>
+            <tbody>
+              {shifts.map((s) => (
+                <tr key={s.i}>
+                  <td>{times[s.i]}</td>
+                  <td style={{ textAlign: "right" }}>{f1(closes[s.i])}</td>
+                  <td style={{ textAlign: "right" }}><span className={delta[s.i] >= 0 ? "pos" : "neg"}>{delta[s.i] >= 0 ? "+" : ""}{(delta[s.i] / 1e3).toFixed(0)}k</span></td>
+                  <td style={{ textAlign: "right" }}><span className={s.c >= 0 ? "pos" : "neg"}>{s.c >= 0 ? "+" : ""}{(s.c / 1e3).toFixed(0)}k</span></td>
+                  <td style={{ textAlign: "right" }}>{tagOf(s.i) || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>Δ = CLV-SIGNED PROXY FROM 5M BARS — NOT EXCHANGE ORDERFLOW · ABS = ABSORPTION · SWP = SWEEP</p>
         </div>
 
         <div style={{ marginTop: 10 }}>
@@ -988,16 +1132,17 @@ export function DayDesk({ symbol }: { symbol: string }) {
       </div>
 
       <div className="panel">
-        <p className="p-head">Print tape — signed Δ per 5M · ⚡ = &gt;2× avg print</p>
+        <p className="p-head">Print tape — signed Δ per 5M · ⚡ = &gt;2× avg · ABS = absorption · SWP = sweep</p>
         <div style={{ maxHeight: 340, overflowY: "auto" }}>
           <table className="plain">
-            <thead><tr><th>TIME</th><th style={{ textAlign: "right" }}>O</th><th style={{ textAlign: "right" }}>H</th><th style={{ textAlign: "right" }}>L</th><th style={{ textAlign: "right" }}>C</th><th style={{ textAlign: "right" }}>VOL</th><th style={{ textAlign: "right" }}>VWAP</th><th style={{ textAlign: "right" }}>Δ</th></tr></thead>
+            <thead><tr><th>TIME</th><th style={{ textAlign: "right" }}>O</th><th style={{ textAlign: "right" }}>H</th><th style={{ textAlign: "right" }}>L</th><th style={{ textAlign: "right" }}>C</th><th style={{ textAlign: "right" }}>VOL</th><th style={{ textAlign: "right" }}>VWAP</th><th style={{ textAlign: "right" }}>Δ</th><th style={{ textAlign: "right" }}>TAG</th></tr></thead>
             <tbody>
               {bars.map((b, i) => {
-                const big = vol[i] > 2 * avgV;
+                const tag = tagOf(i);
+                const hot = tag !== "";
                 return (
-                  <tr key={i} style={big ? { background: "rgba(255,160,40,0.07)" } : undefined}>
-                    <td>{times[i]}{big ? " ⚡" : ""}</td>
+                  <tr key={i} style={hot ? { background: tag === "ABS" ? "rgba(0,214,100,0.07)" : tag === "SWP" ? "rgba(255,69,58,0.07)" : "rgba(255,160,40,0.07)" } : undefined}>
+                    <td>{times[i]}{tag === "⚡" ? " ⚡" : ""}</td>
                     <td style={{ textAlign: "right" }}>{f1(b.open)}</td>
                     <td style={{ textAlign: "right" }}>{f1(b.high)}</td>
                     <td style={{ textAlign: "right" }}>{f1(b.low)}</td>
@@ -1005,6 +1150,7 @@ export function DayDesk({ symbol }: { symbol: string }) {
                     <td style={{ textAlign: "right" }}>{(vol[i] / 1e6).toFixed(2)}M</td>
                     <td style={{ textAlign: "right" }}>{vwapS[i] === null ? "—" : f1(vwapS[i] as number)}</td>
                     <td style={{ textAlign: "right" }}><span className={delta[i] >= 0 ? "pos" : "neg"}>{delta[i] >= 0 ? "+" : ""}{(delta[i] / 1e3).toFixed(0)}k</span></td>
+                    <td style={{ textAlign: "right" }}>{tag === "⚡" ? "⚡" : tag || "—"}</td>
                   </tr>
                 );
               })}
