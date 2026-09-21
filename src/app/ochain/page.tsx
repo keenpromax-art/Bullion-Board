@@ -67,7 +67,7 @@ export default function OChainPage() {
     const pcr = rows.reduce((a, r) => a + r.ceOI, 0) / (rows.reduce((a, r) => a + r.peOI, 0) || 1);
     const topCall = [...rows].sort((a, b) => b.ceOI - a.ceOI)[0];
     const topPut = [...rows].sort((a, b) => b.peOI - a.peOI)[0];
-    const summary = `SYMBOL=${symbol} SPOT=${underlying} EXPIRY=${expiry} PCR=${pcr.toFixed(3)} MAX_CALL_OI=${topCall?.strike ?? "—"}(${topCall?.ceOI ?? 0}) MAX_PUT_OI=${topPut?.strike ?? "—"}(${topPut?.peOI ?? 0}) ROWS=${rows.length}`;
+    const summary = `SYMBOL=${symbol} SPOT=${underlying} EXPIRY=${expiry} PCR=${pcr.toFixed(3)} MAX_CALL_OI=${topCall?.strike ?? "—"}(${topCall?.ceOI ?? 0}) MAX_PUT_OI=${topPut?.strike ?? "—"}(${topPut?.peOI ?? 0}) ROWS=${rows.length}` + (dossier && sel ? ` SEL_STRIKE=${strike} SEL_ROLE=${dossier.role} SEL_PCR=${dossier.strikePCR.toFixed(2)} SEL_STRADDLE=${dossier.straddle.toFixed(2)} SEL_BUILD=${dossier.ceBuild}/${dossier.peBuild} SEL_READ=${dossier.verdict}` : "");
     setAiLoading(true); setAiOut("");
     try {
       const r = await chatComplete([
@@ -157,6 +157,71 @@ export default function OChainPage() {
   const sug = useMemo(() => (m ? calcSuggestion(m, underlying) : null), [m, underlying]);
   const tDays = useMemo(() => (expiry ? expiryToDays(expiry) : 7), [expiry]);
   const sel = rows.find((r) => r.strike === strike);
+
+  function pickStrike(s: number) {
+    setStrike(s);
+    requestAnimationFrame(() => {
+      document.getElementById("strike-dossier")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  // Hoisted above the dossier memo (which reads them): ATM index + Greeks.
+  const atmIdx = strikes.reduce((bi, s, i) => (Math.abs(s - underlying) < Math.abs(strikes[bi] - underlying) ? i : bi), 0);
+  const atmStrike = strikes.length ? strikes[atmIdx] : 0;
+  const ceG = greeksFor(sel, true);
+  const peG = greeksFor(sel, false);
+
+  // Strike dossier — everything the chain knows about ONE strike: positioning,
+  // Greeks edge, straddle, buildup, liquidity, wall distances, verdict.
+  const dossier = useMemo(() => {
+    if (!sel || !underlying || !m) return null;
+    const dist = sel.strike - underlying;
+    const distPct = (dist / underlying) * 100;
+    const totOI = m.totC + m.totP || 1;
+    const totChg = rows.reduce((a, r) => a + Math.abs(r.ceChgOI) + Math.abs(r.peChgOI), 0) || 1;
+    const totVol = m.totCV + m.totPV || 1;
+    const oiShare = ((sel.ceOI + sel.peOI) / totOI) * 100;
+    const chgShare = ((Math.abs(sel.ceChgOI) + Math.abs(sel.peChgOI)) / totChg) * 100;
+    const volShare = ((sel.ceVol + sel.peVol) / totVol) * 100;
+    const strikePCR = sel.peOI / Math.max(sel.ceOI, 1);
+    const straddle = sel.ceLTP + sel.peLTP;
+    const strPct = (straddle / underlying) * 100;
+    const atmRow = rows[atmIdx];
+    const buildOf = (netChg: number, chgOI: number, ltp: number): string => {
+      if (!(ltp > 0)) return "DEAD";
+      if (chgOI === 0) return "NO BUILD";
+      if (netChg > 0 && chgOI > 0) return "LONG BUILDUP";
+      if (netChg < 0 && chgOI > 0) return "SHORT BUILDUP";
+      if (netChg > 0 && chgOI < 0) return "SHORT COVER";
+      return "LONG UNWIND";
+    };
+    const liqOf = (bid: number, ask: number, ltp: number): string => {
+      if (!(ltp > 0) || !(bid > 0) || !(ask > 0) || ask <= bid) return "DEAD";
+      const sp = ((ask - bid) / ((ask + bid) / 2)) * 100;
+      return sp < 2 ? "LIQUID" : sp < 5 ? "OK" : "WIDE";
+    };
+    const ceBuild = buildOf(sel.ceNetChg, sel.ceChgOI, sel.ceLTP);
+    const peBuild = buildOf(sel.peNetChg, sel.peChgOI, sel.peLTP);
+    const ceLiq = liqOf(sel.ceBidPx, sel.ceAskPx, sel.ceLTP);
+    const peLiq = liqOf(sel.peBidPx, sel.peAskPx, sel.peLTP);
+    const ceEdge = ceG ? sel.ceLTP - ceG.price : null;
+    const peEdge = peG ? sel.peLTP - peG.price : null;
+    const below = rows.filter((r) => r.strike < underlying).sort((a, b) => b.peOI - a.peOI);
+    const above = rows.filter((r) => r.strike > underlying).sort((a, b) => b.ceOI - a.ceOI);
+    const supRank = below.findIndex((r) => r.strike === sel.strike);
+    const resRank = above.findIndex((r) => r.strike === sel.strike);
+    const role = supRank >= 0 && supRank < 3 ? `SUPPORT #${supRank + 1}` : resRank >= 0 && resRank < 3 ? `RESISTANCE #${resRank + 1}` : sel.strike < underlying ? "WEAK SUPPORT" : sel.strike > underlying ? "WEAK RESIST" : "ATM PIVOT";
+    const verdict = sel.strike === atmStrike
+      ? `ATM — STRADDLE ${f2(straddle)} (±${strPct.toFixed(2)}%) PRICES THE EXP MOVE · ${ceBuild}/${peBuild}`
+      : `${role} · ${strikePCR >= 1 ? "PUT-HEAVY" : "CALL-HEAVY"} PCR ${strikePCR.toFixed(2)} · ${ceBuild} vs ${peBuild}`;
+    return {
+      dist, distPct, oiShare, chgShare, volShare, strikePCR, straddle, strPct,
+      ceBuild, peBuild, ceLiq, peLiq, ceEdge, peEdge, role, verdict,
+      atmCeIV: atmRow?.ceIV ?? null, atmPeIV: atmRow?.peIV ?? null,
+      mpDist: sel.strike - m.maxPain, gwDist: sel.strike - m.gammaWall,
+      beUp: sel.strike + straddle, beDn: sel.strike - straddle,
+    };
+  }, [sel, underlying, m, rows, atmIdx, atmStrike, ceG, peG]);
   const sr = useMemo(
     () => (rows.length && underlying ? supportResistance(rows.map((r) => r.strike), rows.map((r) => r.ceOI), rows.map((r) => r.peOI), underlying) : { support: [], resistance: [] }),
     [rows, underlying]
@@ -176,9 +241,6 @@ export default function OChainPage() {
     if (!g) return null;
     return { ...g, ivUsed: iv * 100, moneyness: row.strike === strike ? (underlying > row.strike ? (isCall ? "ITM" : "OTM") : underlying < row.strike ? (isCall ? "OTM" : "ITM") : "ATM") : g.moneyness };
   }
-  const ceG = greeksFor(sel, true);
-  const peG = greeksFor(sel, false);
-
   const fullGreeks = useMemo(() => {
     if (!rows.length || !underlying) return [];
     const T = Math.max(tDays, 1) / 365;
@@ -200,8 +262,13 @@ export default function OChainPage() {
   const ceDecay = sel ? thetaDecay(underlying, strike, sel.ceIV || 15, true) : null;
   const peDecay = sel ? thetaDecay(underlying, strike, sel.peIV || 15, false) : null;
 
-  const atmIdx = strikes.reduce((bi, s, i) => (Math.abs(s - underlying) < Math.abs(strikes[bi] - underlying) ? i : bi), 0);
   const win = rows.filter((_, i) => Math.abs(i - atmIdx) <= 14);
+
+  const stradPay = cePay && pePay ? {
+    xs: cePay.xs,
+    pnls: cePay.pnls.map((p, i) => p + (pePay.pnls[i] ?? 0)),
+    cost: (sel?.ceLTP ?? 0) + (sel?.peLTP ?? 0),
+  } : null;
 
   return (
     <>
@@ -397,7 +464,7 @@ export default function OChainPage() {
 
         {rows.length > 0 && (
           <div className="panel">
-            <p className="p-head">Option chain — {rows.length} strikes · orange = ATM {strike.toLocaleString("en-IN")}</p>
+            <p className="p-head">Option chain — {rows.length} strikes · orange = ATM {strike.toLocaleString("en-IN")} · CLICK ANY ROW FOR THE FULL STRIKE DOSSIER</p>
             <div className="scrollx">
               <table className="plain">
                 <thead><tr>
@@ -407,7 +474,7 @@ export default function OChainPage() {
                 </tr></thead>
                 <tbody>
                   {rows.map((r) => (
-                    <tr key={r.strike} style={r.strike === strike ? { background: "rgba(255,160,40,0.10)" } : undefined}>
+                    <tr key={r.strike} onClick={() => pickStrike(r.strike)} title={`OPEN ${r.strike} DOSSIER`} style={{ cursor: "pointer", ...(r.strike === strike ? { background: "rgba(255,160,40,0.10)" } : {}) }}>
                       <td style={{ textAlign: "right" }}>{f0(r.ceOI)}</td><td style={{ textAlign: "right" }}>{f0(r.ceChgOI)}</td><td style={{ textAlign: "right" }}>{f0(r.ceVol)}</td><td style={{ textAlign: "right" }}>{f2(r.ceIV)}</td><td style={{ textAlign: "right" }}>{f2(r.ceLTP)}</td>
                       <td><strong className={r.strike === strike ? "sec" : ""}>{r.strike.toLocaleString("en-IN")}</strong></td>
                       <td style={{ textAlign: "right" }}>{f2(r.peLTP)}</td><td style={{ textAlign: "right" }}>{f2(r.peIV)}</td><td style={{ textAlign: "right" }}>{f0(r.peVol)}</td><td style={{ textAlign: "right" }}>{f0(r.peChgOI)}</td><td style={{ textAlign: "right" }}>{f0(r.peOI)}</td>
@@ -419,6 +486,70 @@ export default function OChainPage() {
           </div>
         )}
 
+        {dossier && sel && (
+          <div className="panel panel-glow" id="strike-dossier">
+            <p className="p-head">
+              Strike dossier — {strike.toLocaleString("en-IN")} · {sel.strike === atmStrike ? "ATM" : `${f0(Math.abs(dossier.dist))} PTS ${dossier.dist > 0 ? "ABOVE" : "BELOW"} SPOT · CALL ${dossier.dist > 0 ? "OTM" : "ITM"} / PUT ${dossier.dist > 0 ? "ITM" : "OTM"}`} · {expiry} · T-{tDays}D
+            </p>
+            <div className="cells">
+              <div className="cell"><div className="lbl">Spot dist</div><div className={`val ${dossier.dist >= 0 ? "pos" : "neg"}`}>{dossier.dist >= 0 ? "+" : ""}{dossier.distPct.toFixed(2)}%</div><div className="sub">vs {f2(underlying)}</div></div>
+              <div className="cell"><div className="lbl">Role</div><div className="val" style={{ fontSize: 14 }}>{dossier.role}</div><div className="sub">OI walls</div></div>
+              <div className="cell"><div className="lbl">PCR@strike</div><div className={`val ${dossier.strikePCR >= 1 ? "pos" : "neg"}`}>{dossier.strikePCR.toFixed(2)}</div><div className="sub">PE÷CE OI</div></div>
+              <div className="cell"><div className="lbl">OI share</div><div className="val">{dossier.oiShare.toFixed(1)}%</div><div className="sub">of chain</div></div>
+              <div className="cell"><div className="lbl">Chg-OI share</div><div className="val">{dossier.chgShare.toFixed(1)}%</div><div className="sub">fresh print</div></div>
+              <div className="cell"><div className="lbl">Vol share</div><div className="val">{dossier.volShare.toFixed(1)}%</div><div className="sub">of chain</div></div>
+              <div className="cell"><div className="lbl">Straddle</div><div className="val">{f2(dossier.straddle)}</div><div className="sub">±{dossier.strPct.toFixed(2)}%</div></div>
+              <div className="cell"><div className="lbl">BE up / dn</div><div className="val" style={{ fontSize: 14 }}>{f0(dossier.beUp)} / {f0(dossier.beDn)}</div><div className="sub">straddle</div></div>
+              <div className="cell"><div className="lbl">Max-pain Δ</div><div className="val">{dossier.mpDist >= 0 ? "+" : ""}{f0(dossier.mpDist)}</div><div className="sub">vs {f0(m?.maxPain ?? 0)}</div></div>
+              <div className="cell"><div className="lbl">Gamma-wall Δ</div><div className="val">{dossier.gwDist >= 0 ? "+" : ""}{f0(dossier.gwDist)}</div><div className="sub">vs {f0(m?.gammaWall ?? 0)}</div></div>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <p className="p-head">Legs — every quote, Greek, edge, buildup, liquidity readout</p>
+              <div className="scrollx">
+                <table className="plain">
+                  <thead><tr><th>METRIC</th><th style={{ textAlign: "right" }}>CALL</th><th style={{ textAlign: "right" }}>PUT</th></tr></thead>
+                  <tbody>
+                    {([
+                      ["LTP", f2(sel.ceLTP), f2(sel.peLTP)],
+                      ["NET CHG", `${sel.ceNetChg >= 0 ? "+" : ""}${f2(sel.ceNetChg)}`, `${sel.peNetChg >= 0 ? "+" : ""}${f2(sel.peNetChg)}`],
+                      ["OI", f0(sel.ceOI), f0(sel.peOI)],
+                      ["CHG OI", `${sel.ceChgOI >= 0 ? "+" : ""}${f0(sel.ceChgOI)}`, `${sel.peChgOI >= 0 ? "+" : ""}${f0(sel.peChgOI)}`],
+                      ["VOLUME", f0(sel.ceVol), f0(sel.peVol)],
+                      ["IV %", `${f2(sel.ceIV)} (ATM ${dossier.atmCeIV !== null ? f2(dossier.atmCeIV) : "—"})`, `${f2(sel.peIV)} (ATM ${dossier.atmPeIV !== null ? f2(dossier.atmPeIV) : "—"})`],
+                      ["BID × QTY", `${f2(sel.ceBidPx)}×${f0(sel.ceBidQty)}`, `${f2(sel.peBidPx)}×${f0(sel.peBidQty)}`],
+                      ["ASK × QTY", `${f2(sel.ceAskPx)}×${f0(sel.ceAskQty)}`, `${f2(sel.peAskPx)}×${f0(sel.peAskQty)}`],
+                      ["SPREAD", sel.ceBidPx > 0 && sel.ceAskPx > sel.ceBidPx ? `${f2(sel.ceAskPx - sel.ceBidPx)} (${(((sel.ceAskPx - sel.ceBidPx) / ((sel.ceAskPx + sel.ceBidPx) / 2)) * 100).toFixed(1)}%)` : "—", sel.peBidPx > 0 && sel.peAskPx > sel.peBidPx ? `${f2(sel.peAskPx - sel.peBidPx)} (${(((sel.peAskPx - sel.peBidPx) / ((sel.peAskPx + sel.peBidPx) / 2)) * 100).toFixed(1)}%)` : "—"],
+                      ["THEO", ceG ? f2(ceG.price) : "—", peG ? f2(peG.price) : "—"],
+                      ["EDGE LTP−THEO", dossier.ceEdge !== null ? `${dossier.ceEdge >= 0 ? "+" : ""}${f2(dossier.ceEdge)}` : "—", dossier.peEdge !== null ? `${dossier.peEdge >= 0 ? "+" : ""}${f2(dossier.peEdge)}` : "—"],
+                      ["DELTA", ceG ? ceG.delta.toFixed(3) : "—", peG ? peG.delta.toFixed(3) : "—"],
+                      ["GAMMA", ceG ? ceG.gamma.toFixed(5) : "—", peG ? peG.gamma.toFixed(5) : "—"],
+                      ["THETA / DAY", ceG ? ceG.theta.toFixed(3) : "—", peG ? peG.theta.toFixed(3) : "—"],
+                      ["VEGA", ceG ? ceG.vega.toFixed(2) : "—", peG ? peG.vega.toFixed(2) : "—"],
+                      ["BREAKEVEN", cePay ? f2(cePay.breakeven) : "—", pePay ? f2(pePay.breakeven) : "—"],
+                      ["BUILDUP", dossier.ceBuild, dossier.peBuild],
+                      ["LIQUIDITY", dossier.ceLiq, dossier.peLiq],
+                    ] as Array<[string, string, string]>).map(([k, c, p]) => (
+                      <tr key={k}>
+                        <td><strong>{k}</strong></td>
+                        <td style={{ textAlign: "right" }} className={k === "BUILDUP" ? (c.includes("LONG BUILDUP") ? "pos" : c.includes("SHORT BUILDUP") ? "neg" : undefined) : undefined}>{c}</td>
+                        <td style={{ textAlign: "right" }} className={k === "BUILDUP" ? (p.includes("LONG BUILDUP") ? "pos" : p.includes("SHORT BUILDUP") ? "neg" : undefined) : undefined}>{p}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {stradPay && (
+              <div style={{ marginTop: 10 }}>
+                <p className="p-head">Straddle — LONG CE+PE @ {f2(stradPay.cost)} · BE {f0(dossier.beDn)} / {f0(dossier.beUp)}</p>
+                <LineChart series={[{ label: "STRADDLE PNL", color: "#ffa028", values: stradPay.pnls }]} height={130} yFmt={(v) => v.toFixed(0)} xLabels={[stradPay.xs[0].toFixed(0), stradPay.xs[30].toFixed(0), stradPay.xs[59].toFixed(0)]} />
+              </div>
+            )}
+            <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>READ: <strong style={{ color: "var(--amber)" }}>{dossier.verdict}</strong></p>
+            <p className="faint" style={{ fontSize: 10.5, margin: "4px 0 0 0" }}>GREEKS VIA BLACK-SCHOLES ON LISTED IV (SOLVED WHERE 0) · BUILDUP = LTP-NETCHG × CHG-OI · NSE SNAPSHOT {ts || "—"}</p>
+          </div>
+        )}
+
         {rows.length > 0 && (
           <div className="panel">
             <p className="p-head">Full-chain Greeks — Δ Γ Θ V per leg (T-{tDays}D)</p>
@@ -427,7 +558,7 @@ export default function OChainPage() {
                 <thead><tr><th>STRIKE</th><th style={{ textAlign: "right" }}>CE Δ</th><th style={{ textAlign: "right" }}>CE Γ</th><th style={{ textAlign: "right" }}>CE Θ</th><th style={{ textAlign: "right" }}>CE V</th><th style={{ textAlign: "right" }}>PE Δ</th><th style={{ textAlign: "right" }}>PE Γ</th><th style={{ textAlign: "right" }}>PE Θ</th><th style={{ textAlign: "right" }}>PE V</th></tr></thead>
                 <tbody>
                   {fullGreeks.map((g) => (
-                    <tr key={g.strike} style={g.strike === strike ? { background: "rgba(255,160,40,0.10)" } : undefined}>
+                    <tr key={g.strike} onClick={() => pickStrike(g.strike)} title={`OPEN ${g.strike} DOSSIER`} style={{ cursor: "pointer", ...(g.strike === strike ? { background: "rgba(255,160,40,0.10)" } : {}) }}>
                       <td><strong>{g.strike.toLocaleString("en-IN")}</strong></td>
                       <td style={{ textAlign: "right" }}>{g.ceD?.toFixed(3) ?? "—"}</td>
                       <td style={{ textAlign: "right" }}>{g.ceG?.toFixed(5) ?? "—"}</td>
