@@ -13,6 +13,7 @@ import { store } from "@/lib/store";
 import { LineChart, GroupedBars, BarChart, AreaChart, HBars, Histogram } from "./charts";
 import { MCFan } from "./ChartDesks";
 import { mulberry32 } from "@/lib/utils";
+import { DeskError, ResolutionNote } from "./DeskOutput";
 
 type Num = number | null;
 
@@ -113,7 +114,9 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
   const [news, setNews] = useState<any>(null);
   const [chain, setChain] = useState<any>(null);
   const [chain2, setChain2] = useState<any>(null);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<{ message: string; code?: string; suggestion?: string } | null>(null);
+  const [resolvedSym, setResolvedSym] = useState<string | null>(null);
+  const [retryN, setRetryN] = useState(0);
   const [ewmaL, setEwmaL] = useState(0.94);
   const [posINR, setPosINR] = useState("1000000");
   const [horizon, setHorizon] = useState("63");
@@ -125,12 +128,17 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
 
   useEffect(() => {
     let alive = true;
-    setErr(""); setBars([]); setMacros({}); setChain(null); setChain2(null);
+    setErr(null); setResolvedSym(null); setBars([]); setMacros({}); setChain(null); setChain2(null);
     const H = (s: string, range: string) =>
       fetch(`/api/history?symbol=${encodeURIComponent(s)}&range=${range}&interval=1d`).then((r) => r.json()).catch(() => null);
     Promise.all([H(symbol, "3y"), H("^NSEI", "2y"), H("USDINR=X", "2y"), H("CL=F", "2y"), H("^TNX", "2y")]).then(([a, n, f, c, t]) => {
       if (!alive) return;
-      if (a?.error) { setErr(a.error); return; }
+      if (a?.error) {
+        setErr({ message: a.error, code: a.code, suggestion: a.suggestion ?? a.suggestions?.[0]?.symbol });
+        return;
+      }
+      // Server may have resolved a typo (APPL → AAPL) — follow it.
+      if (a?.resolvedFrom) setResolvedSym(a.symbol ?? null);
       setBars(a.bars ?? []);
       const m: Record<string, any[]> = {};
       if (n && !n.error) m.nifty = n.bars ?? [];
@@ -152,7 +160,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
       if (ex1) fetch(`/api/ochain/chain?symbol=${encodeURIComponent(base)}&expiry=${encodeURIComponent(ex1)}&mode=stock`).then((r) => r.json()).then((c) => { if (alive && !c.error) setChain2(c); }).catch(() => {});
     }).catch(() => {});
     return () => { alive = false; };
-  }, [symbol]);
+  }, [symbol, retryN]);
 
   async function askAI() {
     setAiLoading(true); setAiOut("");
@@ -169,7 +177,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
     }
   }
 
-  if (err) return <div className="panel"><p className="neg">RISK ERR: {err} (FEED THROTTLED — RETRY)</p></div>;
+  if (err) return <div className="panel"><DeskError err={err} onRetry={() => setRetryN((n) => n + 1)} /></div>;
   if (bars.length < 130) return <div className="panel"><p className="muted">BUILDING RISK TERMINAL FOR {symbol}…</p></div>;
 
   const dates = bars.map((b: any) => b.date as string);
@@ -631,6 +639,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      {resolvedSym && <div className="panel"><ResolutionNote from={symbol} to={resolvedSym} /></div>}
       <div className="panel panel-glow stmt-toolbar">
         <div className="pills">
           {NAV.map(([id, l]) => (

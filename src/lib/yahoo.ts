@@ -74,11 +74,19 @@ export async function fetchHistory(symbol: string, range = "6mo", interval = "1d
   if (hit && Date.now() - hit.ts < CHART_TTL) return hit.data;
 
   const url = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%7Csplit`;
-  const res = await yahooFetch(url, { next: { revalidate: 300 } });
+  let res: Response;
+  try {
+    res = await yahooFetch(url, { next: { revalidate: 300 } });
+  } catch (e: unknown) {
+    // yahooFetch only gives up immediately on non-retryable codes (404 =
+    // unknown symbol). Everything else is genuinely feed trouble.
+    if (e instanceof Error && /yahoo 404/.test(e.message)) throw new UnknownSymbolError(symbol);
+    throw e;
+  }
   if (!res.ok) throw new Error(`Yahoo chart failed (${res.status}) for ${symbol}`);
   const j = await res.json();
   const result = j?.chart?.result?.[0];
-  if (!result) throw new Error(`No chart data for ${symbol}`);
+  if (!result) throw new UnknownSymbolError(symbol);
   const ts: number[] = result.timestamp ?? [];
   const q = result.indicators?.quote?.[0] ?? {};
   const adj = result.indicators?.adjclose?.[0]?.adjclose as number[] | undefined;
@@ -98,7 +106,64 @@ export async function fetchHistory(symbol: string, range = "6mo", interval = "1d
     });
   }
   chartCache.set(key, { ts: Date.now(), data: bars });
+  if (!bars.length) throw new UnknownSymbolError(symbol);
   return bars;
+}
+
+// ---- Unknown-ticker handling ----
+// A typo (APPL for AAPL) or company name (APPLE) 404s on the chart API.
+// That is NOT feed throttling — it needs typo resolution, not a retry.
+// UnknownSymbolError marks the case; searchSymbols/pickReplacement recover.
+
+export class UnknownSymbolError extends Error {
+  symbol: string;
+  constructor(symbol: string) {
+    super(`UNKNOWN TICKER ${symbol} — NO YAHOO TAPE`);
+    this.name = "UnknownSymbolError";
+    this.symbol = symbol;
+  }
+}
+
+export interface SymbolHit {
+  symbol: string;
+  name: string;
+  exch: string;
+  type: string;
+}
+
+// Live Yahoo search (same source as /api/lookup) for typo recovery.
+export async function searchSymbols(query: string, n = 4): Promise<SymbolHit[]> {
+  const q = (query || "").trim().toUpperCase();
+  if (!q) return [];
+  try {
+    const r = await fetch(
+      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=12&newsCount=0`,
+      { headers: yahooHeaders(), next: { revalidate: 120 }, signal: AbortSignal.timeout(10000) }
+    );
+    if (!r.ok) return [];
+    const j = await r.json();
+    const quotes = (j?.quotes ?? []) as any[];
+    return quotes
+      .filter((x) => x && x.symbol)
+      .map((x) => ({
+        symbol: String(x.symbol).toUpperCase(),
+        name: String(x.shortname ?? x.longname ?? x.symbol).toUpperCase().slice(0, 44),
+        exch: String(x.exchDisp ?? x.exchange ?? "").toUpperCase().slice(0, 12),
+        type: String(x.quoteType ?? "").toUpperCase().slice(0, 10),
+      }))
+      .slice(0, Math.max(1, Math.min(8, n)));
+  } catch {
+    return [];
+  }
+}
+
+// Best-effort typo recovery: exact symbol hit wins, else Yahoo's top rank
+// (APPL → AAPL, APPLE → AAPL, RELIANEC → RELIANCE.NS).
+export async function pickReplacement(symbol: string): Promise<{ resolved: string | null; suggestions: SymbolHit[] }> {
+  const suggestions = await searchSymbols(symbol, 4);
+  const exact = suggestions.find((s) => s.symbol === symbol);
+  const top = exact ?? suggestions[0] ?? null;
+  return { resolved: top ? top.symbol : null, suggestions };
 }
 
 export async function fetchQuote(symbol: string): Promise<Quote> {

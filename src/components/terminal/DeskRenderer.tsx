@@ -7,7 +7,7 @@ import { store } from "@/lib/store";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { fmtINR, fmtPct, fmtNum } from "@/lib/utils";
 import FunctionDirectory from "@/components/FunctionDirectory";
-import DeskOutput from "@/components/DeskOutput";
+import DeskOutput, { DeskError, ResolutionNote, toDeskErr } from "@/components/DeskOutput";
 import { NewsDesk, MarketDesk, ScreenerDesk, BacktestDesk, PolyDesk, CompanyDesk } from "@/components/ModuleDesks";
 import { SectorDesk } from "@/components/SectorDesks";
 import { StatementsTerminal } from "@/components/StatementsTerminal";
@@ -612,25 +612,31 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
   const mod = MODULE_MAP[id];
   const code = funcCode(id);
   const [data, setData] = useState<any>(null);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<{ message: string; code?: string; suggestion?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiOut, setAiOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [retryN, setRetryN] = useState(0);
   const seq = useRef(0);
   useEffect(() => {
     let alive = true;
     const my = ++seq.current;
-    setLoading(true); setErr(""); setData(null);
+    setLoading(true); setErr(null); setData(null);
     fetch(`/api/analysis/${id}?symbol=${encodeURIComponent(symbol)}&range=1y`)
       .then(async (r) => {
         const j = await r.json();
-        if (!r.ok) throw new Error(j.error || "analysis failed");
+        if (!r.ok) {
+          const t: any = new Error(j.error || "analysis failed");
+          t.code = j.code;
+          t.suggestion = j.suggestion ?? j.suggestions?.[0]?.symbol;
+          throw t;
+        }
         if (alive && seq.current === my) setData(j);
       })
-      .catch((e: any) => { if (alive && seq.current === my) setErr(e.message); })
+      .catch((e: any) => { if (alive && seq.current === my) setErr(toDeskErr(e)); })
       .finally(() => { if (alive && seq.current === my) setLoading(false); });
     return () => { alive = false; };
-  }, [id, symbol]);
+  }, [id, symbol, retryN]);
   const ind = data?.indicators ?? {};
   const risk = data?.risk ?? {};
   const closes: number[] = (data?.bars ?? []).map((b: any) => b.close);
@@ -652,8 +658,9 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
   }
   return (
     <div className="grid" style={{ gap: 10 }}>
+      {data?.resolvedFrom && <ResolutionNote from={data.resolvedFrom} to={data.symbol} />}
       {loading && <p className="muted">LOADING {code} FOR {symbol}…</p>}
-      {err && <p className="neg">ERR: {err} (FEED THROTTLED — RETRY)</p>}
+      {err && <DeskError err={err} onRetry={() => setRetryN((n) => n + 1)} />}
       {data && (
         <div className="cells">
           <div className="cell"><div className="lbl">Last</div><div className={`val ${liveUp ? "pos" : "neg"}`} style={{ fontSize: 15 }}>{livePx !== undefined ? fmtINR(livePx) : "—"}</div><div className="sub">{liveUp ? "▲" : "▼"} {Math.abs(liveChg).toFixed(2)}%</div></div>

@@ -10,6 +10,7 @@ import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { BarChart, LineChart, HBars, Histogram, AreaChart, EquityDrawdown } from "./charts";
 import { mulberry32 } from "@/lib/utils";
+import { DeskError, ResolutionNote } from "./DeskOutput";
 
 function KV({ k, v, cls, explain }: { k: string; v: string; cls?: string; explain?: boolean }) {
   return <div className="kv"><span className="muted" data-explain={explain ? k : undefined}>{k}</span><strong className={cls}>{v}</strong></div>;
@@ -2447,13 +2448,14 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
   const [range, setRange] = useState<string>("1y");
   const [retryN, setRetryN] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<{ message: string; code?: string; suggestion?: string } | null>(null);
+  const [resolvedSym, setResolvedSym] = useState<string | null>(null);
   const [aiOut, setAiOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true); setErr(""); setBars([]); setBench([]); setVix([]); setAiOut("");
+    setLoading(true); setErr(null); setResolvedSym(null); setBars([]); setBench([]); setVix([]); setAiOut("");
     const clean = (xs: any[]) => (xs ?? []).filter((b) => b && typeof b.date === "string" && isFinite(b.close) && b.close > 0 && isFinite(b.high) && isFinite(b.low));
     Promise.all([
       fetch(`/api/history?symbol=${encodeURIComponent(symbol)}&range=${range}&interval=1d`).then((r) => r.json()),
@@ -2462,12 +2464,18 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
     ])
       .then(([a, b, v]) => {
         if (!alive) return;
-        if (a.error) throw new Error(a.error);
+        if (a.error) {
+          const t: any = new Error(a.error);
+          t.code = a.code;
+          t.suggestion = a.suggestion ?? a.suggestions?.[0]?.symbol;
+          throw t;
+        }
+        if (a?.resolvedFrom) setResolvedSym(a.symbol ?? null);
         setBars(clean(a.bars));
         setBench(b && !b.error ? clean(b.bars) : []);
         setVix(v && !v.error ? clean(v.bars) : []);
       })
-      .catch((e) => { if (alive) setErr(e.message || "load failed"); })
+      .catch((e) => { if (alive) setErr({ message: e.message || "load failed", code: (e as any)?.code, suggestion: (e as any)?.suggestion }); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [symbol, range, retryN]);
@@ -2564,7 +2572,7 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
   }
 
   if (loading) return <div className="panel"><p className="muted">TRACKING {symbol} — TAPE + NIFTY + VIX…</p></div>;
-  if (err) return <div className="panel"><p className="neg">STOCK GREEKS ERR: {err} (FEED THROTTLED — RETRY)</p><div className="toolbar" style={{ marginTop: 8 }}><button className="ghost" onClick={() => setRetryN((n) => n + 1)}>RETRY</button></div></div>;
+  if (err) return <div className="panel"><DeskError err={err} onRetry={() => setRetryN((n) => n + 1)} /></div>;
   if (!calc) return <div className="panel"><p className="muted">NEED 45+ DAILY BARS FOR {symbol} — TRY A LONGER RANGE.</p></div>;
 
   const { g, verdict, hasBench } = calc;
@@ -2591,6 +2599,7 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      {resolvedSym && <ResolutionNote from={symbol} to={resolvedSym} />}
       <div className="toolbar">
         <div className="pills">
           {SG_RANGES.map((r) => (
@@ -2710,26 +2719,32 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
 export function RollingRiskDesk({ symbol }: { symbol: string }) {
   const [bars, setBars] = useState<any[]>([]);
   const [bench, setBench] = useState<any[]>([]);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<{ message: string; code?: string; suggestion?: string } | null>(null);
+  const [retryN, setRetryN] = useState(0);
   const [aiOut, setAiOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    setErr(""); setBars([]); setBench([]);
+    setErr(null); setBars([]); setBench([]);
     Promise.all([
       fetch(`/api/history?symbol=${encodeURIComponent(symbol)}&range=3y&interval=1d`).then((r) => r.json()),
       fetch(`/api/history?symbol=${encodeURIComponent("^NSEI")}&range=3y&interval=1d`).then((r) => r.json()).catch(() => null),
     ])
       .then(([a, b]) => {
         if (!alive) return;
-        if (a.error) throw new Error(a.error);
+        if (a.error) {
+          const t: any = new Error(a.error);
+          t.code = a.code;
+          t.suggestion = a.suggestion ?? a.suggestions?.[0]?.symbol;
+          throw t;
+        }
         setBars(a.bars ?? []);
         if (b && !b.error) setBench(b.bars ?? []);
       })
-      .catch((e) => { if (alive) setErr(e.message); });
+      .catch((e) => { if (alive) setErr({ message: e.message, code: (e as any)?.code, suggestion: (e as any)?.suggestion }); });
     return () => { alive = false; };
-  }, [symbol]);
+  }, [symbol, retryN]);
 
   async function askAI() {
     setAiLoading(true); setAiOut("");
@@ -2746,7 +2761,7 @@ export function RollingRiskDesk({ symbol }: { symbol: string }) {
     }
   }
 
-  if (err) return <div className="panel"><p className="neg">ROLLING RISK ERR: {err} (FEED THROTTLED — RETRY)</p></div>;
+  if (err) return <div className="panel"><DeskError err={err} onRetry={() => setRetryN((n) => n + 1)} /></div>;
   if (bars.length < 130) return <div className="panel"><p className="muted">BUILDING 3Y ROLLING RISK FOR {symbol}…</p></div>;
 
   // Align symbol + benchmark dates

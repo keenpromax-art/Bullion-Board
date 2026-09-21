@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchHistory, fetchQuote } from "@/lib/yahoo";
+import { fetchHistory, fetchQuote, pickReplacement, UnknownSymbolError } from "@/lib/yahoo";
 import { normalizeTicker } from "@/lib/utils";
 import { MODULE_MAP } from "@/lib/modules";
 import {
@@ -22,14 +22,52 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const mod = MODULE_MAP[id];
   if (!mod) return NextResponse.json({ error: `Unknown module ${id}` }, { status: 404 });
   const sp = req.nextUrl.searchParams;
-  const symbol = normalizeTicker(sp.get("symbol") || "RELIANCE.NS");
+  let symbol = normalizeTicker(sp.get("symbol") || "RELIANCE.NS");
   const range = sp.get("range") || "1y";
+  let resolvedFrom: string | undefined;
+
+  // Unknown tickers (typos like APPL, company names like APPLE) auto-resolve
+  // via Yahoo search instead of dying with a feed error.
+  async function loadAll(sym: string) {
+    return Promise.all([
+      fetchHistory(sym, range, "1d"),
+      fetchQuote(sym).catch(() => null),
+    ]);
+  }
+  let loaded: Awaited<ReturnType<typeof loadAll>>;
+  const loadFail = (e: unknown) =>
+    NextResponse.json(
+      { error: e instanceof Error ? e.message : "analysis failed", symbol, module: mod },
+      { status: 502 }
+    );
+  try {
+    loaded = await loadAll(symbol);
+  } catch (e: unknown) {
+    if (!(e instanceof UnknownSymbolError)) return loadFail(e);
+    const { resolved, suggestions } = await pickReplacement(symbol);
+    if (!resolved || resolved === symbol) {
+      return NextResponse.json(
+        { error: `UNKNOWN TICKER ${symbol} — NO YAHOO TAPE`, code: "UNKNOWN_SYMBOL", symbol, suggestions },
+        { status: 404 }
+      );
+    }
+    resolvedFrom = symbol;
+    symbol = resolved;
+    try {
+      loaded = await loadAll(symbol);
+    } catch (e2: unknown) {
+      if (e2 instanceof UnknownSymbolError) {
+        return NextResponse.json(
+          { error: `UNKNOWN TICKER ${resolvedFrom} — NO YAHOO TAPE`, code: "UNKNOWN_SYMBOL", symbol: resolvedFrom, suggestions },
+          { status: 404 }
+        );
+      }
+      return loadFail(e2);
+    }
+  }
+  const [bars, quote] = loaded;
 
   try {
-    const [bars, quote] = await Promise.all([
-      fetchHistory(symbol, range, "1d"),
-      fetchQuote(symbol).catch(() => null),
-    ]);
     if (bars.length < 30) return NextResponse.json({ error: "Insufficient history", symbol }, { status: 502 });
 
     const close = bars.map((b) => b.close);
@@ -141,7 +179,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       extra.pairNote = "Pairs/stat-arb needs two symbols — use ?symbolA=&symbolB= on the module page; hedge ratio = OLS slope, half-life from AR(1).";
     }
 
-    return NextResponse.json({ ...base, extra });
+    return NextResponse.json({
+      ...base,
+      extra,
+      ...(resolvedFrom ? { resolvedFrom, resolutionNote: `SHOWING ${symbol} FOR ${resolvedFrom} — RESOLVED VIA YAHOO SEARCH` } : {}),
+    });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "analysis failed";
     return NextResponse.json({ error: msg, symbol, module: mod }, { status: 502 });

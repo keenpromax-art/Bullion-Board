@@ -33,6 +33,67 @@ function Tbl({ head, rows }: { head: string[]; rows: (string | { t: string; cls?
 const n2 = (v: unknown) => fmtNum(typeof v === "number" ? v : NaN);
 const n3 = (v: unknown) => fmtNum(typeof v === "number" ? v : NaN, 3);
 
+// ---- Shared desk error rendering (module pages + workspace panels) ----
+// Feed errors must never be mislabelled: an unknown ticker (typo) is NOT
+// throttling, and throttling is NOT an unknown ticker.
+
+export interface DeskErr {
+  message: string;
+  code?: string;
+  suggestion?: string;
+}
+
+export function toDeskErr(e: unknown, payload?: { code?: string; suggestion?: string }): DeskErr {
+  const message = e instanceof Error ? e.message : typeof e === "string" ? e : "fetch failed";
+  const code = (e as { code?: string } | null)?.code ?? payload?.code;
+  const suggestion = (e as { suggestion?: string } | null)?.suggestion ?? payload?.suggestion;
+  return { message, code, suggestion };
+}
+
+export function classifyDeskErr(err: DeskErr | string): "unknown" | "throttled" | "other" {
+  const code = typeof err === "string" ? "" : (err.code ?? "");
+  const msg = typeof err === "string" ? err : err.message;
+  if (code === "UNKNOWN_SYMBOL" || /UNKNOWN TICKER/.test(msg)) return "unknown";
+  if (/429|502|503|THROTT|RATE LIMIT|NETWORK|TIMEOUT|ABORT|FETCH FAILED/i.test(msg)) return "throttled";
+  return "other";
+}
+
+// Honest error panel: unknown tickers offer the resolved symbol, throttled
+// feeds offer retry — never the twain confused.
+export function DeskError({ err, onRetry, onPick }: {
+  err: DeskErr | string;
+  onRetry?: () => void;
+  onPick?: (sym: string) => void;
+}) {
+  const norm: DeskErr = typeof err === "string" ? { message: err } : err;
+  const kind = classifyDeskErr(norm);
+  return (
+    <div>
+      <p className="neg" style={{ marginBottom: kind === "unknown" && norm.suggestion ? 8 : 0 }}>
+        {kind === "throttled" ? `${norm.message} (FEED THROTTLED — RETRY)` : norm.message}
+      </p>
+      {(kind === "unknown" && norm.suggestion && onPick) || onRetry ? (
+        <div className="toolbar" style={{ marginTop: 8 }}>
+          {kind === "unknown" && norm.suggestion && onPick && (
+            <button className="btn" onClick={() => onPick?.(norm.suggestion!)}>LOAD {norm.suggestion}</button>
+          )}
+          {onRetry && <button className="ghost" onClick={onRetry}>RETRY</button>}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Amber notice when the server resolved a typo/company name (APPL → AAPL)
+// instead of erroring.
+export function ResolutionNote({ from, to }: { from: string; to: string }) {
+  return (
+    <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+      SHOWING <strong style={{ color: "var(--amber)" }}>{to}</strong> FOR {from} — RESOLVED VIA YAHOO SEARCH · WRONG SECURITY? EDIT TICKER
+    </p>
+  );
+}
+
 export default function DeskOutput({ extra }: { extra: any }) {
   if (!extra || typeof extra !== "object") return null;
   const sections: React.ReactNode[] = [];

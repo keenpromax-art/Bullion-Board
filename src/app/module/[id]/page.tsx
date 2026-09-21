@@ -9,7 +9,7 @@ import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import OpenInWorkspace from "@/components/terminal/OpenInWorkspace";
-import DeskOutput from "@/components/DeskOutput";
+import DeskOutput, { DeskError, ResolutionNote, toDeskErr } from "@/components/DeskOutput";
 import { NewsDesk, MarketDesk, ScreenerDesk, BacktestDesk, PolyDesk, CompanyDesk } from "@/components/ModuleDesks";
 import { SectorDesk } from "@/components/SectorDesks";
 import { StatementsTerminal } from "@/components/StatementsTerminal";
@@ -618,7 +618,7 @@ function GenericDesk({ id, code, symbol, setSymbol, status, task }: {
   const mod = MODULE_MAP[id];
   const cat = mod.category;
   const [data, setData] = useState<any>(null);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<{ message: string; code?: string; suggestion?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiOut, setAiOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -627,14 +627,19 @@ function GenericDesk({ id, code, symbol, setSymbol, status, task }: {
   // Guarded load — a slow earlier request can never overwrite a newer symbol.
   async function load(sym: string) {
     const my = ++seq.current;
-    setLoading(true); setErr(""); setData(null);
+    setLoading(true); setErr(null); setData(null);
     try {
       const r = await fetch(`/api/analysis/${id}?symbol=${encodeURIComponent(sym)}&range=1y`);
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "analysis failed");
+      if (!r.ok) {
+        const t: any = new Error(j.error || "analysis failed");
+        t.code = j.code;
+        t.suggestion = j.suggestion ?? j.suggestions?.[0]?.symbol;
+        throw t;
+      }
       if (seq.current === my) setData(j);
     } catch (e: any) {
-      if (seq.current === my) setErr(e.message);
+      if (seq.current === my) setErr(toDeskErr(e));
     } finally {
       if (seq.current === my) setLoading(false);
     }
@@ -687,7 +692,7 @@ function GenericDesk({ id, code, symbol, setSymbol, status, task }: {
     <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
       <div className="panel panel-glow">
         <div className="sec-head">
-          <span className="sec-name">{symbol.replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
+          <span className="sec-name">{(data?.symbol ?? symbol).replace(".NS", "")}<span className="suffix"> &lt;EQUITY&gt; {code} &lt;GO&gt;</span></span>
           {data && (
             <>
               <span className={`sec-price ${liveUp ? "pos" : "neg"}`}>{fmtINR(livePx)}</span>
@@ -696,8 +701,9 @@ function GenericDesk({ id, code, symbol, setSymbol, status, task }: {
           )}
         </div>
         <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>{mod.label.toUpperCase()} · {mod.pyFn} · {cat.toUpperCase()} · AS OF {asOf}{isLive ? " · LIVE" : ""}</div>
+        {data?.resolvedFrom && <ResolutionNote from={data.resolvedFrom} to={data.symbol} />}
         {loading && <p className="muted">LOADING {code} FOR {symbol}…</p>}
-        {err && <p className="neg">ERR: {err} (FEED THROTTLED — RETRY)</p>}
+        {err && <DeskError err={err} onRetry={() => load(symbol)} onPick={(s) => setSymbol(s)} />}
         {data && (
           <div className="cells" style={{ marginTop: 12 }}>
             <div className="cell"><div className="lbl">RSI 14</div><div className="val">{fmtNum(ind.rsi)}</div><div className="sub">WILDER</div></div>
