@@ -4,6 +4,7 @@
 
 import type { OHLCBar, Quote } from "./types";
 import { YF_INCOME_KEYS, YF_BALANCE_KEYS, YF_CASHFLOW_KEYS } from "./yfKeys";
+import { isIndianTicker, localeForTicker, tickerCurrency } from "./utils";
 
 const chartCache = new Map<string, { ts: number; data: OHLCBar[] }>();
 const quoteCache = new Map<string, { ts: number; data: Quote }>();
@@ -113,7 +114,7 @@ export async function fetchQuote(symbol: string): Promise<Quote> {
       symbol: r.symbol ?? symbol,
       shortName: r.shortName ?? r.longName ?? symbol,
       longName: r.longName,
-      currency: r.currency ?? "INR",
+      currency: r.currency ?? tickerCurrency(symbol),
       regularMarketPrice: r.regularMarketPrice ?? 0,
       regularMarketChange: r.regularMarketChange ?? 0,
       regularMarketChangePercent: r.regularMarketChangePercent ?? 0,
@@ -137,7 +138,7 @@ export async function fetchQuote(symbol: string): Promise<Quote> {
     const q: Quote = {
       symbol,
       shortName: symbol,
-      currency: symbol.endsWith(".NS") ? "INR" : "USD",
+      currency: tickerCurrency(symbol),
       regularMarketPrice: last.close,
       regularMarketChange: bars.length > 1 ? last.close - bars[bars.length - 2].close : 0,
       regularMarketChangePercent: bars.length > 1 ? ((last.close - bars[bars.length - 2].close) / bars[bars.length - 2].close) * 100 : 0,
@@ -152,7 +153,8 @@ let CRUMB = "";
 let crumbAt = 0;
 
 // Crumb-authed quoteSummary (recommendationTrend, earningsTrend, key stats).
-// Works for NSE names where v7 analyst fields come back empty.
+// Works globally; v7 analyst fields are empty for some names so this is the
+// fallback source.
 export async function yahooQuoteSummary(symbol: string, modules: string): Promise<any> {
   const load = async (): Promise<any> => {
     if (!CRUMB || Date.now() - crumbAt > 30 * 60 * 1000) {
@@ -209,7 +211,9 @@ const STMT_CACHE = new Map<string, { ts: number; data: YFTable }>();
 const STMT_TTL = 6 * 60 * 60 * 1000;
 const YF_PERIOD1 = Math.floor(new Date("2016-12-31T00:00:00Z").getTime() / 1000);
 
-// Per-share / count / rate keys stay raw; everything else is currency (INR -> ₹ Cr).
+// Per-share / count / rate keys stay raw; everything else is currency.
+// Indian listings scale to ₹ Cr (÷1e7); global listings scale to millions
+// (÷1e6) so AAPL-scale numbers stay readable.
 // NOTE: do NOT use substring "ratio" — it false-positives "OpeRATIO n".
 function noScale(key: string): boolean {
   return /(eps|pershare|dividendpershare|^taxrateforcalcs|averageshares|sharesnumber|^shareissued|treasurysharesnumber|preferredsharesnumber|ordinarysharesnumber)$/i.test(
@@ -263,8 +267,11 @@ async function fetchTimeseriesChunk(symbol: string, timescale: "annual" | "quart
   return out;
 }
 
-function timeseriesToTable(raw: any[], timescale: "annual" | "quarterly", orderedKeys: string[]): YFTable {
-  // date -> key -> value(raw INR)
+function timeseriesToTable(raw: any[], timescale: "annual" | "quarterly", orderedKeys: string[], symbol: string): YFTable {
+  // date -> key -> value (raw listing currency)
+  const indian = isIndianTicker(symbol);
+  const locale = localeForTicker(symbol);
+  const divisor = indian ? 1e7 : 1e6; // ₹ Cr vs global millions
   const dateMap = new Map<string, Map<string, number | null>>();
   for (const entry of raw) {
     const dataKey = Object.keys(entry).find((k) => k !== "meta" && k !== "timestamp");
@@ -288,7 +295,7 @@ function timeseriesToTable(raw: any[], timescale: "annual" | "quarterly", ordere
   for (const key of orderedKeys) {
     const vals: (number | null)[] = [];
     let hasAny = false;
-    const scale = noScale(key) ? 1 : 1e7; // INR -> ₹ Crores
+    const scale = noScale(key) ? 1 : divisor;
     for (const d of keep) {
       const rawV = dateMap.get(d)?.get(key) ?? null;
       if (rawV !== null && rawV !== undefined) {
@@ -303,7 +310,7 @@ function timeseriesToTable(raw: any[], timescale: "annual" | "quarterly", ordere
     rows.push({
       label: prettyLabel(key),
       values: vals,
-      raw: vals.map((v) => (v === null ? "—" : v.toLocaleString("en-IN"))),
+      raw: vals.map((v) => (v === null ? "—" : v.toLocaleString(locale))),
     });
   }
   return { periods, rows };
@@ -321,7 +328,7 @@ export async function fetchYahooTable(
   const keys = statement === "income" ? YF_INCOME_KEYS : statement === "balance-sheet" ? YF_BALANCE_KEYS : YF_CASHFLOW_KEYS;
   const raw = await fetchTimeseriesChunk(symbol, timescale, keys);
   if (!raw.length) throw new Error(`No ${statement} ${freq} data for ${symbol}`);
-  const table = timeseriesToTable(raw, timescale, keys);
+  const table = timeseriesToTable(raw, timescale, keys, symbol);
   if (!table.periods.length || !table.rows.length) throw new Error(`Empty ${statement} ${freq} for ${symbol}`);
   STMT_CACHE.set(cacheKey, { ts: Date.now(), data: table });
   return table;

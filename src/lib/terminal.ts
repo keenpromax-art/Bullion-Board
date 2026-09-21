@@ -47,8 +47,11 @@ export interface ParsedCommand {
 function looksLikeTicker(tok: string): boolean {
   const t = tok.toUpperCase();
   if (t.startsWith("^")) return true;
-  // NSE/BSE equities plus Yahoo futures (=F), FX (=X) and crypto (-USD).
-  if (/^[A-Z0-9&.=-]+(\.(NS|BO))?$/.test(t) && /[A-Z]/.test(t)) return true;
+  if (t.includes("=")) return /^[A-Z0-9^.=/-]+(=X|=F)?$/.test(t);
+  if (/-USD$/.test(t)) return true;
+  // Global Yahoo symbols: bare US (AAPL, BRK.B/BRK-B), NSE/BSE (.NS/.BO),
+  // LSE (.L), Xetra/Euronext (.DE/.PA/.AS/.MI), Tokyo (.T), HK/AX/TO/KS...
+  if (/^[A-Z0-9&.=-]+(\.[A-Z]{1,4})?$/.test(t) && /[A-Z]/.test(t)) return true;
   return false;
 }
 

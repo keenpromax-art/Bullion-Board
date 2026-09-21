@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { normalizeTicker } from "@/lib/utils";
+import { isIndianTicker, normalizeTicker, stripYahooSuffix } from "@/lib/utils";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
@@ -18,10 +18,16 @@ function parseNum(raw: string): number | null {
 }
 
 // Quarterly holder mix (promoter/FII/DII/public) with QoQ deltas,
-// parsed from the screener.in shareholding ledger.
+// parsed from the screener.in shareholding ledger (NSE/BSE only).
 export async function GET(req: NextRequest) {
   const symbol = normalizeTicker(req.nextUrl.searchParams.get("symbol") || "RELIANCE.NS");
-  const base = symbol.replace(/\.NS$|\.BO$/, "");
+  const base = stripYahooSuffix(symbol);
+  if (!isIndianTicker(symbol)) {
+    return NextResponse.json(
+      { error: `OWNERSHIP IS NSE-ONLY — NO SCREENER.IN LEDGER FOR ${symbol}. USE COMPANY PROFILER FOR YAHOO HOLDER STATS.`, symbol, nseOnly: true },
+      { status: 400 }
+    );
+  }
   try {
     const r = await fetch(`https://www.screener.in/company/${encodeURIComponent(base)}/`, {
       headers: { "User-Agent": UA, Accept: "text/html" },

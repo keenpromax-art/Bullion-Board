@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { normalizeTicker } from "@/lib/utils";
+import { normalizeTicker, tickerCurrency } from "@/lib/utils";
 import { yahooQuoteSummary } from "@/lib/yahoo";
 
 const raw = (v: any): number | null =>
@@ -39,6 +39,10 @@ export async function GET(req: NextRequest) {
     const px = ((s?.price ?? {}) as any);
     const fd = ((s?.financialData ?? {}) as any);
     const price = raw(px.regularMarketPrice) ?? raw(fd.currentPrice) ?? 0;
+    const currency =
+      (typeof px.currency === "string" && px.currency) ||
+      (typeof (s?.price as any)?.currency === "string" ? (s.price as any).currency : null) ||
+      tickerCurrency(symbol);
     const tMean = raw(fd.targetMeanPrice), tMed = raw(fd.targetMedianPrice);
     const tHigh = raw(fd.targetHighPrice), tLow = raw(fd.targetLowPrice);
 
@@ -46,7 +50,7 @@ export async function GET(req: NextRequest) {
       symbol,
       fetchedAt: new Date().toISOString(),
       price: price,
-      currency: "INR",
+      currency,
       consensus, pctBuy, nAnalysts: total,
       trend: rows,
       targets: {

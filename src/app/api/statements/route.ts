@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { normalizeTicker } from "@/lib/utils";
+import { currencySymbol, isIndianTicker, normalizeTicker, stripYahooSuffix, tickerCurrency } from "@/lib/utils";
 import { fetchQuote, fetchYahooTable } from "@/lib/yahoo";
 import { buildRatios } from "@/lib/ratios";
 
@@ -67,7 +67,10 @@ async function fetchScreenerHoldings(base: string): Promise<STable | null> {
 
 export async function GET(req: NextRequest) {
   const symbol = normalizeTicker(req.nextUrl.searchParams.get("symbol") || "RELIANCE.NS");
-  const base = symbol.replace(/\.NS$|\.BO$/, "");
+  const base = stripYahooSuffix(symbol);
+  const indian = isIndianTicker(symbol);
+  // screener.in only covers Indian listings — skip for global tickers.
+  const holdingsPromise = indian ? fetchScreenerHoldings(base) : Promise.resolve(null);
   try {
     const [pl, bs, cf, qtr, qtrCF, quote, sh] = await Promise.all([
       fetchYahooTable(symbol, "income", "annual"),
@@ -76,19 +79,28 @@ export async function GET(req: NextRequest) {
       fetchYahooTable(symbol, "income", "quarterly").catch(() => null),
       fetchYahooTable(symbol, "cash-flow", "quarterly").catch(() => null),
       fetchQuote(symbol).catch(() => null),
-      fetchScreenerHoldings(base),
+      holdingsPromise,
     ]);
     if (!pl) throw new Error(`No income statement for ${symbol}`);
+    const currency = quote?.currency ?? tickerCurrency(symbol);
+    const curSym = currencySymbol(currency);
+    const divisor = indian ? 1e7 : 1e6;
     const marketCapCr =
-      typeof quote?.marketCap === "number" && isFinite(quote.marketCap) ? Math.round((quote.marketCap / 1e7) * 100) / 100 : null;
+      typeof quote?.marketCap === "number" && isFinite(quote.marketCap) ? Math.round((quote.marketCap / divisor) * 100) / 100 : null;
     const rat = buildRatios(pl, bs, cf);
     return NextResponse.json({
       symbol,
       name: quote?.longName || quote?.shortName || base,
-      unit: "₹ CRORES",
-      source: "yahoo-fundamentals-timeseries (yfinance) + screener.in holdings",
+      unit: indian ? "₹ CRORES" : `${currency.toUpperCase()} MILLIONS`,
+      currency,
+      currencySymbol: curSym,
+      indian,
+      source: indian
+        ? "yahoo-fundamentals-timeseries (yfinance) + screener.in holdings"
+        : "yahoo-fundamentals-timeseries (yfinance)",
       ratios: {},
       marketCapCr,
+      marketCap: quote?.marketCap ?? null,
       pl,
       bs,
       cf,

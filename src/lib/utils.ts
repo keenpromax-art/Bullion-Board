@@ -1,4 +1,7 @@
 // Small utilities — ports of safe_div, formatters, seeded RNG from special.py
+import { WATCHLIST } from "./watchlist";
+
+const WATCHLIST_SET: Set<string> = new Set(WATCHLIST);
 
 export function safeDiv(a: number, b: number, fallback = 0): number {
   if (!isFinite(a) || !isFinite(b) || b === 0) return fallback;
@@ -10,9 +13,9 @@ export function fmtINR(v: number | null | undefined, dec = 2): string {
   return `₹${v.toLocaleString("en-IN", { minimumFractionDigits: dec, maximumFractionDigits: dec })}`;
 }
 
-export function fmtNum(v: number | null | undefined, dec = 2): string {
+export function fmtNum(v: number | null | undefined, dec = 2, locale = "en-IN"): string {
   if (v === null || v === undefined || !isFinite(v)) return "—";
-  return v.toLocaleString("en-IN", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return v.toLocaleString(locale, { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
 export function fmtPct(v: number | null | undefined, mult = false, dec = 2): string {
@@ -30,14 +33,124 @@ export function fmtCr(v: number | null | undefined): string {
 }
 
 export function normalizeTicker(raw: string, fallback = "RELIANCE.NS"): string {
-  // Exact port of normalize_cli_ticker()
+  // Global-aware port of normalize_cli_ticker().
+  // Bare Indian names resolve to .NS via the 2,260-symbol watchlist
+  // (RELIANCE -> RELIANCE.NS); anything else passes through untouched so
+  // US/EU/JP tickers (AAPL, MSFT, SONY.T, VOW.DE, RELIANCE.NS, ^NSEI,
+  // GC=F, USDINR=X, BTC-USD) keep working.
   let t = (raw || fallback || "RELIANCE.NS").trim().toUpperCase();
   if (!t) return "RELIANCE.NS";
   if (t.startsWith("^") || t.includes(".") || t.includes("=")) return t;
   // Yahoo crypto pairs (BTC-USD) pass through; hyphenated NSE names
   // (BAJAJ-AUTO) still get .NS — hence the anchored $-USD test.
   if (/-USD$/.test(t)) return t;
-  return `${t}.NS`;
+  if (WATCHLIST_SET.has(`${t}.NS`)) return `${t}.NS`;
+  return t;
+}
+
+// ---- Global market helpers (currency / locale / formatting) ----
+// Yahoo quotes carry the listing currency; these map a symbol to its
+// expected currency when the quote hasn't loaded yet.
+
+export function isIndianTicker(sym: string): boolean {
+  const t = (sym || "").trim().toUpperCase();
+  return t.endsWith(".NS") || t.endsWith(".BO");
+}
+
+function isIndianIndex(sym: string): boolean {
+  const t = (sym || "").trim().toUpperCase();
+  return t.startsWith("^NSE") || t.startsWith("^BSE") || t.startsWith("^CNX") || t === "^INDIAVIX";
+}
+
+export function tickerCurrency(sym: string): string {
+  const t = (sym || "").trim().toUpperCase();
+  if (isIndianTicker(t) || isIndianIndex(t)) return "INR";
+  if (t.endsWith("-USD")) return "USD";
+  if (t.includes("=")) {
+    // FX crosses quote in the counter currency (EURINR=X -> INR).
+    if (/INR=X$/.test(t)) return "INR";
+    if (/JPY=X$/.test(t)) return "JPY";
+    if (/EUR=X$/.test(t)) return "EUR";
+    if (/GBP=X$/.test(t)) return "GBP";
+    return "USD";
+  }
+  const m = t.match(/\.([A-Z]{1,4})$/);
+  const suf = m ? m[1] : "";
+  switch (suf) {
+    case "L": return "GBP";
+    case "DE": case "PA": case "AS": case "MI": case "MC": case "BR": case "LS": case "VX": return "EUR";
+    case "T": case "JP": return "JPY";
+    case "HK": return "HKD";
+    case "AX": return "AUD";
+    case "TO": case "V": case "CN": return "CAD";
+    case "SW": return "CHF";
+    case "KS": case "KQ": return "KRW";
+    case "SS": case "SZ": return "CNY";
+    case "TW": return "TWD";
+    case "SI": return "SGD";
+    case "NS": case "BO": return "INR";
+    case "SA": return "BRL";
+    case "MX": return "MXN";
+    case "TA": return "ILS";
+    case "JK": return "IDR";
+    case "KL": return "MYR";
+    case "BK": return "THB";
+    default: return "USD";
+  }
+}
+
+export function currencySymbol(cur: string): string {
+  switch ((cur || "USD").toUpperCase()) {
+    case "INR": return "₹";
+    case "USD": return "$";
+    case "EUR": return "€";
+    case "GBP": return "£";
+    case "JPY": return "¥";
+    case "CNY": return "¥";
+    case "HKD": return "HK$";
+    case "AUD": return "A$";
+    case "CAD": return "C$";
+    case "CHF": return "CHF ";
+    case "KRW": return "₩";
+    case "SGD": return "S$";
+    default: return `${(cur || "USD").toUpperCase()} `;
+  }
+}
+
+export function localeForCurrency(cur: string): string {
+  return (cur || "").toUpperCase() === "INR" ? "en-IN" : "en-US";
+}
+
+export function localeForTicker(sym: string): string {
+  return localeForCurrency(tickerCurrency(sym));
+}
+
+export function fmtMoney(v: number | null | undefined, cur = "INR", dec = 2): string {
+  if (v === null || v === undefined || !isFinite(v)) return "—";
+  const sym = currencySymbol(cur);
+  const loc = localeForCurrency(cur);
+  // CHF-style prefixes already carry a trailing space.
+  if (sym.endsWith(" ")) return `${sym}${v.toLocaleString(loc, { minimumFractionDigits: dec, maximumFractionDigits: dec })}`;
+  return `${sym}${v.toLocaleString(loc, { minimumFractionDigits: dec, maximumFractionDigits: dec })}`;
+}
+
+// Market-cap shortening: ₹ Cr/L for India, B/M/K everywhere else.
+export function fmtMcap(mcap: number | null | undefined, cur = "INR"): string {
+  if (mcap === null || mcap === undefined || !isFinite(mcap)) return "—";
+  const c = (cur || "USD").toUpperCase();
+  if (c === "INR") return fmtCr(mcap);
+  const sym = currencySymbol(c);
+  const abs = Math.abs(mcap);
+  const pre = sym.endsWith(" ") ? sym : sym;
+  if (abs >= 1e9) return `${pre}${(mcap / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${pre}${(mcap / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${pre}${(mcap / 1e3).toFixed(2)}K`;
+  return fmtMoney(mcap, c, 0);
+}
+
+// Strip any Yahoo suffix (.NS/.BO/.L/.T/...) for venue-specific deep links.
+export function stripYahooSuffix(sym: string): string {
+  return (sym || "").trim().toUpperCase().replace(/\.[A-Z]{1,4}$/, "");
 }
 
 export function truncate(s: string, maxLen = 50): string {

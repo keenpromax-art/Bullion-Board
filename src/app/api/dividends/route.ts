@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { normalizeTicker } from "@/lib/utils";
+import { normalizeTicker, tickerCurrency } from "@/lib/utils";
 import { yahooHeaders } from "@/lib/yahoo";
 
 // Full dividend + split ledger back to listing (Yahoo chart events, range=max),
 // plus summary stats in the spirit of a terminal DVD screen.
 export async function GET(req: NextRequest) {
   const symbol = normalizeTicker(req.nextUrl.searchParams.get("symbol") || "RELIANCE.NS");
-  const currency = symbol.endsWith(".NS") ? "INR" : symbol.endsWith(".BO") ? "INR" : "USD";
+  const currency = tickerCurrency(symbol);
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=max&interval=1d&events=div%7Csplit`;
     const r = await fetch(url, { headers: yahooHeaders(), next: { revalidate: 3600 } });

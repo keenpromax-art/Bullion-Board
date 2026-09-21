@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchHistory, fetchQuote, yahooQuoteSummary } from "@/lib/yahoo";
 import type { OHLCBar, Quote } from "@/lib/types";
-import { normalizeTicker } from "@/lib/utils";
+import { isIndianTicker, normalizeTicker, stripYahooSuffix, tickerCurrency } from "@/lib/utils";
 
 // Real per-security profile from live quote + history (no key needed).
 // Partial responses: if one leg is throttled, serve the other with flags
@@ -46,7 +46,7 @@ async function fetchProfile(symbol: string, base: string, pxFall: number | null)
   const prof = {
     name: S(price, "longName", "shortName") ?? S(qt, "longName", "shortName") ?? S(ap, "longName") ?? base,
     exchange: S(qt, "exchange") ?? S(price, "exchangeName"),
-    currency: S(price, "currency") ?? S(qt, "currency") ?? "INR",
+    currency: S(price, "currency") ?? S(qt, "currency") ?? tickerCurrency(symbol),
     sector: S(ap, "sector"), industry: S(ap, "industry"),
     website: S(ap, "website"),
     city: S(ap, "city"), state: S(ap, "state"), country: S(ap, "country"),
@@ -112,7 +112,8 @@ async function fetchProfile(symbol: string, base: string, pxFall: number | null)
 }
 export async function GET(req: NextRequest) {
   const symbol = normalizeTicker(req.nextUrl.searchParams.get("symbol") || "RELIANCE.NS");
-  const base = symbol.replace(/\.NS$|\.BO$/, "");
+  const base = stripYahooSuffix(symbol);
+  const indian = isIndianTicker(symbol);
   let quote: Quote | null = null;
   let quoteErr = "";
   let bars: OHLCBar[] = [];
@@ -162,6 +163,9 @@ export async function GET(req: NextRequest) {
   const pLo52 = profile?.price?.lo52 ?? lo52;
   const pPx = profile?.price?.px ?? px;
   const pAvgVol = profile?.price?.avgVol ?? Math.round(avgVol);
+  // TradingView venue prefix follows the listing suffix; screener.in only
+  // exists for Indian listings.
+  const tvPrefix = symbol.endsWith(".NS") ? "NSE" : symbol.endsWith(".BO") ? "BSE" : symbol.endsWith(".L") ? "LSE" : symbol.endsWith(".DE") ? "XETR" : null;
   return NextResponse.json({
     symbol,
     quote,
@@ -176,8 +180,10 @@ export async function GET(req: NextRequest) {
       mktCap, trailPE, fwdPE,
     },
     links: {
-      screener: `https://www.screener.in/company/${encodeURIComponent(base)}/`,
-      tradingview: `https://www.tradingview.com/chart/?symbol=NSE%3A${encodeURIComponent(base)}`,
+      screener: indian ? `https://www.screener.in/company/${encodeURIComponent(base)}/` : null,
+      tradingview: tvPrefix
+        ? `https://www.tradingview.com/chart/?symbol=${tvPrefix}%3A${encodeURIComponent(base)}`
+        : `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`,
       yahoo: `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`,
     },
   });

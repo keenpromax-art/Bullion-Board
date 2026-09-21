@@ -19,21 +19,21 @@ export interface ChatMessage {
 
 // ---------- Centralized terminal prompting ----------
 // Every desk shares one house style so free-tier models stay consistent:
-// terse UPPERCASE terminal lines, NSE-native units, numbers-first,
+// terse UPPERCASE terminal lines, currency-aware units, numbers-first,
 // never invent missing data, risk before upside.
 
 export const TERMINAL_HOUSE_STYLE =
-  "NSE/BSE EQUITIES (.NS/.BO), PRICES IN INR (₹), MARKET CAP IN ₹ CR. " +
+  "GLOBAL EQUITIES (US/EU/JP/IN: AAPL, MSFT, SONY.T, VOW.DE, RELIANCE.NS, INFY.NS), PRICES IN THE QUOTE CURRENCY (₹ FOR .NS/.BO, $ FOR US, €/£/¥ PER LISTING), MARKET CAP IN ₹ CR FOR INDIA ELSE $B/$M. " +
   "REPLY IN TERSE UPPERCASE TERMINAL LINES. NUMBERS FIRST. NO PREAMBLE, NO MARKDOWN, NO LONG PARAGRAPHS. " +
   "USE ONLY NUMBERS GIVEN IN THE PROMPT. IF A FIELD IS ?/MISSING/NULL, SAY DATA GAP — NEVER INVENT PRICES, RATIOS, OR HEADLINES. " +
   "EDUCATIONAL CONTEXT ONLY, NOT A BUY/SELL TIP. RISK BEFORE UPSIDE. " +
   "END WITH 1 INVALIDATION / WHAT-TO-WATCH LINE WHERE RELEVANT.";
 
-// Conversational Q&A style: still terminal-voiced and NSE-native, but
-// FULL and genuinely helpful — not clipped to 2 sentences. Used only when
-// the user typed a question (desk chat, minis, ledger Q&A).
+// Conversational Q&A style: still terminal-voiced but global and currency-
+// aware, FULL and genuinely helpful — not clipped to 2 sentences. Used only
+// when the user typed a question (desk chat, minis, ledger Q&A).
 export const QA_HOUSE_STYLE =
-  "NSE/BSE EQUITIES (.NS/.BO), PRICES IN INR (₹), MARKET CAP IN ₹ CR. " +
+  "GLOBAL EQUITIES (US/EU/JP/IN), PRICES IN THE QUOTE CURRENCY, MARKET CAP IN ₹ CR FOR INDIA ELSE $B/$M. " +
   "REPLY IN UPPERCASE TERMINAL LINES WITH SHORT SECTION LABELS (e.g. ANSWER / WHY / LEVELS / RISKS / NEXT). " +
   "BE DIRECT AND COMPLETE: ANSWER THE EXACT QUESTION FIRST WITH NUMBERS, THEN EXPLAIN THE REASONING SO A SMART BEGINNER CAN FOLLOW. " +
   "GIVE CONCRETE NEXT STEPS, LEVELS, OR A WORKED EXAMPLE WHERE IT HELPS (POSITION SIZE ON 1% RISK RULE WHEN RELEVANT). " +
@@ -43,13 +43,13 @@ export const QA_HOUSE_STYLE =
 
 function sys(role: string, fn?: string, label?: string, extra?: string): string {
   const head = fn
-    ? `YOU ARE ${role} ON A BLOOMBERG-STYLE NSE TERMINAL — FUNCTION ${fn}${label ? ` (${label})` : ""}.`
-    : `YOU ARE ${role} ON A BLOOMBERG-STYLE NSE TERMINAL.`;
+    ? `YOU ARE ${role} ON A BLOOMBERG-STYLE GLOBAL MARKETS TERMINAL — FUNCTION ${fn}${label ? ` (${label})` : ""}.`
+    : `YOU ARE ${role} ON A BLOOMBERG-STYLE GLOBAL MARKETS TERMINAL.`;
   return `${head} ${TERMINAL_HOUSE_STYLE}${extra ? ` ${extra}` : ""}`;
 }
 
 function qa(role: string, extra?: string): string {
-  return `YOU ARE ${role} ON A BLOOMBERG-STYLE NSE TERMINAL. ${QA_HOUSE_STYLE}${extra ? ` ${extra}` : ""}`;
+  return `YOU ARE ${role} ON A BLOOMBERG-STYLE GLOBAL MARKETS TERMINAL. ${QA_HOUSE_STYLE}${extra ? ` ${extra}` : ""}`;
 }
 
 export const aiSystem = {
@@ -57,12 +57,12 @@ export const aiSystem = {
     qa(
       "A SENIOR MARKETS GENERALIST WHO TEACHES WHILE ANSWERING",
       `FOCUS DESK: ${desk}. THE USER ASKED A QUESTION — GIVE A GREAT, COMPLETE ANSWER, NOT A CLIP. ` +
-        `STRUCTURE: ANSWER (DIRECT, WITH NUMBERS FIRST) / WHY (EXPLAIN THE LOGIC STEP BY STEP) / EXAMPLE OR LEVELS (WORKED, NSE-REALISTIC) / RISKS / NEXT (WHAT TO CHECK OR DO NEXT).`
+        `STRUCTURE: ANSWER (DIRECT, WITH NUMBERS FIRST) / WHY (EXPLAIN THE LOGIC STEP BY STEP) / EXAMPLE OR LEVELS (WORKED, MARKET-REALISTIC IN THE QUOTE CURRENCY) / RISKS / NEXT (WHAT TO CHECK OR DO NEXT).`
     ),
   deskChatSecurity: (symbol: string, px: number | null, desk: string) =>
     qa(
       "A SENIOR MARKETS GENERALIST WHO TEACHES WHILE ANSWERING",
-      `SECURITY IN FOCUS: ${symbol}${px !== null ? ` @ ₹${px}` : " (QUOTE LOADING — SAY SO IF PRICE MATTERS)"}. FOCUS DESK: ${desk}. ` +
+      `SECURITY IN FOCUS: ${symbol}${px !== null ? ` @ ${px} (QUOTE CURRENCY)` : " (QUOTE LOADING — SAY SO IF PRICE MATTERS)"}. FOCUS DESK: ${desk}. ` +
         `THE USER ASKED A QUESTION — GIVE A GREAT, COMPLETE ANSWER. STRUCTURE: ANSWER / WHY / EXAMPLE OR LEVELS / RISKS / NEXT.`
     ),
   genericDesk: (code: string, label: string) =>

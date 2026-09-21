@@ -14,9 +14,10 @@ import { store } from "@/lib/store";
 export interface STable { periods: string[]; rows: Array<{ label: string; values: (number | null)[]; raw: string[] }> }
 export interface Statements {
   symbol: string; name: string; unit: string;
+  currency?: string; currencySymbol?: string; indian?: boolean;
   pl: STable | null; bs: STable | null; cf: STable | null; sh: STable | null;
   qtr: STable | null; qtrCF: STable | null; rat: STable | null;
-  ratios?: Record<string, string>; marketCapCr?: number | null;
+  ratios?: Record<string, string>; marketCapCr?: number | null; marketCap?: number | null;
 }
 
 export function useStatements(symbol: string) {
@@ -253,14 +254,25 @@ export function CompanyStrip({ symbol }: { symbol: string }) {
   }, [symbol]);
   if (!q) return null;
   const d = q.derived ?? {};
+  const cur: string = q?.quote?.currency ?? q?.profile?.currency ?? "INR";
+  const mcapRaw: number | null = q?.derived?.mktCap ?? q?.quote?.marketCap ?? null;
+  const mcapTxt = (() => {
+    if (mcapRaw === null || mcapRaw === undefined) return "—";
+    if (cur === "INR") return `₹${(mcapRaw / 1e7).toFixed(0)} Cr`;
+    const abs = Math.abs(mcapRaw);
+    if (abs >= 1e9) return `$${(mcapRaw / 1e9).toFixed(1)}B`;
+    if (abs >= 1e6) return `$${(mcapRaw / 1e6).toFixed(0)}M`;
+    return `${mcapRaw.toLocaleString("en-US")}`;
+  })();
+  const avgVolTxt = d.avgVol20?.toLocaleString(cur === "INR" ? "en-IN" : "en-US") ?? "—";
   return (
     <div className="cells" style={{ marginTop: 12 }}>
-      <div className="cell"><div className="lbl">Mkt cap</div><div className="val">{q.quote?.marketCap ? `₹${(q.quote.marketCap / 1e7).toFixed(0)} Cr` : "—"}</div><div className="sub">live</div></div>
+      <div className="cell"><div className="lbl">Mkt cap</div><div className="val">{mcapTxt}</div><div className="sub">live · {cur}</div></div>
       <div className="cell"><div className="lbl">Trail PE</div><div className="val">{q.quote?.trailingPE ?? "—"}</div><div className="sub">fwd {q.quote?.forwardPE ?? "—"}</div></div>
       <div className="cell"><div className="lbl">Yield</div><div className="val">{d.yieldPct ?? "—"}%</div><div className="sub">dividend</div></div>
       <div className="cell"><div className="lbl">Off 52W hi</div><div className="val neg">{d.offHighPct ?? "—"}%</div><div className="sub">range pos</div></div>
-      <div className="cell"><div className="lbl">Avg vol 20D</div><div className="val">{d.avgVol20?.toLocaleString("en-IN") ?? "—"}</div><div className="sub">shares</div></div>
-      <div className="cell"><div className="lbl">Filings</div><div className="val" style={{ fontSize: 13 }}><a href={q.links?.screener} target="_blank" rel="noreferrer">SCREENER ↗</a></div><div className="sub">source ledger</div></div>
+      <div className="cell"><div className="lbl">Avg vol 20D</div><div className="val">{avgVolTxt}</div><div className="sub">shares</div></div>
+      <div className="cell"><div className="lbl">Filings</div><div className="val" style={{ fontSize: 13 }}>{q.links?.screener ? <a href={q.links.screener} target="_blank" rel="noreferrer">SCREENER ↗</a> : <a href={q.links?.yahoo} target="_blank" rel="noreferrer">YAHOO ↗</a>}</div><div className="sub">source ledger</div></div>
     </div>
   );
 }
@@ -397,7 +409,7 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
   if (full && (!data || err)) {
     return (
       <div className="panel">
-        <p className="p-head">Full ledger — ₹ Cr · YoY · Yahoo (yfinance) · scroll →</p>
+        <p className="p-head">Full ledger — {data?.unit ?? "YAHOO UNITS"} · YoY · Yahoo (yfinance) · scroll →</p>
         {tabs}
         {err
           ? <p className="neg" style={{ marginTop: 10 }}>LEDGER ERR: {err} (YAHOO THROTTLED — RETRY)</p>
@@ -439,6 +451,7 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
 
   const show = (t: STable | null, title: string, keep: string[] | null, bare = false, opts?: { raw?: boolean; yoy?: "annual" | "qtr" | "off"; allPeriods?: boolean }) => {
     if (!t) return null;
+    const loc = data.unit?.startsWith("₹") ? "en-IN" : "en-US";
     const nn = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
     const rows = (keep ? t.rows.filter((r) => keep.some((k) => nn(r.label).includes(nn(k)))) : t.rows).slice(0, 120);
     if (!rows.length) return null;
@@ -485,7 +498,7 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
                 <SchedRow
                   key={r.label}
                   label={r.label}
-                  vals={opts?.raw ? r.raw.slice(-PI) : r.values.slice(-PI).map((v) => (v === null || v === undefined ? "—" : v.toLocaleString("en-IN")))}
+                  vals={opts?.raw ? r.raw.slice(-PI) : r.values.slice(-PI).map((v) => (v === null || v === undefined ? "—" : v.toLocaleString(loc)))}
                   yoy={y === null ? "—" : (<span className={y >= 0 ? "pos" : "neg"}>{y >= 0 ? "+" : ""}{y.toFixed(1)}</span>)}
                   periods={periods}
                   full={showYoy}
@@ -503,7 +516,7 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
     if (bare) return tbl;
     return (
       <div className="panel">
-        <p className="p-head">{title} — ₹ Cr{full ? " · FULL LEDGER + YOY" : ""}</p>
+        <p className="p-head">{title} — {data.unit}{full ? " · FULL LEDGER + YOY" : ""}</p>
         {tbl}
       </div>
     );
