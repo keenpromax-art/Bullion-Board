@@ -270,6 +270,68 @@ export default function OChainPage() {
     cost: (sel?.ceLTP ?? 0) + (sel?.peLTP ?? 0),
   } : null;
 
+  // CALL vs PUT — deterministic edge read for THIS strike. +1 votes CALL,
+  // -1 votes PUT, weighted; dead-illiquid legs veto their side. Educational
+  // positioning read, not a tip — stake framing shows what the trade needs.
+  const edgePick = useMemo(() => {
+    if (!dossier || !sel || !underlying) return null;
+    const F: Array<{ name: string; vote: 1 | -1 | 0; w: number; why: string }> = [];
+    const ceB = (v: string, w2: number, w1: number): [1 | -1 | 0, number, string] => {
+      if (v === "LONG BUILDUP") return [1, w2, "FRESH CE LONGS"];
+      if (v === "SHORT COVER") return [1, w1, "CE SHORTS EXITING"];
+      if (v === "SHORT BUILDUP") return [-1, w2, "FRESH CE SHORTS"];
+      if (v === "LONG UNWIND") return [-1, w1, "CE LONGS EXITING"];
+      return [0, 0, v === "DEAD" ? "CE DEAD" : "CE FLAT"];
+    };
+    const peB = (v: string, w2: number, w1: number): [1 | -1 | 0, number, string] => {
+      if (v === "LONG BUILDUP") return [-1, w2, "PUT BUYING (HEDGE/SPEC)"];
+      if (v === "SHORT COVER") return [-1, w1, "PUT WRITERS COVERING ON FEAR"];
+      if (v === "SHORT BUILDUP") return [1, w2, "PUT WRITING (BULLISH)"];
+      if (v === "LONG UNWIND") return [1, w1, "FEAR FADING, PUTS DUMPED"];
+      return [0, 0, v === "DEAD" ? "PE DEAD" : "PE FLAT"];
+    };
+    const [v1, w1, s1] = ceB(dossier.ceBuild, 2, 1);
+    F.push({ name: "CE BUILDUP", vote: v1, w: w1, why: s1 });
+    const [v2, w2, s2] = peB(dossier.peBuild, 2, 1);
+    F.push({ name: "PE BUILDUP", vote: v2, w: w2, why: s2 });
+    if (dossier.role.startsWith("SUPPORT")) F.push({ name: "WALL ROLE", vote: 1, w: 2, why: `${dossier.role} — BOUNCE BIDS` });
+    else if (dossier.role.startsWith("RESISTANCE")) F.push({ name: "WALL ROLE", vote: -1, w: 2, why: `${dossier.role} — REJECTION SUPPLY` });
+    else if (dossier.role === "WEAK SUPPORT") F.push({ name: "WALL ROLE", vote: 1, w: 1, why: "SOFT SUPPORT BELOW" });
+    else if (dossier.role === "WEAK RESIST") F.push({ name: "WALL ROLE", vote: -1, w: 1, why: "SOFT SUPPLY ABOVE" });
+    else F.push({ name: "WALL ROLE", vote: 0, w: 0, why: "ATM PIVOT — NO WALL EDGE" });
+    if (sug) {
+      const wv = sug.confidence === "HIGH" ? 2 : 1;
+      F.push(sug.side === "CE" ? { name: "CHAIN SIGNAL", vote: 1, w: wv, why: `ENGINE ${sug.action}` } : sug.side === "PE" ? { name: "CHAIN SIGNAL", vote: -1, w: wv, why: `ENGINE ${sug.action}` } : { name: "CHAIN SIGNAL", vote: 0, w: 0, why: "ENGINE NEUTRAL" });
+    }
+    if (m) F.push(m.sentiment === "Bullish" ? { name: "CHAIN MOOD", vote: 1, w: 1, why: `PCR ${m.pcr} BULLISH` } : { name: "CHAIN MOOD", vote: -1, w: 1, why: `PCR ${m.pcr} BEARISH` });
+    if (dossier.ceEdge !== null && dossier.ceEdge < 0) F.push({ name: "CE EDGE", vote: 1, w: 1, why: `CE ${f2(Math.abs(dossier.ceEdge))} UNDER THEO` });
+    if (dossier.peEdge !== null && dossier.peEdge < 0) F.push({ name: "PE EDGE", vote: -1, w: 1, why: `PE ${f2(Math.abs(dossier.peEdge))} UNDER THEO` });
+    if (dossier.mpDist !== 0) F.push({ name: "MAX-PAIN PULL", vote: dossier.mpDist > 0 ? -1 : 1, w: 1, why: dossier.mpDist > 0 ? "STRIKE ABOVE MAX-PAIN — DRAG DOWN" : "STRIKE BELOW MAX-PAIN — DRAG UP" });
+    let callPts = 0, putPts = 0;
+    for (const f of F) {
+      if (f.vote > 0) callPts += f.w;
+      else if (f.vote < 0) putPts += f.w;
+    }
+    const ceDead = dossier.ceLiq === "DEAD";
+    const peDead = dossier.peLiq === "DEAD";
+    const raw = callPts - putPts;
+    let verdict: string, side: "CALL" | "PUT" | "NONE";
+    if (ceDead && peDead) { verdict = "NO EDGE — BOTH LEGS DEAD"; side = "NONE"; }
+    else if (ceDead && raw > 0) { verdict = "NO EDGE — CALL WANTED BUT DEAD"; side = "NONE"; }
+    else if (peDead && raw < 0) { verdict = "NO EDGE — PUT WANTED BUT DEAD"; side = "NONE"; }
+    else if (raw >= 3) { verdict = "CALL EDGE"; side = "CALL"; }
+    else if (raw <= -3) { verdict = "PUT EDGE"; side = "PUT"; }
+    else { verdict = "NO EDGE — FLOW SPLIT"; side = "NONE"; }
+    if (side === "CALL" && ceDead) { verdict = "NO EDGE — CALL DEAD"; side = "NONE"; }
+    if (side === "PUT" && peDead) { verdict = "NO EDGE — PUT DEAD"; side = "NONE"; }
+    const favLTP = side === "CALL" ? sel.ceLTP : side === "PUT" ? sel.peLTP : 0;
+    const favBE = side === "CALL" ? cePay?.breakeven ?? null : side === "PUT" ? pePay?.breakeven ?? null : null;
+    const needPct = side !== "NONE" && favBE !== null ? ((favBE - underlying) / underlying) * 100 : null;
+    const bleed = side === "CALL" ? ceG?.theta ?? null : side === "PUT" ? peG?.theta ?? null : null;
+    const flip = side === "CALL" ? "SPOT LOSING THE WALL / PE BUILDUP FLIP / SIGNAL TO PE" : side === "PUT" ? "SPOT RECLAIMING THE WALL / CE BUILDUP FLIP / SIGNAL TO CE" : "A 3-PT MARGIN EITHER WAY — WAIT FOR BUILDUP";
+    return { factors: F, callPts, putPts, raw, verdict, side, favLTP, favBE, needPct, bleed, flip };
+  }, [dossier, sel, underlying, m, sug, cePay, pePay, ceG, peG]);
+
   return (
     <>
       <CommandBar ticker={(() => { try { return store.getTicker(); } catch { return "NIFTY"; } })()} onTicker={() => {}} />
@@ -503,6 +565,42 @@ export default function OChainPage() {
               <div className="cell"><div className="lbl">Max-pain Δ</div><div className="val">{dossier.mpDist >= 0 ? "+" : ""}{f0(dossier.mpDist)}</div><div className="sub">vs {f0(m?.maxPain ?? 0)}</div></div>
               <div className="cell"><div className="lbl">Gamma-wall Δ</div><div className="val">{dossier.gwDist >= 0 ? "+" : ""}{f0(dossier.gwDist)}</div><div className="sub">vs {f0(m?.gammaWall ?? 0)}</div></div>
             </div>
+            {edgePick && (
+              <div style={{ marginTop: 10 }}>
+                <p className="p-head">Call vs put — where is the money here · {edgePick.verdict}</p>
+                <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10 }}>
+                  <span className={`badge ${edgePick.side === "CALL" ? "ok" : edgePick.side === "PUT" ? "bad" : "fnc"}`} style={{ fontSize: 15, padding: "8px 14px" }}>
+                    {edgePick.side === "NONE" ? "SIT OUT" : `PLAY ${edgePick.side}`}
+                  </span>
+                  <span className="muted" style={{ fontSize: 12 }}>CALL {edgePick.callPts} PTS · PUT {edgePick.putPts} PTS · NEEDS ±3 MARGIN</span>
+                </div>
+                <HBars rows={[
+                  { label: "CALL", value: edgePick.callPts, display: `${edgePick.callPts} PTS`, color: "#00d664" },
+                  { label: "PUT", value: edgePick.putPts, display: `${edgePick.putPts} PTS`, color: "#ff453a" },
+                ]} />
+                {edgePick.side !== "NONE" && (
+                  <div className="cells" style={{ marginTop: 10 }}>
+                    <div className="cell"><div className="lbl">Entry ({edgePick.side})</div><div className="val">{f2(edgePick.favLTP)}</div><div className="sub">LTP pay</div></div>
+                    <div className="cell"><div className="lbl">Breakeven</div><div className="val" style={{ fontSize: 15 }}>{edgePick.favBE !== null ? f0(edgePick.favBE) : "—"}</div><div className="sub">{edgePick.needPct !== null ? `${edgePick.needPct >= 0 ? "+" : ""}${edgePick.needPct.toFixed(2)}% needed` : "move needed"}</div></div>
+                    <div className="cell"><div className="lbl">Theta bleed</div><div className="val neg">{edgePick.bleed !== null ? edgePick.bleed.toFixed(2) : "—"}/day</div><div className="sub">holding cost</div></div>
+                    <div className="cell"><div className="lbl">Invalidation</div><div className="val" style={{ fontSize: 12 }}>FLIP = OUT</div><div className="sub">{edgePick.flip}</div></div>
+                  </div>
+                )}
+                <table className="plain" style={{ marginTop: 10 }}>
+                  <thead><tr><th>FACTOR</th><th>VOTE</th><th>WHY</th></tr></thead>
+                  <tbody>
+                    {edgePick.factors.map((f, i) => (
+                      <tr key={i}>
+                        <td><strong>{f.name}</strong></td>
+                        <td>{f.vote > 0 ? <span className="pos"><strong>CALL ×{f.w}</strong></span> : f.vote < 0 ? <span className="neg"><strong>PUT ×{f.w}</strong></span> : <span className="faint">—</span>}</td>
+                        <td style={{ fontSize: 12.5 }}>{f.why}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>RULES SCORE FROM THIS STRIKE'S BUILDUP + WALLS + SIGNAL + THEO EDGE — EDUCATIONAL READ, NOT A TIP · STRADDLE ±{dossier.strPct.toFixed(2)}% IS WHAT THE FLOOR PRICES</p>
+              </div>
+            )}
             <div style={{ marginTop: 10 }}>
               <p className="p-head">Legs — every quote, Greek, edge, buildup, liquidity readout</p>
               <div className="scrollx">
