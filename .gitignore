@@ -17,3 +17,6 @@ tsconfig.tsbuildinfo
 my_*.json
 *.xlsx
 *.png
+
+# ...but the PWA icons ship with the app, they are not screenshots
+!public/icons/*.png

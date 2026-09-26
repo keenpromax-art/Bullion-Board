@@ -60,3 +60,21 @@ being asked again:
    - Match the desk anatomy and conventions of the other 70+ desks.
 4. **Verify**: `npm run typecheck` + `npm run build`, live-check the data path.
 5. Leave the tree uncommitted unless the user says push.
+
+## Bullion Droid (mobile/PWA surface) — where it lives
+
+- `SPEC.md` is the contract for the mobile surface. All of it lives in
+  `src/droid/**`: `lib/` (hooks, formats, search, signals), `ui/` (touch
+  primitives), `screens/` (one per route), `shell/` (DroidShell, ModeGate,
+  service worker), `styles/droid.css` — every rule scoped under `.dx`;
+  never edit `globals.css` for a mobile need.
+- Routes: `src/app/(droid)/**`. `/` stays the desktop terminal
+  (`ModeGate` only forwards phones; `?mode=terminal` forces the terminal,
+  `◧ DROID` in the status bar returns to `/home`).
+- Mobile reads the SAME `/api` routes as the terminal; unknown data renders
+  `—` with a caveat (data-honesty law applies unchanged). PWA assets:
+  `src/app/manifest.ts`, `public/sw.js` (never caches `/api/*`), icons in
+  `public/icons/`.
+- Adding/changing a droid screen: edit the shared component under
+  `src/droid/screens/`, keep `dx-*` classes defined in `droid.css`, then run
+  `npm run typecheck` + `npm run build` and a live `/api/*` spot-check.

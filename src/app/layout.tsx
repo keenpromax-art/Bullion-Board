@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "../droid/styles/droid.css";
 import AIChat from "@/components/AIChat";
 import { ExplainProvider } from "@/components/Explain";
 

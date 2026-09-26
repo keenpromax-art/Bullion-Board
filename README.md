@@ -34,6 +34,7 @@ Built with Next.js 14 + React 18 + TypeScript. Vercel-ready.
 18. [Run locally](#run-locally)
 19. [Deploy](#deploy)
 20. [API routes & code layout](#api-routes--code-layout)
+21. [Bullion Droid — the mobile surface (PWA)](#bullion-droid--the-mobile-surface-pwa)
 
 ---
 
@@ -418,3 +419,29 @@ Layout:
 - `src/app/` — routes (`/`, `/module/[id]`, `/ochain`, `/macro`, …) + API
 - `src/components/` — desks (`OptionsStrategyDesk`, `ChartDesks`, `FundaDesks`, …)
 - `src/lib/` — math core (`indicators`, `options`, `strategyEngine`, `ochain`, `risk`, `fundamentals`, `yahoo`, `modules`, `terminal`)
+
+---
+
+## Bullion Droid — the mobile surface (PWA)
+
+The same repo also ships **Bullion Droid**, a touch-first companion to the
+terminal. Same data, same `/api` routes, different chrome:
+
+- **Which surface**: phones land on `/home` (mode chip `DROID`); desktop keeps
+  `/` as the multi-panel terminal. The `◧ DROID` button in the status bar, the
+  `MODE` row in `/more`, and `?mode=terminal` switch surfaces either way.
+- **Routes**: `/home` · `/markets` · `/watchlist` · `/brief` ·
+  `/notifications` · `/search` · `/research` · `/ai` · `/s/[symbol]` ·
+  `/research/[symbol]` · `/d/[funcId]` (any of the 86 desks bridged to a phone
+  screen) · `/more`.
+- **PWA**: `src/app/manifest.ts` + hand-rolled `public/sw.js` (network-only
+  for `/api/*` — a cached tape would show stale prices as if live), app icons
+  in `public/icons/`. Install prompt appears once on supported browsers.
+- **Code**: everything mobile lives under `src/droid/` — `lib/` (data hooks,
+  formats, search, signals), `ui/` (touch primitives: sheets, swipe tabs/rows,
+  FAB, touch chart, AI panel), `screens/` (one per route), `shell/` (chrome,
+  mode gate, service worker), `styles/droid.css` (every rule scoped under
+  `.dx`, so the desktop skin in `globals.css` is never touched).
+- **Spec**: `SPEC.md` — routes, screens, gestures and data contracts.
+
+Gates are unchanged: `npm run typecheck` + `npm run build`.

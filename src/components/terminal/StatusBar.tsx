@@ -148,6 +148,11 @@ export default function StatusBar({
         className="add-btn" onClick={onAdd} disabled={addDisabled}
         title={addDisabled ? "Max 4 panels — close one to add another" : "Add panel"}
       >+ PANEL</button>
+      <a
+        className="add-btn" href="/home"
+        title="Bullion Droid — the mobile-first surface"
+        aria-label="Open Bullion Droid"
+      >◧ DROID</a>
       {onSettings && (
         <button
           className="add-btn" onClick={onSettings}
