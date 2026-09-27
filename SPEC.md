@@ -186,7 +186,11 @@ fail-open legs; derived series in `useMemo`.
 ## 6. Screen specs
 
 **S1 `/home` (TODAY)** — greeting by IST part-of-day; index snapshot strip
-(`/api/market` first 3); watchlist preview (6 rows, `/api/quote` 60s);
+(`/api/market` first 3); **OPENING SCORE card** (`/api/opening`, module 109
+math): signed score −n…+n + `GREEN/RED/FLAT/NO_DATA` verdict, per-signal votes
+(NASDAQ · DOW · BREADTH A/D · GLOBAL CUE), `SLOT · VIX · fetched IST` stamp,
+⟳ refresh + `FULL DESK → /d/109`, fail-opens to `—` + caveat (never a guess);
+watchlist preview (6 rows, `/api/quote` 60s);
 WHAT CHANGED tiles (computed: >3% movers from `/api/breadth`, events from
 `/api/events`, news count from `/api/news`, triggered alerts from store — each
 leg fail-opens to `—`); AI MARKET BRIEF card → **generates on tap** into

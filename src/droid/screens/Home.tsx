@@ -11,9 +11,9 @@ import { store } from "@/lib/store";
 import { droidStore, todayKey } from "../lib/droidStore";
 import { useApi, useQuotes } from "../lib/quotes";
 import type { BreadthRow, BriefCache, MarketRow } from "../lib/types";
-import { ago, chg, dir, istClock, istDate, num, partOfDay } from "../lib/format";
+import { ago, chg, dir, istClock, istDate, num, partOfDay, pct, signed } from "../lib/format";
 import { H, ErrorState, Note, Skeleton, EmptyState, Badge } from "../ui/Pills";
-import { ListRow, Verdict } from "../ui/Cards";
+import { ListRow, SignalRow, Verdict } from "../ui/Cards";
 
 interface BreadthResp {
   adv: number;
@@ -33,11 +33,31 @@ interface NewsResp {
   items?: Array<{ id: string; title: string; link: string; source: string; ago: string; label: "BULL" | "BEAR" | "NEUT" }>;
 }
 
+// /api/opening — pre-market score card (module 109 math, src/lib/opening.ts).
+interface OpeningSig {
+  name: string;
+  value: number | null;
+  vote: number | null;
+}
+interface OpeningResp {
+  fetchedAtIST?: string;
+  currentSlot?: string;
+  vix?: number | null;
+  vixCond?: string | null;
+  score?: {
+    value?: number | null;
+    n?: number;
+    verdict?: string;
+    signals?: OpeningSig[];
+  };
+}
+
 export default function Home() {
   const router = useRouter();
   const market = useApi<{ rows: MarketRow[] }>("/api/market");
   const breadth = useApi<BreadthResp>("/api/breadth");
   const news = useApi<NewsResp>("/api/news?feed=wire");
+  const opening = useApi<OpeningResp>("/api/opening");
   const lists = useMemo(() => droidStore.getLists(), []);
   const watch = useMemo(() => (lists[0]?.symbols ?? []).slice(0, 6), [lists]);
   const quotes = useQuotes(watch);
@@ -68,6 +88,19 @@ export default function Home() {
     const rows = [...(breadth.data?.top ?? []), ...(breadth.data?.bottom ?? [])];
     return rows.filter((r) => Math.abs(r.dayChgPct) >= 3).length;
   }, [breadth.data]);
+
+  // opening score (module 109): score = sum of votes (−n…+n), verdict GREEN/RED/FLAT/NO_DATA
+  const op = opening.data?.score;
+  const opVerdict = op?.verdict ?? "NO_DATA";
+  const opColor =
+    opVerdict === "GREEN" ? "var(--dx-green)"
+    : opVerdict === "RED" ? "var(--dx-red)"
+    : opVerdict === "FLAT" ? "var(--dx-sub)"
+    : "var(--dx-faint)";
+  const opScoreText =
+    opVerdict === "NO_DATA" || op?.value === null || op?.value === undefined
+      ? "—"
+      : signed(op.value, 0);
 
   const briefToday = brief && brief.date === todayKey() ? brief : null;
 
@@ -144,6 +177,73 @@ export default function Home() {
       ) : (
         <EmptyState title="NO INDEX TAPE" desc="THE INDEX BOARD DID NOT ANSWER." />
       )}
+
+      <H
+        right={
+          <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className="dx-btn dx-ghost"
+              style={{ minHeight: 26, fontSize: 10, padding: "0 8px" }}
+              onClick={opening.refresh}
+              disabled={opening.loading}
+              aria-label="Refresh opening score"
+            >
+              {opening.loading ? "…" : "⟳"}
+            </button>
+            <Link href="/d/109" style={{ fontSize: 10 }}>FULL DESK →</Link>
+          </span>
+        }
+      >
+        OPENING SCORE
+      </H>
+      {opening.loading && !opening.data ? (
+        <Skeleton rows={1} height={92} />
+      ) : opening.error && !opening.data ? (
+        <ErrorState what="OPENING SCORE" retry={opening.refresh} detail={opening.error} />
+      ) : opening.data ? (
+        <div className="dx-card">
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={{ width: 86, flex: "0 0 auto" }}>
+              <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, color: opColor }} className="dx-mono-num">
+                {opScoreText}
+              </div>
+              <div
+                style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.09em", marginTop: 5, color: opColor }}
+              >
+                {opVerdict}
+              </div>
+              <div className="dx-faint" style={{ fontSize: 9.5, marginTop: 6, letterSpacing: "0.06em" }}>
+                {op?.n ?? 0} SIGNAL{op?.n === 1 ? "" : "S"}
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {(op?.signals ?? []).map((s) => (
+                <SignalRow
+                  key={s.name}
+                  label={s.name}
+                  value={s.name === "BREADTH A/D" ? signed(s.value, 0) : pct(s.value, 2, true)}
+                  tone={s.vote === null || s.vote === undefined ? null : s.vote}
+                  detail={s.vote === null || s.vote === undefined ? "—" : s.vote > 0 ? "▲" : s.vote < 0 ? "▼" : "="}
+                />
+              ))}
+              {!op?.signals?.length ? (
+                <div className="dx-note" style={{ marginTop: 0 }}>
+                  NO SIGNALS RETURNED — THE SCORE SHOWS GAPS.
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="dx-note">
+            SLOT {opening.data.currentSlot ?? "—"} · VIX {num(opening.data.vix, 2)}
+            {opening.data.vixCond ? ` ${opening.data.vixCond}` : ""} · {opening.data.fetchedAtIST ?? "—"}
+          </div>
+          {opVerdict === "NO_DATA" ? (
+            <div className="dx-note" style={{ color: "var(--dx-sub)" }}>
+              PRE-MARKET TAPE INCOMPLETE — NOTHING IS INVENTED, THE SCORE STAYS “—”.
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <H right={<Link href="/watchlist" style={{ fontSize: 10 }}>WATCHLIST →</Link>}>YOUR WATCHLIST</H>
       {quotes.loading ? (
@@ -245,6 +345,7 @@ export default function Home() {
       <div className="dx-inline">
         <Link className="dx-pill" href="/search">⌕ SEARCH</Link>
         <Link className="dx-pill" href="/d/67">◎ SCREENER</Link>
+        <Link className="dx-pill" href="/d/109">◐ OPENING</Link>
         <Link className="dx-pill" href="/d/110">◈ OPTION CHAIN</Link>
         <Link className="dx-pill" href="/d/111">▤ MACRO</Link>
         <Link className="dx-pill" href="/brief">☀ BRIEF</Link>
