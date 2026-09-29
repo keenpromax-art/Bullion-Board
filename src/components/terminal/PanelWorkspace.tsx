@@ -12,12 +12,32 @@
 // keeps every desk's responsive rules intact. Layout switching lives in the
 // status bar; panels are cheap — duplicate instead of tab-docking.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PanelSpec, PanelSplits, TilingPreset } from "@/lib/terminal/workspaceStore";
 import Panel from "./Panel";
 
 function clampRatio(v: number): number {
   return Math.min(0.8, Math.max(0.2, v));
+}
+
+// Matches the `max-width: 1023px` block in globals.css: below this the
+// workspace is a single scrolling column. The split ratios are meaningless
+// there, and — critically — the inline track styles below OUTRANK media
+// queries, so the stylesheet alone cannot collapse a split layout. The
+// component has to drop the inline styles itself.
+const STACK_MAX_WIDTH = 1023;
+
+function useStacked(): boolean {
+  const [stacked, setStacked] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia(`(max-width: ${STACK_MAX_WIDTH}px)`);
+    const on = () => setStacked(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return stacked;
 }
 
 export default function PanelWorkspace({
@@ -55,6 +75,7 @@ export default function PanelWorkspace({
 }) {
   const dragFrom = useRef<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
+  const stacked = useStacked();
   const gridRef = useRef<HTMLDivElement>(null);
   const flexRef = useRef<HTMLDivElement>(null);
   const leftColRef = useRef<HTMLDivElement>(null);
@@ -75,8 +96,11 @@ export default function PanelWorkspace({
     ((layout === "3-up-r" || layout === "3-up-l") && panels.length <= 3);
 
   // Inline track sizes so panels are draggable (stylesheet holds the
-  // defaults for 1-up / maximized, which have no divider).
+  // defaults for 1-up / maximized, which have no divider). Skipped when
+  // stacked: inline styles beat media queries, so emitting them here would
+  // keep a 2-up split side-by-side on a phone and squeeze both panels.
   function gridStyle(): React.CSSProperties | undefined {
+    if (stacked) return undefined;
     if (layout === "2-up-v") return { gridTemplateColumns: `${splits.col}fr ${1 - splits.col}fr` };
     if (layout === "2-up-h") return { gridTemplateRows: `minmax(0,${splits.row}fr) minmax(0,${1 - splits.row}fr)` };
     if (layout === "4-up" || layout === "3-up-r" || layout === "3-up-l") return {
@@ -91,6 +115,7 @@ export default function PanelWorkspace({
   // gracefully: 1 panel spans all, 2 panels sit side-by-side tall, 4+
   // panels fall back to plain 2x2 flow (same as 4-up).
   function cellStyle(i: number): React.CSSProperties | undefined {
+    if (stacked) return undefined;
     const n = panels.length;
     if (layout === "3-up-r") {
       if (n <= 1) return { gridColumn: "1 / span 2", gridRow: "1 / span 2" };
@@ -387,9 +412,19 @@ export default function PanelWorkspace({
   }
 
   return (
-    <div className="term-grid" data-layout={layout} ref={gridRef} style={gridStyle()}>
-      {(layout === "2-up-v") && divider("col", splits.col)}
-      {(layout === "2-up-h") && divider("row", splits.row)}
+    <div
+      className="term-grid"
+      data-layout={layout}
+      ref={gridRef}
+      style={gridStyle()}
+    >
+      {/* Splits are meaningless in a single stacked column — a draggable
+          divider would sit at a position that changes nothing. The track
+          sizes themselves are handled by the <=1023px media query (with
+          !important, to beat the inline styles on the very first paint);
+          gridStyle()/cellStyle() also skip them so the two can't disagree. */}
+      {(!stacked && layout === "2-up-v") && divider("col", splits.col)}
+      {(!stacked && layout === "2-up-h") && divider("row", splits.row)}
       {panels.map((p, i) => (
         <div
           key={p.id}

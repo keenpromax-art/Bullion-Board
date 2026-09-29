@@ -134,7 +134,7 @@ export default function StatusBar({
         </>
       )}
       {ticker && <span className="sec hide-sm">{ticker}</span>}
-      <span style={{ flex: 1 }} />
+      <span className="term-status-spacer" />
       <select
         className="lay-sel"
         value={layout}

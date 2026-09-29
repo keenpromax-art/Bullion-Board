@@ -18,6 +18,12 @@
   --red: #ff453a;
   --red-bg: rgba(255, 69, 58, 0.13);
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+  /* terminal chrome heights — single source of truth so the shell, the AI
+     dock and any fixed overlay can't drift apart (they used to hardcode
+     36/26/28px independently and the dock ended up over the status bar) */
+  --term-cmd-h: 36px;
+  --term-tape-h: 26px;
+  --term-status-h: 26px;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -314,6 +320,14 @@ body:has(.term-root) .ai-fab { display: none; }
   background: #000; border-left: 1px solid rgba(255, 160, 40, 0.45);
   display: flex; flex-direction: column;
 }
+/* On the terminal the status bar is IN-FLOW (26px, position:static), not the
+   fixed 28px legacy bar, so the default offsets left the dock covering the
+   function-key bar and status bar. Anchor it to the real chrome heights. */
+body:has(.term-root) .ai-dock {
+  top: calc(var(--term-cmd-h) + var(--term-tape-h));
+  bottom: calc(var(--term-status-h) + env(safe-area-inset-bottom, 0px));
+  height: auto;
+}
 .ai-head {
   display: flex; gap: 8px; align-items: center; padding: 10px 12px;
   border-bottom: 1px solid var(--grid); background: var(--panel);
@@ -410,7 +424,7 @@ pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: #
   margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--grid);
   font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--amber);
 }
-.dlg-body { max-height: 56vh; overflow-y: auto; padding-right: 6px; }
+.dlg-body { max-height: 56vh; max-height: 56dvh; overflow-y: auto; padding-right: 6px; }
 
 /* ---------- terminal scrollbars ---------- */
 * { scrollbar-width: thin; scrollbar-color: #3a3a42 #030304; }
@@ -422,11 +436,24 @@ pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: #
 
 /* ---------- terminal shell (mockup-aligned; independent homage, not affiliated) ---------- */
 body:has(.term-root) { padding-bottom: 0; }
-.term-root { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+/* `dvh` tracks Android's collapsing URL bar. Safe-area insets (needs
+   viewportFit: "cover") keep the status bar clear of the gesture pill and
+   the command bar clear of a notch in landscape. */
+.term-root {
+  display: flex; flex-direction: column;
+  height: 100vh; height: 100dvh;
+  overflow: hidden;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
 
 /* command bar: 36px, prompt + yellow input, outlined fnc-tag right cluster */
-.term-cmdbar { flex: 0 0 auto; height: 36px; padding: 0 12px; gap: 10px; }
+.term-cmdbar { flex: 0 0 auto; height: var(--term-cmd-h); padding: 0 12px; gap: 10px; }
 .term-cmdbar .cmd-input { color: var(--sec); font-size: 13px; letter-spacing: 0.04em; }
+/* The floating .ai-fab is hidden on the terminal (see body:has(.term-root)
+   rule), so its 96px reservation below is dead space — give it back. */
+body:has(.term-root) .cmdbar { padding-right: 12px; }
 /* segmented BBG echo: securities yellow, functions amber, flags dim */
 .cmd-field { position: relative; flex: 1; display: flex; align-items: center; min-width: 120px; }
 .cmd-echo { position: absolute; inset: 0; display: flex; align-items: center; white-space: pre; overflow: hidden; font-family: var(--mono); font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; pointer-events: none; }
@@ -448,13 +475,13 @@ body:has(.term-root) { padding-bottom: 0; }
 .sug-row.active .sug-meta { color: rgba(0,0,0,0.65); }
 /* directory rows: white outline hover like BBG clickable areas */
 .term-cmdbar .cmd-input::placeholder { color: var(--faint); text-transform: none; letter-spacing: 0; }
-.term-cmdbar .cmd-right { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--sub); white-space: nowrap; flex: 0 0 auto; }
+.term-cmdbar .cmd-right { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--sub); white-space: nowrap; flex: 0 1 auto; min-width: 0; }
 .term-cmdbar .cmd-right .cmd-clock { white-space: nowrap; }
 .term-cmdbar .fn-tag { background: transparent; border: 1px solid rgba(255,160,40,0.4); color: var(--amber); padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 400; letter-spacing: 0.08em; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
 .term-helpbox { padding-bottom: 6px; }
 
 /* ticker tape: 26px, grid rule, duration set inline (~4s per symbol) */
-.term-tape { flex: 0 0 auto; height: 26px; display: flex; align-items: center; background: #000; border-top: none; border-bottom: 1px solid var(--grid); overflow: hidden; position: relative; }
+.term-tape { flex: 0 0 auto; height: var(--term-tape-h); display: flex; align-items: center; background: #000; border-top: none; border-bottom: 1px solid var(--grid); overflow: hidden; position: relative; }
 .term-tape .tape-track { display: flex; gap: 28px; white-space: nowrap; animation: tape-scroll 72s linear infinite; padding-right: 28px; flex: 0 0 auto; }
 /* scroll viewport: clips the marquee so items never paint over the OPEN chip */
 .tape-viewport { flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; align-self: stretch; }
@@ -570,7 +597,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-settings-toggle:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .term-settings-sum { margin-left: auto; color: var(--faint); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
 .term-settings-toggle:hover .term-settings-sum, .term-settings-toggle.open .term-settings-sum { color: var(--amber); }
-.term-panel-settings { padding: 10px 12px 12px 12px; border-top: 1px solid var(--grid); max-height: 46vh; overflow-y: auto; background: var(--panel); }
+.term-panel-settings { padding: 10px 12px 12px 12px; border-top: 1px solid var(--grid); max-height: 46vh; max-height: 46dvh; overflow-y: auto; background: var(--panel); }
 .term-settings .box { width: 100%; }
 .term-settings .toolbar .btn { padding: 7px 14px; font-size: 12px; }
 .term-menu { position: absolute; top: 28px; right: 0; z-index: 30; background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; display: grid; min-width: 230px; box-shadow: 0 18px 50px rgba(0,0,0,0.7); }
@@ -649,9 +676,14 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .fkey .c { font-size: 9px; color: var(--sub); white-space: nowrap; }
 
 /* status bar: 26px segments */
-.term-status { flex: 0 0 auto; height: 26px; font-size: 10.5px; letter-spacing: 0.04em; gap: 14px; position: static; }
+.term-status { flex: 0 0 auto; height: var(--term-status-h); font-size: 10.5px; letter-spacing: 0.04em; gap: 14px; position: static; }
 .term-status .dot { color: var(--faint); }
 .term-status .hl { color: var(--amber); }
+/* flex spacer between the left read-outs and the right action cluster.
+   `flex: 1 1 0` grows to right-align the cluster when the bar fits, and
+   collapses to 0 when it doesn't — which is what makes the <=1023px
+   horizontal scroll engage. */
+.term-status .term-status-spacer { flex: 1 1 0; min-width: 0; }
 .term-status .ws-switch { position: relative; display: inline-flex; }
 .term-status .ws-btn { background: none; border: none; color: var(--amber); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; padding: 2px 0; }
 .term-status .ws-btn:hover { text-decoration: underline; }
@@ -666,7 +698,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-status .set-wrap { position: relative; display: inline-flex; align-items: center; }
 .set-drop {
   position: absolute; bottom: 150%; right: -8px; z-index: 60;
-  width: min(400px, calc(100vw - 24px)); max-height: 62vh; overflow-y: auto;
+  width: min(400px, calc(100vw - 24px)); max-height: 62vh; max-height: 62dvh; overflow-y: auto;
   background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px;
   box-shadow: 0 18px 50px rgba(0,0,0,0.7); padding: 12px 14px; text-transform: none;
 }
@@ -679,7 +711,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .set-drop .cell .sub { white-space: nowrap; }
 
 /* workspace switcher dropdown rows */
-.ws-drop { position: absolute; top: 110%; left: 0; z-index: 35; width: min(420px, 92vw); background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; box-shadow: 0 18px 50px rgba(0,0,0,0.7); max-height: 60vh; overflow-y: auto; padding-bottom: 6px; }
+.ws-drop { position: absolute; top: 110%; left: 0; z-index: 35; width: min(420px, 92vw); background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; box-shadow: 0 18px 50px rgba(0,0,0,0.7); max-height: 60vh; max-height: 60dvh; overflow-y: auto; padding-bottom: 6px; }
 .ws-row { align-items: center; }
 .ws-load { display: flex; gap: 10px; align-items: baseline; background: none; border: none; cursor: pointer; font-family: var(--mono); flex: 1; text-align: left; padding: 2px 0; }
 .ws-ops { display: flex; gap: 4px; }
@@ -698,7 +730,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 }
 .tour-card {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: 40px; z-index: 96; width: min(600px, calc(100vw - 24px));
+  bottom: calc(var(--term-status-h) + 14px); z-index: 96; width: min(600px, calc(100vw - 24px));
   background: #000; border: 1px solid var(--amber); border-radius: 3px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 24px rgba(255, 160, 40, 0.25);
   padding: 14px 16px;
@@ -720,25 +752,150 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 /* screen-reader only */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* responsive */
+/* ---------------------------------------------------------------------------
+   Responsive: make the FULL terminal fit Android phones + tablets.
+   The shell used to assume a wide desktop: multi-panel layouts were forced
+   into one column at <=1023px but the grid kept `overflow:hidden`, so panels
+   2..4 were silently CLIPPED with no scrollbar; the status bar overflowed with
+   no way to scroll; and the command bar reserved 96px for a button that is
+   hidden here. Everything below is keyed to real device widths.
+   --------------------------------------------------------------------------- */
+
+/* === TABLET AND BELOW (<=1023px): one column of stacked panels === */
 @media (max-width: 1023px) {
-  .term-grid[data-layout="2-up-v"], .term-grid[data-layout="4-up"], .term-grid[data-layout="3-up-r"], .term-grid[data-layout="3-up-l"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
-  .term-grid[data-layout="3-up-r"] .term-cell, .term-grid[data-layout="3-up-l"] .term-cell { grid-column: auto !important; grid-row: auto !important; }
-  .term-flex { flex-direction: column; overflow-y: auto; }
+  /* --- workspace: stack, and SCROLL instead of clipping ---
+     `grid-auto-rows` + `align-content:start` gives each panel a real height;
+     `overflow-y:auto` is what was missing, so nothing can be cut off.
+     `!important` on the tracks is required: PanelWorkspace writes the split
+     ratios as INLINE styles, which otherwise outrank this and keep a 2-up
+     side-by-side on a phone (this is why the old rule never took effect). */
+  .term-grid[data-layout="2-up-v"],
+  .term-grid[data-layout="2-up-h"],
+  .term-grid[data-layout="4-up"],
+  .term-grid[data-layout="3-up-r"],
+  .term-grid[data-layout="3-up-l"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: none !important;
+  }
+  .term-grid[data-layout="3-up-r"] .term-cell,
+  .term-grid[data-layout="3-up-l"] .term-cell { grid-column: auto !important; grid-row: auto !important; }
+  /* the fix: this was `overflow:hidden` with auto rows => invisible panels */
+  .term-grid { overflow-x: hidden; overflow-y: auto; align-content: start; grid-auto-rows: minmax(340px, auto); }
+  .term-grid[data-layout="1-up"],
+  .term-grid[data-layout="max"] { grid-auto-rows: minmax(0, 1fr); align-content: stretch; }
+
+  .term-flex { flex-direction: column; overflow-x: hidden; overflow-y: auto; }
   .term-col { flex: 1 1 auto !important; min-height: 0; }
-  .term-flex .term-cell { flex: 1 1 auto !important; min-height: 300px; }
-  .term-flex-v { width: auto; height: 9px; cursor: row-resize; }
+  .term-flex .term-cell { flex: 1 1 auto !important; min-height: 340px; }
+  /* a vertical divider becomes a horizontal one once the tiles stack */
+  .term-flex-v { width: auto; height: 9px; cursor: row-resize; flex: 0 0 9px; }
   .term-flex-v::after { left: 0; right: 0; top: 4px; bottom: auto; width: auto; height: 1px; }
-  .term-fkeys { overflow-x: auto; }
+  /* Specificity is deliberately bumped (`.term-flex .term-flex-v`) so this
+     beats the coarse-pointer grab band further down, which assumes the
+     divider is still vertical. Once rotated, the band must be horizontal. */
+  .term-flex .term-flex-v::before { left: 0; right: 0; top: -18px; bottom: -18px; width: auto; height: auto; }
+
+  .term-fkeys { overflow-x: auto; scrollbar-width: none; }
+  .term-fkeys::-webkit-scrollbar { height: 0; }
+
+  /* --- command bar: shed the optional read-outs, keep the actions ---
+     The AI / CFA buttons and the field always survive; only the clock and
+     feed read-out (both duplicated in the status bar) drop first. */
+  .term-cmdbar { padding: 0 8px; gap: 8px; }
+  .term-cmdbar .cmd-right { gap: 8px; }
+  .term-cmdbar .cmd-right .cmd-clock,
+  .term-cmdbar .cmd-right .cmd-feed { display: none; }
+
+  /* --- status bar: keep EVERY item, scroll horizontally (per design call).
+     Direct children stop shrinking so the row overflows rather than
+     crushing labels. The spacer keeps `flex: 1 1 0`, so it grows to
+     right-align the action cluster when the content FITS, and collapses to
+     zero when it doesn't — which is what turns the row into a scrollbar. */
+  .term-status {
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 12px;
+  }
+  .term-status::-webkit-scrollbar { height: 0; }
+  .term-status > * { flex: 0 0 auto; }
+  .term-status .term-status-spacer { flex: 1 1 0; min-width: 0; }
+  /* trailing bleed so the last control isn't flush against the scroll edge */
+  .term-status::after { content: ""; flex: 0 0 8px; }
 }
-@media (max-width: 639px) {
-  .term-cmdbar .cmd-right .cmd-clock, .term-cmdbar .cmd-right .cmd-feed { display: none; }
-  .term-tape .tape-track { animation-duration: 40s; }
+
+/* === PHONE (<=767px): the terminal is now a first-class surface === */
+@media (max-width: 767px) {
+  /* one panel fills the screen; stacking only kicks in for 2+ */
+  .term-grid { grid-auto-rows: minmax(300px, auto); gap: 4px; padding: 4px; }
+  .term-grid[data-layout="1-up"],
+  .term-grid[data-layout="max"] { grid-auto-rows: minmax(0, 1fr); }
+  .term-flex { padding: 4px; }
+  .term-flex .term-cell { min-height: 300px; }
+
+  .term-cmdbar { gap: 6px; }
+  .term-cmdbar .fn-tag { display: none; }
+  .cmd-field { min-width: 80px; }
+
+  .term-status { font-size: 10px; }
+  .desk-chip { max-width: 84px; }
   .term-panel-body { padding: 8px 10px; }
+  .term-tape .tape-track { animation-duration: 40s; }
+}
+
+/* keep the one breakpoint that used to do double duty (640 vs 639 disagreed) */
+@media (max-width: 639px) {
   .term-status .hide-sm { display: none; }
   .ai-fab { top: 6px; right: 8px; padding: 4px 9px; font-size: 11px; }
   .cmdbar, .nav { padding-right: 68px; }
+  body:has(.term-root) .cmdbar { padding-right: 8px; }
 }
+
+/* === TOUCH (coarse pointer) ==============================================
+   The shell is dense by design (DESIGN.md), but 9px dividers and 24px icons
+   are unusable by finger. Widen the HIT AREA only — never the visual line or
+   the layout box, so the tiling math (which hardcodes the 9px gutter) and the
+   dense grid are both preserved. `pointer:coarse` keeps precise dividers on
+   desktop, where 9px is a feature. */
+@media (pointer: coarse) {
+  /* Grow the chrome through the tokens, not per-element heights, so the
+     .ai-dock offsets (which read --term-*-h) can't drift out of sync. */
+  :root { --term-cmd-h: 44px; --term-status-h: 32px; }
+
+  /* Fatter invisible grab band around each divider. The visual line stays a
+     hairline and the 9px layout box is untouched. */
+  .term-flex-v::before,
+  .term-flex-h::before,
+  .term-split-v::before,
+  .term-split-h::before {
+    content: ""; position: absolute; z-index: 1; display: block;
+  }
+  .term-flex-v::before, .term-split-v::before { left: -18px; right: -18px; top: 0; bottom: 0; }
+  .term-flex-h::before, .term-split-h::before { top: -18px; bottom: -18px; left: 0; right: 0; }
+  /* …but the band must not swallow the panel header's controls, which sit
+     within 18px of the divider on the narrow column. */
+  .term-panel-head > * { position: relative; z-index: 2; }
+
+  .term-icon { width: 34px; height: 34px; font-size: 13px; }
+  .term-panel-head { height: 34px; padding: 0 6px; gap: 6px; }
+  .term-panel-sym.as-btn { padding: 6px 4px; margin: -6px -4px; }
+  .desk-chip { padding: 7px 8px; max-width: 96px; }
+  .term-status .add-btn, .term-status .ws-btn, .term-status .lay-sel { padding: 7px 2px; }
+  .fkey { padding: 9px 8px; min-width: 104px; }
+  .tape-score { padding: 0 12px; }
+  .btn, .ghost { min-height: 36px; }
+}
+
+/* Android/Chrome force a page zoom when a focused input's font-size is under
+   16px. Inside this 100dvh + overflow:hidden shell that zoom shatters the
+   whole layout, so every control is bumped on touch pointers only — desktop
+   keeps its 12–13.5px density. `.cmd-echo` mirrors `.cmd-input` and must move
+   with it or the two overlays desync. */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px; }
+  .cmd-echo { font-size: 16px; line-height: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .term-tape .tape-track { animation: none; }
 }
