@@ -190,17 +190,18 @@ export default function TickerTape({ onPick, onFeed, onScore }: {
 
   useEffect(() => {
     let alive = true;
-    // Opening score: lite summary, 5-min refresh (slots move slowly).
+    // Opening call: lite summary, 5-min refresh (the pre-open tape moves slowly).
     async function pullScore() {
       try {
         const r = await fetch("/api/opening?summary=1");
         const j = await r.json();
         if (!alive) return;
-        if (!r.ok || j.error || j.score?.value === null || j.score?.value === undefined) {
+        const edge = j?.predict?.edge;
+        if (!r.ok || j.error || edge === null || edge === undefined) {
           setScore((s) => (s ? null : s));
           return;
         }
-        setScore({ value: j.score.value, verdict: String(j.score.verdict ?? "") });
+        setScore({ value: edge, verdict: String(j.predict.verdict ?? "") });
       } catch {
         if (alive) setScore((s) => (s ? null : s));
       }
@@ -242,19 +243,22 @@ export default function TickerTape({ onPick, onFeed, onScore }: {
         const v = score?.value ?? null;
         const green = v !== null && v > 0;
         const red = v !== null && v < 0;
-        const label = v === null ? "…" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)} ${score!.verdict}`;
+        const flat = score?.verdict === "FLAT" || score?.verdict === "NO_DATA";
+        // The chip shows the VERDICT, not the raw edge: "+0.31 GAP UP" is a
+        // statement, "+0.31 GREEN" is a score with no meaning attached.
+        const label = v === null ? "—" : flat ? `STAND ASIDE ${v >= 0 ? "+" : ""}${v.toFixed(2)}` : `${v > 0 ? "▲" : "▼"} ${Math.abs(v).toFixed(2)} ${score!.verdict === "GREEN" ? "GAP UP" : "GAP DOWN"}`;
         return (
           <button
             className="tape-score"
             onClick={onScore}
             disabled={!onScore}
-            title={v === null ? "Opening score — loading" : `Opening score ${label} — open the Opening desk (PRE)`}
-            aria-label={`Opening market score ${label}`}
+            title={v === null ? "Opening call — loading" : `Pre-open call ${label} — open the Opening desk (PRE)`}
+            aria-label={`Opening market call ${label}`}
           >
             <span className="sym">OPEN</span>
             {v === null
-              ? <span className="faint">…</span>
-              : <span className={green ? "up" : red ? "down" : "flat"}>{green ? "▲" : red ? "▼" : "●"} {label}</span>}
+              ? <span className="faint">—</span>
+              : <span className={green && !flat ? "up" : red && !flat ? "down" : "flat"}>{label}</span>}
           </button>
         );
       })()}

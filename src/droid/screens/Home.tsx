@@ -33,23 +33,38 @@ interface NewsResp {
   items?: Array<{ id: string; title: string; link: string; source: string; ago: string; label: "BULL" | "BEAR" | "NEUT" }>;
 }
 
-// /api/opening — pre-market score card (module 109 math, src/lib/opening.ts).
-interface OpeningSig {
-  name: string;
-  value: number | null;
+// /api/opening — pre-open call card (module 109 engine, src/lib/opening.ts).
+// The engine returns a weight-normalised EDGE in [-1,+1] and a gated verdict,
+// not a +/-1 vote count. Both are surfaced; the gate is what decides the call.
+interface OpeningLeg {
+  key: string;
+  short: string;
+  group: string;
+  chg: number | null;
   vote: number | null;
+  deadbanded: boolean;
+  stale: boolean;
+}
+interface OpeningScore {
+  edge?: number | null;
+  verdict?: string;
+  confidence?: number;
+  coverage?: number;
+  legsUsed?: number;
+  legCount?: number;
+  probUp?: number | null;
+  regime?: string | null;
+  legs?: OpeningLeg[];
 }
 interface OpeningResp {
   fetchedAtIST?: string;
   currentSlot?: string;
-  vix?: number | null;
-  vixCond?: string | null;
-  score?: {
-    value?: number | null;
-    n?: number;
-    verdict?: string;
-    signals?: OpeningSig[];
-  };
+  target?: string;
+  phaseLabel?: string;
+  vix?: { last?: number | null; regime?: string | null } | null;
+  gap?: { gapPct?: number | null } | null;
+  caveats?: string[];
+  predict?: OpeningScore;
 }
 
 export default function Home() {
@@ -89,18 +104,21 @@ export default function Home() {
     return rows.filter((r) => Math.abs(r.dayChgPct) >= 3).length;
   }, [breadth.data]);
 
-  // opening score (module 109): score = sum of votes (−n…+n), verdict GREEN/RED/FLAT/NO_DATA
-  const op = opening.data?.score;
+  // opening call (module 109): edge in [-1,+1] gated into a verdict by regime
+  const op = opening.data?.predict;
   const opVerdict = op?.verdict ?? "NO_DATA";
   const opColor =
     opVerdict === "GREEN" ? "var(--dx-green)"
     : opVerdict === "RED" ? "var(--dx-red)"
-    : opVerdict === "FLAT" ? "var(--dx-sub)"
-    : "var(--dx-faint)";
-  const opScoreText =
-    opVerdict === "NO_DATA" || op?.value === null || op?.value === undefined
-      ? "—"
-      : signed(op.value, 0);
+    : "var(--dx-sub)";
+  const CALL_TEXT: Record<string, string> = {
+    GREEN: "GAP UP",
+    RED: "GAP DOWN",
+    FLAT: "STAND ASIDE",
+    NO_DATA: "NO CALL",
+  };
+  const opEdgeText =
+    op?.edge === null || op?.edge === undefined ? "—" : signed(op.edge, 2);
 
   const briefToday = brief && brief.date === todayKey() ? brief : null;
 
@@ -205,43 +223,68 @@ export default function Home() {
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
             <div style={{ width: 86, flex: "0 0 auto" }}>
               <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, color: opColor }} className="dx-mono-num">
-                {opScoreText}
+                {opEdgeText}
               </div>
               <div
                 style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.09em", marginTop: 5, color: opColor }}
               >
-                {opVerdict}
+                {CALL_TEXT[opVerdict] ?? opVerdict}
               </div>
               <div className="dx-faint" style={{ fontSize: 9.5, marginTop: 6, letterSpacing: "0.06em" }}>
-                {op?.n ?? 0} SIGNAL{op?.n === 1 ? "" : "S"}
+                EDGE −1…+1 · {op?.legsUsed ?? 0}/{op?.legCount ?? 0} LEGS
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {(op?.signals ?? []).map((s) => (
+              {(op?.legs ?? []).map((l) => (
                 <SignalRow
-                  key={s.name}
-                  label={s.name}
-                  value={s.name === "BREADTH A/D" ? signed(s.value, 0) : pct(s.value, 2, true)}
-                  tone={s.vote === null || s.vote === undefined ? null : s.vote}
-                  detail={s.vote === null || s.vote === undefined ? "—" : s.vote > 0 ? "▲" : s.vote < 0 ? "▼" : "="}
+                  key={l.key}
+                  label={l.short}
+                  value={l.chg === null || l.chg === undefined ? "—" : pct(l.chg, 2, true)}
+                  tone={l.vote === null || l.vote === undefined ? null : l.vote}
+                  detail={
+                    l.chg === null || l.chg === undefined
+                      ? "NO TAPE"
+                      : l.stale
+                        ? "STALE"
+                        : l.deadbanded
+                          ? "0"
+                          : l.vote === null || l.vote === undefined
+                            ? "—"
+                            : signed(l.vote, 2)
+                  }
                 />
               ))}
-              {!op?.signals?.length ? (
+              {!op?.legs?.length ? (
                 <div className="dx-note" style={{ marginTop: 0 }}>
-                  NO SIGNALS RETURNED — THE SCORE SHOWS GAPS.
+                  NO LEGS RETURNED — THE CALL SHOWS GAPS.
                 </div>
               ) : null}
             </div>
           </div>
           <div className="dx-note">
-            SLOT {opening.data.currentSlot ?? "—"} · VIX {num(opening.data.vix, 2)}
-            {opening.data.vixCond ? ` ${opening.data.vixCond}` : ""} · {opening.data.fetchedAtIST ?? "—"}
+            {opening.data.target ?? "—"} · SLOT {opening.data.currentSlot ?? "—"} · REGIME {op?.regime ?? "—"} ·
+            CONF {pct((op?.confidence ?? 0) * 100, 0)} · COVERAGE {pct((op?.coverage ?? 0) * 100, 0)}
           </div>
+          {opening.data.vix?.last != null && (
+            <div className="dx-note">INDIA VIX {num(opening.data.vix.last, 2)}</div>
+          )}
+          {opening.data.gap?.gapPct != null && (
+            <div className="dx-note">REALISED OPEN GAP {signed(opening.data.gap.gapPct, 2)}%</div>
+          )}
           {opVerdict === "NO_DATA" ? (
             <div className="dx-note" style={{ color: "var(--dx-sub)" }}>
-              PRE-MARKET TAPE INCOMPLETE — NOTHING IS INVENTED, THE SCORE STAYS “—”.
+              COVERAGE BELOW THE FLOOR — NO DIRECTION PUBLISHED, NOTHING INVENTED.
+            </div>
+          ) : opVerdict === "FLAT" ? (
+            <div className="dx-note" style={{ color: "var(--dx-sub)" }}>
+              EDGE INSIDE THE GATE — A FLAT VERDICT MEANS NO POSITION.
             </div>
           ) : null}
+          {!!opening.data.caveats?.length && (
+            <div className="dx-note" style={{ color: "var(--dx-sub)" }}>
+              {opening.data.caveats.length} DATA CAVEAT{opening.data.caveats.length === 1 ? "" : "S"} — {opening.data.caveats[0]}
+            </div>
+          )}
         </div>
       ) : null}
 
