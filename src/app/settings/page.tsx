@@ -5,6 +5,7 @@ import { store } from "@/lib/store";
 import { DEFAULT_MODEL } from "@/lib/ai";
 import { downloadBackup, parseBackup, restoreBackup } from "@/lib/backup";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
+import { EXPERIENCES, THEME_OPTIONS, useExperience } from "../experiences/ExperienceProvider";
 
 export default function SettingsPage() {
   const [key, setKey] = useState("");
@@ -22,6 +23,7 @@ export default function SettingsPage() {
   const [explAI, setExplAI] = useState(true);
   const [explCacheSize, setExplCacheSize] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { experience, theme, resolved, setExperience, setTheme } = useExperience();
 
   useEffect(() => {
     setKey(store.getORKey());
@@ -46,6 +48,64 @@ export default function SettingsPage() {
           </div>
         </div>
         <div className="panel">
+          <p className="p-head">Experience — how Bullion Board looks and behaves</p>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 0 }}>
+            THIS SWITCH CHANGES NAVIGATION, TYPOGRAPHY, DENSITY, CARDS, CHARTS, LABELS AND INTERACTION — NOT JUST
+            DARK AND LIGHT. THE DATA AND THE ENGINE UNDERNEATH ARE IDENTICAL IN ALL THREE, AND THE PRO TERMINAL IS
+            NOT RESTYLED BY EITHER OF THEM: GUIDED READS ITS OWN TOKEN SET, NEVER THE TERMINAL&apos;S.
+          </p>
+          <div className="grid" style={{ gap: 10, marginTop: 12 }}>
+            {EXPERIENCES.map((x) => {
+              const on = experience === x.key;
+              return (
+                <button
+                  key={x.key}
+                  onClick={() => setExperience(x.key)}
+                  aria-pressed={on}
+                  style={{
+                    textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+                    background: on ? "var(--amber-subtle)" : "var(--panel-2)",
+                    border: `1px solid ${on ? "var(--amber)" : "var(--grid)"}`,
+                    borderRadius: 3, padding: "12px 14px", color: "inherit",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: 14, letterSpacing: "0.04em", textTransform: "uppercase" }}>{x.name}</strong>
+                    <span className="muted" style={{ fontSize: 11.5 }}>{x.tagline}</span>
+                    {on && <span className="badge fnc" style={{ marginLeft: "auto" }}>ACTIVE</span>}
+                  </div>
+                  <p className="muted" style={{ fontSize: 12, lineHeight: 1.55, margin: "6px 0 0" }}>{x.detail}</p>
+                </button>
+              );
+            })}
+          </div>
+          <div className="toolbar" style={{ marginTop: 12 }}>
+            <span className="muted" style={{ fontSize: 12 }}>APPEARANCE</span>
+            {THEME_OPTIONS.map((t) => (
+              <button
+                key={t.key}
+                className="ghost"
+                onClick={() => setTheme(t.key)}
+                aria-pressed={theme === t.key}
+                style={theme === t.key ? { borderColor: "var(--amber)", color: "var(--amber)" } : undefined}
+              >
+                {t.key === "system" ? `SYSTEM (${resolved.toUpperCase()})` : t.label.toUpperCase()}
+              </button>
+            ))}
+            <a className="ghost" href="/g" style={{ padding: "8px 12px", textDecoration: "none", marginLeft: "auto" }}>
+              OPEN GUIDED →
+            </a>
+            <a className="ghost" href="/terminal" style={{ padding: "8px 12px", textDecoration: "none" }}>
+              OPEN TERMINAL →
+            </a>
+          </div>
+          <p className="muted" style={{ fontSize: 11.5, lineHeight: 1.6, marginTop: 10 }}>
+            GUIDED IS THE FLAGSHIP AND IT IS DESIGNED PHONE-FIRST — NOT AS A DESKTOP LAYOUT THAT WAS SQUASHED. ON A
+            PHONE IT IS A BOTTOM TAB BAR; THE TOP NAV APPEARS ONLY AT 1280PX AND UP. HYBRID KEEPS THE MODERN CARDS
+            AND ADDS THE TERMINAL COMMAND BAR BACK, FOR PEOPLE WHO WANT BOTH.
+          </p>
+        </div>
+<div className="panel">
           <p className="p-head">Config — model access</p>
           <div className="cells" style={{ marginBottom: 12 }}>
             <div className="cell">

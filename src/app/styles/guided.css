@@ -1,0 +1,337 @@
+/* ===========================================================================
+   BULLION BOARD — GUIDED DESIGN TOKENS
+   ---------------------------------------------------------------------------
+   A SEPARATE token layer from the terminal.
+
+   globals.css owns the Pro identity: --mono IBM Plex Mono, --bg #030304, 2-4px
+   radii, near-flat panels. NONE of those tokens are reassigned here. Every
+   Guided value is a NEW `--g-*` custom property scoped to
+   `[data-exp="guided"]` / `[data-exp="hybrid"]`, so:
+
+   - switching to Guided cannot restyle a terminal desk, because no terminal
+     desk reads a `--g-*` variable;
+   - switching back to Pro removes the scope and the terminal tokens are
+     exactly as they were.
+
+   HYBRID reuses the guided surface tokens and keeps the Pro command bar, which
+   is why it is declared alongside guided rather than being a separate theme.
+
+   Typeface: Inter (with a system fallback) for Guided; IBM Plex Mono for Pro.
+   Both are loaded; only the active face uses its own.
+
+   References this layer answers to: dense-but-visual market maps (data as the
+   design), a premium dark trading surface with one large asset identity, a
+   two-column dashboard composition, and a mobile-first card hierarchy with
+   44px touch targets.
+   =========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+/* ---------- light (default) ---------- */
+[data-exp="guided"],
+[data-exp="hybrid"] {
+  /* surfaces */
+  --g-canvas: #f7f8fa;
+  --g-surface: #ffffff;
+  --g-surface-2: #f2f4f7;
+  --g-surface-3: #e9ecf1;
+  --g-line: #e2e6ed;
+  --g-line-strong: #cdd4de;
+
+  /* ink */
+  --g-text: #0d1117;
+  --g-text-2: #4a5462;
+  --g-text-3: #8b95a3;
+
+  /* direction — the ONLY place red/green appear */
+  --g-pos: #00a15c;
+  --g-pos-soft: rgba(0, 161, 92, 0.10);
+  --g-neg: #d92d3c;
+  --g-neg-soft: rgba(217, 45, 60, 0.10);
+
+  /* brand accent — deliberately NOT the terminal amber. One accent, used
+     sparingly for identity and focus, never for direction. */
+  --g-accent: #2f6bff;
+  --g-accent-ink: #ffffff;
+  --g-accent-soft: rgba(47, 107, 255, 0.10);
+
+  /* heatmap ramp: neutral at 0, saturated at the extremes */
+  --g-heat-0: #f2f4f7;
+  --g-heat-up: #00a15c;
+  --g-heat-down: #d92d3c;
+
+  --g-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --g-shadow: 0 4px 16px rgba(16, 24, 40, 0.07);
+  --g-shadow-lg: 0 12px 40px rgba(16, 24, 40, 0.10);
+
+  --g-radius: 16px;
+  --g-radius-sm: 12px;
+  --g-radius-lg: 22px;
+  --g-radius-pill: 999px;
+
+  --g-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --g-font-num: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --g-gap: 12px;
+  --g-gap-lg: 16px;
+  --g-pad: 16px;
+  --g-touch: 44px;
+
+  --g-topbar-h: 56px;
+  --g-tabbar-h: 60px;
+  --g-safe-t: env(safe-area-inset-top, 0px);
+  --g-safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---------- dark ---------- */
+[data-exp="guided"][data-theme="dark"],
+[data-exp="hybrid"][data-theme="dark"] {
+  --g-canvas: #0b0d10;
+  --g-surface: #111419;
+  --g-surface-2: #171b21;
+  --g-surface-3: #1e232b;
+  --g-line: #222831;
+  --g-line-strong: #333b46;
+
+  --g-text: #f2f4f7;
+  --g-text-2: #a3adba;
+  --g-text-3: #6b7684;
+
+  --g-pos: #16c784;
+  --g-pos-soft: rgba(22, 199, 132, 0.12);
+  --g-neg: #f0616d;
+  --g-neg-soft: rgba(240, 97, 109, 0.12);
+
+  --g-accent: #4d84ff;
+  --g-accent-ink: #04070d;
+  --g-accent-soft: rgba(77, 132, 255, 0.14);
+
+  --g-heat-0: #171b21;
+  --g-heat-up: #16c784;
+  --g-heat-down: #f0616d;
+
+  --g-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --g-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  --g-shadow-lg: 0 18px 56px rgba(0, 0, 0, 0.55);
+}
+
+/* ===========================================================================
+   GUIDED LAYOUT — phone first, then tablet, then desktop.
+   Designed as: phone (1 col) -> tablet (2 col) -> desktop (2-4 col). NOT as
+   a desktop layout that gets squashed.
+   =========================================================================== */
+
+.gx {
+  --g-cols: 1;
+  --g-maxw: 1560px;
+  min-height: 100dvh;
+  background: var(--g-canvas);
+  color: var(--g-text);
+  font-family: var(--g-font);
+  font-feature-settings: "tnum" 1, "cv11" 1;
+  -webkit-font-smoothing: antialiased;
+}
+.gx * { box-sizing: border-box; }
+.gx button, .gx input, .gx select { font-family: inherit; }
+.gx :focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; border-radius: 6px; }
+
+/* number rendering is the product; it must always be tabular */
+.gx .g-num { font-family: var(--g-font-num); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+.gx-shell { display: flex; flex-direction: column; min-height: 100dvh; }
+.gx-main {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: var(--g-maxw);
+  margin: 0 auto;
+  padding: var(--g-pad);
+  padding-bottom: calc(var(--g-tabbar-h) + var(--g-safe-b) + 20px);
+  display: grid;
+  gap: var(--g-gap-lg);
+  align-content: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px)  { .gx { --g-cols: 2; --g-pad: 20px; } .gx-main { gap: 20px; } }
+@media (min-width: 1280px) { .gx { --g-cols: 4; --g-pad: 24px; } }
+
+/* A section may span the full grid on any breakpoint. */
+.gx-full { grid-column: 1 / -1; }
+
+/* ---------- top bar (all sizes; becomes the nav on desktop) ---------- */
+.gx-top {
+  position: sticky; top: 0; z-index: 30;
+  padding: calc(var(--g-safe-t) + 10px) var(--g-pad) 10px;
+  background: color-mix(in srgb, var(--g-canvas) 88%, transparent);
+  backdrop-filter: saturate(1.6) blur(12px);
+  border-bottom: 1px solid var(--g-line);
+  display: flex; align-items: center; gap: 12px;
+}
+.gx-brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.gx-brand-mark {
+  font-size: 16px; font-weight: 800; letter-spacing: -0.02em; color: var(--g-text);
+  white-space: nowrap;
+}
+.gx-brand-mark span { color: var(--g-accent); }
+.gx-brand-sub { font-size: 11px; color: var(--g-text-3); letter-spacing: 0.04em; white-space: nowrap; }
+@media (max-width: 480px) { .gx-brand-sub { display: none; } }
+
+.gx-topnav { display: none; gap: 2px; margin-left: 8px; }
+@media (min-width: 1280px) { .gx-topnav { display: flex; } }
+.gx-topnav a {
+  display: inline-flex; align-items: center; height: 38px; padding: 0 14px;
+  border-radius: var(--g-radius-pill); color: var(--g-text-2);
+  text-decoration: none; font-size: 13.5px; font-weight: 600; white-space: nowrap;
+}
+.gx-topnav a:hover { background: var(--g-surface-2); color: var(--g-text); }
+.gx-topnav a[data-on="true"] { background: var(--g-accent-soft); color: var(--g-accent); }
+.gx-top-spacer { flex: 1 1 auto; }
+
+.gx-iconbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--g-touch); height: var(--g-touch); border-radius: var(--g-radius-pill);
+  background: var(--g-surface); border: 1px solid var(--g-line); color: var(--g-text-2);
+  cursor: pointer; flex: 0 0 auto;
+}
+.gx-iconbtn:hover { color: var(--g-text); border-color: var(--g-line-strong); }
+
+/* ---------- bottom tab bar (phones and tablets) ---------- */
+.gx-tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  background: color-mix(in srgb, var(--g-surface) 92%, transparent);
+  backdrop-filter: saturate(1.6) blur(14px);
+  border-top: 1px solid var(--g-line);
+  padding-bottom: var(--g-safe-b);
+}
+@media (min-width: 1280px) { .gx-tabs { display: none; } }
+.gx-tab {
+  display: grid; justify-items: center; align-content: center; gap: 2px;
+  height: var(--g-tabbar-h); border: 0; background: none; cursor: pointer;
+  color: var(--g-text-3); text-decoration: none; font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.gx-tab svg { width: 22px; height: 22px; }
+.gx-tab[aria-current="page"] { color: var(--g-accent); }
+
+/* ---------- typography ---------- */
+.gx-h1 { font-size: clamp(26px, 6.4vw, 34px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.06; margin: 0; }
+.gx-h2 { font-size: clamp(17px, 4.2vw, 21px); font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+.gx-h3 { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+.gx-eyebrow {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--g-text-3); margin: 0 0 8px;
+}
+.gx-lede { font-size: clamp(14px, 3.6vw, 15.5px); color: var(--g-text-2); line-height: 1.55; margin: 6px 0 0; max-width: 60ch; }
+
+/* ---------- cards ---------- */
+.gx-card {
+  background: var(--g-surface);
+  border: 1px solid var(--g-line);
+  border-radius: var(--g-radius);
+  padding: var(--g-pad);
+  box-shadow: var(--g-shadow-sm);
+}
+.gx-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.gx-card-head .gx-h3 { flex: 1 1 auto; min-width: 0; }
+.gx-card-quiet { background: var(--g-surface-2); box-shadow: none; }
+
+/* ---------- the flagship asset card ---------- */
+.gx-hero {
+  background: var(--g-surface);
+  border: 1px solid var(--g-line);
+  border-radius: var(--g-radius-lg);
+  padding: 20px;
+  box-shadow: var(--g-shadow);
+  display: grid; gap: 14px;
+}
+.gx-hero-top { display: flex; align-items: flex-start; gap: 12px; }
+.gx-hero-id { min-width: 0; flex: 1 1 auto; }
+.gx-hero-name { font-size: 15px; font-weight: 700; letter-spacing: 0.01em; }
+.gx-hero-meta { font-size: 11.5px; color: var(--g-text-3); letter-spacing: 0.05em; margin-top: 2px; }
+.gx-hero-px { font-size: clamp(38px, 11vw, 56px); font-weight: 800; letter-spacing: -0.035em; line-height: 1; }
+.gx-hero-delta { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.gx-hero-abs { font-size: 15px; font-weight: 600; }
+.gx-hero-pct { font-size: 15px; font-weight: 700; }
+.gx-hero-spark { width: 100%; height: clamp(64px, 18vw, 104px); display: block; }
+
+/* ---------- secondary / tertiary asset tiles ---------- */
+.gx-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-gap); }
+@media (min-width: 768px) { .gx-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .gx-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.gx-tile {
+  background: var(--g-surface); border: 1px solid var(--g-line);
+  border-radius: var(--g-radius); padding: 14px; box-shadow: var(--g-shadow-sm);
+  display: grid; gap: 6px; text-align: left; cursor: pointer;
+  text-decoration: none; color: inherit; min-width: 0;
+}
+.gx-tile:hover { border-color: var(--g-line-strong); box-shadow: var(--g-shadow); }
+.gx-tile-name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--g-text-2); }
+.gx-tile-px { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.gx-tile-chg { font-size: 13px; font-weight: 700; }
+.gx-tile-foot { font-size: 11px; color: var(--g-text-3); }
+
+/* ---------- direction helpers (the only red/green in the product) ---------- */
+.gx-pos { color: var(--g-pos); }
+.gx-neg { color: var(--g-neg); }
+.gx-flat { color: var(--g-text-2); }
+
+/* ---------- sector heatmap ---------- */
+.gx-heat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+@media (min-width: 768px)  { .gx-heat { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .gx-heat { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.gx-heat-cell {
+  position: relative; display: grid; gap: 2px; align-content: center;
+  min-height: 74px; padding: 10px 11px; border-radius: var(--g-radius-sm);
+  border: 1px solid transparent; cursor: pointer; text-align: left;
+  text-decoration: none; color: inherit; overflow: hidden;
+}
+.gx-heat-cell:hover { border-color: var(--g-line-strong); }
+.gx-heat-name { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.92; }
+.gx-heat-val { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+.gx-heat-foot { font-size: 10px; opacity: 0.72; }
+
+/* ---------- read rows (what's happening) ---------- */
+.gx-reads { display: grid; gap: 2px; }
+.gx-read {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px;
+  padding: 11px 4px; border-bottom: 1px solid var(--g-line);
+}
+.gx-read:last-child { border-bottom: 0; }
+.gx-read-icon { font-size: 14px; line-height: 1.35; }
+.gx-read-t { font-size: 13.5px; font-weight: 600; }
+.gx-read-d { font-size: 12px; color: var(--g-text-2); line-height: 1.5; margin-top: 2px; }
+
+/* ---------- chips / pills ---------- */
+.gx-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.gx-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px;
+  border-radius: var(--g-radius-pill); border: 1px solid var(--g-line);
+  background: var(--g-surface); color: var(--g-text-2);
+  font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  text-decoration: none;
+}
+.gx-chip:hover { border-color: var(--g-line-strong); color: var(--g-text); }
+.gx-chip[data-on="true"] { background: var(--g-accent); border-color: var(--g-accent); color: var(--g-accent-ink); }
+
+/* ---------- status / empty / loading ---------- */
+.gx-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--g-text-3); }
+.gx-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--g-text-3); flex: 0 0 auto; }
+.gx-dot.live { background: var(--g-pos); box-shadow: 0 0 0 3px var(--g-pos-soft); }
+.gx-empty { font-size: 13px; color: var(--g-text-3); line-height: 1.55; padding: 6px 0; }
+.gx-skel { background: var(--g-surface-2); border-radius: var(--g-radius-sm); position: relative; overflow: hidden; }
+.gx-skel::after {
+  content: ""; position: absolute; inset: 0 auto 0 -40%; width: 40%;
+  background: var(--g-accent-soft); animation: gx-sweep 1.15s ease-in-out infinite;
+}
+@keyframes gx-sweep { to { left: 110%; } }
+@media (prefers-reduced-motion: reduce) { .gx-skel::after { animation: none; left: 0; width: 100%; opacity: 0.4; } }
+
+/* ---------- footer ---------- */
+.gx-foot {
+  padding: 18px var(--g-pad) calc(var(--g-tabbar-h) + var(--g-safe-b) + 12px);
+  font-size: 11.5px; color: var(--g-text-3); line-height: 1.6;
+  border-top: 1px solid var(--g-line); margin-top: 8px;
+}
+@media (min-width: 1280px) { .gx-foot { padding-bottom: 24px; } }
+.gx-foot a { color: var(--g-accent); text-decoration: none; }
+.gx-foot a:hover { text-decoration: underline; }
