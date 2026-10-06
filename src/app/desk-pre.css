@@ -132,13 +132,8 @@
 /* The standalone page pins the nav under a 36px command bar; inside a panel the
    nav is static (container query below), so the scroll offset collapses. */
 .pre-sec { display: grid; gap: 10px; scroll-margin-top: 88px; }
-.pre-sec-head { display: flex; align-items: center; gap: 10px; }
-.pre-sec-n {
-  font-size: 19px; font-weight: 800; color: var(--amber); line-height: 1;
-  border: 1px solid rgba(255, 160, 40, 0.45); border-radius: 2px; padding: 3px 6px;
-  font-variant-numeric: tabular-nums;
-}
-.pre-sec-t { font-size: 12.5px; font-weight: 700; letter-spacing: 0.14em; color: var(--text); text-transform: uppercase; }
+.pre-sec-head { display: flex; align-items: baseline; gap: 10px; }
+.pre-sec-t { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; color: var(--text); text-transform: uppercase; }
 .pre-sec-rule { flex: 1 1 auto; height: 1px; background: var(--grid); }
 .pre-sec-meta { font-size: 10.5px; color: var(--faint); letter-spacing: 0.06em; text-align: right; text-transform: uppercase; }
 .pre-cols { display: grid; gap: 10px; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; }
@@ -162,15 +157,28 @@
 
 /* Verdict + size as one answer: the call on the left, the magnitude it implies
    on the right, separated by a hairline so the two read as a pair rather than
-   as two competing headlines. */
-.pre-answer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; }
+   as two competing headlines.
+
+   The verdict column has a FLOOR (28ch) and the figure column is content-sized
+   but capped. Without the floor the `auto` column goes to max-content on the
+   stats line and squeezes the verdict's supporting copy into a tall narrow
+   ribbon, which is exactly what the first render did. */
+.pre-answer { display: grid; grid-template-columns: minmax(28ch, 1fr) minmax(0, auto); gap: 16px 20px; align-items: center; }
 .pre-answer-l { min-width: 0; }
 .pre-answer-r {
-  display: grid; gap: 1px; justify-items: end; text-align: right; padding-left: 16px;
-  border-left: 1px solid var(--grid);
+  display: grid; gap: 2px; justify-items: end; text-align: right; padding-left: 20px;
+  border-left: 1px solid var(--grid); max-width: 30ch;
 }
 .pre-figure-l { font-size: 9.5px; letter-spacing: 0.14em; color: var(--faint); text-transform: uppercase; }
-@media (max-width: 700px) { .pre-answer { grid-template-columns: minmax(0, 1fr); } .pre-answer-r { justify-items: start; text-align: left; border-left: none; border-top: 1px solid var(--grid); padding: 10px 0 0; } }
+.pre-figure-m { font-size: 11.5px; color: var(--sub); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; line-height: 1.5; }
+
+@media (max-width: 860px) {
+  .pre-answer { grid-template-columns: minmax(0, 1fr); }
+  .pre-answer-r {
+    justify-items: start; text-align: left; border-left: none;
+    border-top: 1px solid var(--grid); padding: 10px 0 0; max-width: none;
+  }
+}
 .pre-act { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; border-left: 2px solid var(--amber); padding: 8px 0 8px 12px; background: rgba(255, 160, 40, 0.05); }
 .pre-act-t { font-size: 14px; font-weight: 800; letter-spacing: 0.02em; }
 .pre-act-s { font-size: 11px; color: var(--sub); letter-spacing: 0.04em; }
@@ -361,7 +369,7 @@
   .pre-figure-xl { font-size: 27px; }
   /* A panel tile is too narrow for verdict and size side by side. */
   .pre-answer { grid-template-columns: minmax(0, 1fr); }
-  .pre-answer-r { justify-items: start; text-align: left; border-left: none; border-top: 1px solid var(--grid); padding: 9px 0 0; }
+  .pre-answer-r { justify-items: start; text-align: left; border-left: none; border-top: 1px solid var(--grid); padding: 9px 0 0; max-width: none; }
   .pre-nav { position: static; }
   .pre-sec { scroll-margin-top: 12px; }
 }

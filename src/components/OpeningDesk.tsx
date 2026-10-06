@@ -337,10 +337,16 @@ function Meter({ label, value, display, tone, tick, foot }: {
   );
 }
 
-function SectionHead({ n, title, meta }: { n: string; title: string; meta?: string }) {
+/**
+ * Section header. Deliberately carries NO number: the sticky rail directly above
+ * already numbers every section and follows the reader as they scroll, so a
+ * second number here read as an "01 / 01" echo (which is exactly what the first
+ * render showed — the rail's "01 CALL" immediately above the head's "01 THE
+ * CALL"). The title and rule alone give the section an anchor.
+ */
+function SectionHead({ title, meta }: { title: string; meta?: string }) {
   return (
     <div className="pre-sec-head">
-      <span className="pre-sec-n">{n}</span>
       <span className="pre-sec-t">{title}</span>
       <span className="pre-sec-rule" />
       {meta && <span className="pre-sec-meta">{meta}</span>}
@@ -687,7 +693,14 @@ export function DecisionPanel({ snap, density }: { snap: OpeningSnap; density: D
 
         {/* Verdict and size read as ONE answer, side by side. Putting the
             forecast number on its own row below made it compete with the
-            verdict instead of completing it. */}
+            verdict instead of completing it.
+
+            The `auto` column is sized from CONTENT, and a long stats line
+            (+96 PTS · P(UP) 80.1% · P(DIR) 80.1%) took it to max-content and
+            starved the `1fr` — which crushed the meaning paragraph into a
+            tall narrow ribbon. The stats therefore sit UNDER the number and
+            are allowed to wrap, and the verdict column is given a floor so it
+            can never be squeezed below a readable measure. */}
         <div className="pre-answer">
           <div className="pre-answer-l">
             <div className={`pre-verdict${small ? " sm" : ""} ${VERDICT_CLS[v]}`}>
@@ -1940,12 +1953,6 @@ export function DeskLive(props: DeskLiveProps) {
   const tapeCheck = m?.mode === "TAPE_CHECK";
   const small = density === "compact";
   const sectionsToRender = (id: string) => sections.some((s) => s.id === id);
-  // Numbers follow the rail, so a tape check (which drops breadth + confirmation)
-  // does not leave a gap in the numbering.
-  const secNo = (id: string) => {
-    const i = sections.findIndex((s) => s.id === id);
-    return i < 0 ? "00" : String(i + 1).padStart(2, "0");
-  };
 
   return (
     <div className="pre-shell" ref={shell}>
@@ -1976,7 +1983,7 @@ export function DeskLive(props: DeskLiveProps) {
       {sectionsToRender("call") && (
         <Section id="call">
           <SectionHead
-            n={secNo("call")} title="The call"
+            title="The call"
             meta={`${snap.target ?? ""}`}
           />
           <DecisionPanel snap={snap} density={density} />
@@ -2005,7 +2012,7 @@ export function DeskLive(props: DeskLiveProps) {
 
       {sectionsToRender("deduction") && (
         <Section id="deduction">
-          <SectionHead n={secNo("deduction")} title="How the call was deduced" meta="SEVEN STEPS · THIS MORNING'S NUMBERS" />
+          <SectionHead title="How the call was deduced" meta="SEVEN STEPS · THIS MORNING'S NUMBERS" />
           <div className="pre-card">
             <DeductionSteps snap={snap} />
           </div>
@@ -2014,7 +2021,7 @@ export function DeskLive(props: DeskLiveProps) {
 
       {p && sectionsToRender("legs") && (
         <Section id="legs">
-          <SectionHead n={secNo("legs")} title="Leg build" meta={`${p.legsUsed}/${p.legCount} REPORTING · COVERAGE ${fpct(p.coverage * 100)}`} />
+          <SectionHead title="Leg build" meta={`${p.legsUsed}/${p.legCount} REPORTING · COVERAGE ${fpct(p.coverage * 100)}`} />
           <div className="pre-card">
             <LegTable
               score={p} filter={filter} setFilter={setFilter}
@@ -2027,7 +2034,7 @@ export function DeskLive(props: DeskLiveProps) {
 
       {p && sectionsToRender("factors") && (
         <Section id="factors">
-          <SectionHead n={secNo("factors")} title="Factor origin" meta="WHERE THE CONVICTION COMES FROM" />
+          <SectionHead title="Factor origin" meta="WHERE THE CONVICTION COMES FROM" />
           <div className="pre-card">
             <FactorOrigin score={p} filter={filter} setFilter={setFilter} />
           </div>
@@ -2036,7 +2043,7 @@ export function DeskLive(props: DeskLiveProps) {
 
       {p && sectionsToRender("tape") && (
         <Section id="tape">
-          <SectionHead n={secNo("tape")} title="Overnight tape" meta="ONE CARD PER LEG · AXIS SHOWS DEADBAND TO SATURATION" />
+          <SectionHead title="Overnight tape" meta="ONE CARD PER LEG · AXIS SHOWS DEADBAND TO SATURATION" />
           <div className="pre-cols">
             <div className="pre-card">
               <TapeCards legs={p.legs} />
@@ -2065,14 +2072,14 @@ export function DeskLive(props: DeskLiveProps) {
 
       {sectionsToRender("breadth") && (
         <Section id="breadth">
-          <SectionHead n={secNo("breadth")} title="Breadth" meta={snap.breadth ? `${snap.breadth.label ?? ""} · ${snap.breadth.source}` : "NO FEED"} />
+          <SectionHead title="Breadth" meta={snap.breadth ? `${snap.breadth.label ?? ""} · ${snap.breadth.source}` : "NO FEED"} />
           <BreadthBlock snap={snap} search={bSearch} setSearch={setBSearch} status={bStatus} setStatus={setBStatus} />
         </Section>
       )}
 
       {sectionsToRender("confirm") && (
         <Section id="confirm">
-          <SectionHead n={secNo("confirm")} title="In-session confirmation" meta="OBSERVATION, NOT A FORECAST" />
+          <SectionHead title="In-session confirmation" meta="OBSERVATION, NOT A FORECAST" />
           <div className="pre-card">
             <ConfirmTimeline snap={snap} />
           </div>
@@ -2081,14 +2088,14 @@ export function DeskLive(props: DeskLiveProps) {
 
       {sectionsToRender("position") && (
         <Section id="position">
-          <SectionHead n={secNo("position")} title="Where the money goes" meta="THE POSITION, AND WHAT WOULD KILL IT" />
+          <SectionHead title="Where the money goes" meta="THE POSITION, AND WHAT WOULD KILL IT" />
           <PositionSpec snap={snap} />
         </Section>
       )}
 
       {sectionsToRender("ledger") && (
         <Section id="ledger">
-          <SectionHead n={secNo("ledger")} title="Data ledger" meta="EVERY OPEN DEBT, IN ONE PLACE" />
+          <SectionHead title="Data ledger" meta="EVERY OPEN DEBT, IN ONE PLACE" />
           <div className="pre-cols">
             <DataLedger snap={snap} logRows={logRows} onLog={onLog} />
             <div className="pre-card">
