@@ -222,6 +222,15 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .top-tab:hover { background: rgba(255, 255, 255, 0.12); box-shadow: none; transform: none; color: #fff; }
 .top-tab.active { background: #fff; color: #8f0000; }
+/* Source health sits inside the LIVE count. Green when every publisher feed
+   answered, red when one is down — the wire says so rather than quietly
+   serving less news. */
+.top-src-health {
+  color: var(--green); font-size: 10px; letter-spacing: 0.06em; margin-left: 8px;
+  border-left: 1px solid var(--grid); padding-left: 8px;
+}
+.top-count:hover .top-src-health { color: var(--amber); }
+.top-src-health[data-down] { color: var(--red); }
 .top-count { margin-left: auto; color: #ffd9d9; font-size: 11.5px; white-space: nowrap; }
 .top-narrow {
   display: flex; gap: 8px; align-items: center; padding: 7px 12px;

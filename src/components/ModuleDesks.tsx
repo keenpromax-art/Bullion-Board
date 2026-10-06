@@ -288,6 +288,9 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
   const showingTop = topOnly && topItems.length > 0;
   const listItems = showingTop ? topItems : items;
   const visible = showingTop ? topItems : items.slice(0, shown);
+  const dg = (data as any)?.diagnostics as
+    | { publishersLive: number; publishersTotal: number; publishersDown: string[]; collapsed: number; stale: number }
+    | undefined;
   const tape = (data?.items ?? []).slice(0, 8);
   const counts: Array<{ k: "ALL" | "BULL" | "BEAR" | "NEUT"; n: number }> = [
     { k: "ALL", n: (data?.items ?? []).length },
@@ -306,6 +309,24 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
         ))}
         <span className="top-count">
           <span className="feed-dot" /> LIVE · {data ? `${listItems.length} STORIES` : "…"}
+          {/* Source health. A wire with a dead publisher and a wire on a quiet
+              news day look identical in a story count, so the count is not
+              evidence that the pull worked. */}
+          {dg && dg.publishersTotal > 0 && (
+            <span
+              className="top-src-health"
+              data-down={dg.publishersDown.length > 0 ? "" : undefined}
+              title={
+                dg.publishersDown.length
+                  ? `FEEDS DOWN: ${dg.publishersDown.join(", ")}`
+                  : `ALL ${dg.publishersTotal} PUBLISHER FEEDS LIVE`
+              }
+            >
+              {dg.publishersLive}/{dg.publishersTotal} FEEDS
+              {dg.collapsed > 0 ? ` · ${dg.collapsed} DUPES` : ""}
+              {dg.stale > 0 ? ` · ${dg.stale} STALE` : ""}
+            </span>
+          )}
           <button className="ghost" style={{ padding: "2px 8px", marginLeft: 6, fontSize: 10 }} onClick={reload} title="Refresh now">↻</button>
         </span>
       </div>
