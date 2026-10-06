@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { chatComplete, aiSystem } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { Donut, HBars, AreaChart, Histogram } from "./charts";
@@ -28,6 +28,34 @@ function useJson<T>(url: string | null): { data: T | null; err: string; loading:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, n]);
   return { data, err, loading, reload: () => setN((x) => x + 1) };
+}
+
+/**
+ * Counts stories that were not in the previous pull.
+ *
+ * A wire that refreshes every minute and silently re-sorts is indistinguishable
+ * from one that is stuck: the count in the header barely moves and nothing tells
+ * the user whether new copy arrived. This is the arrival signal.
+ */
+function useNewStoryCount(items: { id: string }[] | null | undefined, ready: boolean): number {
+  const seen = useRef<Set<string> | null>(null);
+  const [fresh, setFresh] = useState(0);
+  useEffect(() => {
+    if (!items) return;
+    const ids = new Set(items.map((i) => i.id));
+    if (seen.current === null) {
+      // First pull establishes the baseline; a page load is not 90 new stories.
+      seen.current = ids;
+      return;
+    }
+    let added = 0;
+    for (const id of ids) if (!seen.current.has(id)) added++;
+    if (added > 0) {
+      seen.current = ids;
+      setFresh((n) => n + added);
+    }
+  }, [items, ready]);
+  return fresh;
 }
 
 function SentBadge({ label }: { label: string }) {
@@ -193,11 +221,19 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
     `/api/news?${isWire ? "" : `symbol=${encodeURIComponent(symbol)}&`}feed=${effFeed}${effQ ? `&q=${encodeURIComponent(effQ)}` : ""}`
   );
 
-  // Auto-refresh every 60 seconds
+  // Auto-refresh every 60 seconds — skipped while the tab is hidden so a
+  // background desk is not spending an upstream pull a minute for nobody.
   useEffect(() => {
-    const id = setInterval(reload, 60_000);
-    return () => clearInterval(id);
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      reload();
+    }, 60_000);
+    const onVis = () => { if (document.visibilityState === "visible") reload(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
   }, [reload]);
+
+  const newCount = useNewStoryCount(data?.items, !loading && !err);
 
   function markRead(id: string) {
     setRead((prev) => {
@@ -326,6 +362,13 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
               {dg.collapsed > 0 ? ` · ${dg.collapsed} DUPES` : ""}
               {dg.stale > 0 ? ` · ${dg.stale} STALE` : ""}
             </span>
+          )}
+          {newCount > 0 && (
+            <button
+              className="top-new-count"
+              onClick={() => { setShown((s) => Math.max(s, 30)); setTopOnly(false); }}
+              title="New stories arrived on the last refresh — click to show them"
+            >▲ {newCount} NEW</button>
           )}
           <button className="ghost" style={{ padding: "2px 8px", marginLeft: 6, fontSize: 10 }} onClick={reload} title="Refresh now">↻</button>
         </span>

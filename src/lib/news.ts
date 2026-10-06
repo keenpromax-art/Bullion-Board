@@ -136,6 +136,19 @@ function parseDate(...cands: string[]): number {
   return NaN;
 }
 
+/**
+ * Upstream cache windows. Publishers and search RSS re-fetch every minute so a
+ * 60s client poll actually sees new stories; they used to sit at 300s, which
+ * meant four polls in five returned byte-identical data and the wire only
+ * refreshed once every five minutes. Next's data cache is shared across
+ * requests, so this is ONE upstream pull per leg per minute no matter how many
+ * browsers are open.
+ */
+const RSS_REVALIDATE = 60;
+/** Yahoo's search endpoint is the fragile one and returns nothing for most
+ *  Indian tickers anyway — cache it long and let a miss cost one request. */
+const YAHOO_REVALIDATE = 300;
+
 const rssHeaders = (): Record<string, string> => ({
   ...yahooHeaders(),
   Accept: "application/rss+xml, application/xml, text/xml, application/atom+xml, */*",
@@ -242,6 +255,29 @@ const FEED_GATE: Partial<Record<NewsFeed, (title: string) => boolean>> = {
   nbfc: isNBFCRelevant,
 };
 
+/**
+ * A story's identity must be a property of the story, not of its position.
+ * An index-derived id changes whenever the feed re-sorts, which made every
+ * re-pull look like a completely new wire to anything tracking arrivals — the
+ * "N NEW" counter would fire on all 130 rows each minute instead of on the
+ * handful that actually arrived. Prefer the link; fall back to the headline.
+ */
+function stableId(prefix: string, link: string, title: string, ts: number): string {
+  // Both parts, not just the link: several distinct headlines can arrive on one
+  // publisher URL (a wire's rolling story page), and a link-only id made those
+  // collide — 10 duplicate ids in a single pull, which breaks React keys and
+  // under-counts arrivals. Normalising the title keeps the id stable across
+  // re-sorts while staying unique per story.
+  const norm = title.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 80);
+  const basis = `${link}|${norm}|${isFinite(ts) ? new Date(ts).toISOString().slice(0, 16) : ""}`;
+  let h = 2166136261;
+  for (let i = 0; i < basis.length; i++) {
+    h ^= basis.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return `${prefix}-${(h >>> 0).toString(36)}`;
+}
+
 /** Parse an RSS/Atom document into NewsItems. Shared by every feed leg. */
 function parseFeed(xml: string, label: string, tier: 1 | 2 | 3, limit: number, prefix: string): NewsItem[] {
   const out: NewsItem[] = [];
@@ -277,7 +313,7 @@ function parseFeed(xml: string, label: string, tier: 1 | 2 | 3, limit: number, p
     const desc = decodeEntities(rawDesc).replace(/\s+/g, " ").trim().slice(0, 600) || undefined;
 
     out.push({
-      id: `${prefix}-${out.length}-${(ts || 0).toString(36)}`,
+      id: stableId(prefix, link, title, ts),
       title,
       link,
       source,
@@ -293,7 +329,7 @@ function parseFeed(xml: string, label: string, tier: 1 | 2 | 3, limit: number, p
 }
 
 async function fetchPublisher(p: Publisher): Promise<{ items: NewsItem[]; irrelevant: number }> {
-  const r = await retryFetch(p.url, { headers: rssHeaders(), next: { revalidate: 300 } });
+  const r = await retryFetch(p.url, { headers: rssHeaders(), next: { revalidate: RSS_REVALIDATE } });
   if (!r.ok) return { items: [], irrelevant: 0 };
   const items = parseFeed(await r.text(), p.label, 1, 40, `pub-${p.key}`);
   // A general-purpose wire must prove it is market news before it lands on a
@@ -313,7 +349,7 @@ async function fetchPublisher(p: Publisher): Promise<{ items: NewsItem[]; irrele
 async function fetchYahooNews(query: string, requireTicker: boolean): Promise<NewsItem[]> {
   try {
     const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=50`;
-    const r = await retryFetch(url, { headers: yahooHeaders(), next: { revalidate: 300 } });
+    const r = await retryFetch(url, { headers: yahooHeaders(), next: { revalidate: YAHOO_REVALIDATE } });
     if (!r.ok) return [];
     const j = await r.json();
     const quotes: string[] = (j?.quotes ?? [])
@@ -358,7 +394,7 @@ async function fetchYahooNews(query: string, requireTicker: boolean): Promise<Ne
 async function fetchGoogleRSS(query: string, limit = 40): Promise<NewsItem[]> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
   try {
-    const r = await retryFetch(url, { headers: rssHeaders(), next: { revalidate: 300 } });
+    const r = await retryFetch(url, { headers: rssHeaders(), next: { revalidate: RSS_REVALIDATE } });
     if (!r.ok) return [];
     return parseGoogle(await r.text(), limit);
   } catch {
@@ -370,7 +406,7 @@ async function fetchGoogleRSS(query: string, limit = 40): Promise<NewsItem[]> {
 async function fetchBingRSS(query: string, limit = 15): Promise<NewsItem[]> {
   try {
     const url = `https://www.bing.com/news/search?q=${encodeURIComponent(query)}&format=rss&cc=in`;
-    const r = await retryFetch(url, { headers: rssHeaders(), next: { revalidate: 300 } });
+    const r = await retryFetch(url, { headers: rssHeaders(), next: { revalidate: RSS_REVALIDATE } });
     if (!r.ok) return [];
     const xml = await r.text();
     const items: NewsItem[] = [];
@@ -395,7 +431,7 @@ async function fetchBingRSS(query: string, limit = 15): Promise<NewsItem[]> {
       const ts = parseDate(pick("pubDate"));
       const s = scoreSentiment(title);
       items.push({
-        id: `bing-${items.length}-${(ts || 0).toString(36)}`,
+        id: stableId("bing", link, title, ts),
         title: stripSourceEcho(title, source),
         link,
         source,
@@ -441,7 +477,7 @@ function parseGoogle(xml: string, limit: number): NewsItem[] {
     const rawDesc = pick("description").replace(/<[^>]*>/g, " ");
     const desc = decodeEntities(rawDesc).replace(/\s+/g, " ").trim().slice(0, 600) || undefined;
     out.push({
-      id: `g-${out.length}-${(ts || 0).toString(36)}`,
+      id: stableId("g", link, title, ts),
       title,
       link,
       source,
@@ -833,8 +869,10 @@ export async function getNews(
       { name: "bing:query", kind: "bing", arg: q },
       { name: "yahoo:query", kind: "yahoo", arg: q },
     ];
-    const settled = await Promise.all(specs.map((s) => runLeg(s, [])));
-    return assemble(settled, 240, 120, symbol, true);
+    return singleFlight(`q:${q.toLowerCase()}`, async () => {
+      const settled = await settledOf(specs, []);
+      return assemble(settled, 240, 120, symbol, true);
+    });
   }
 
   const { legs, publishers, maxAgeH } = planLegs(symbol, feed);
@@ -843,8 +881,49 @@ export async function getNews(
     ...publishers.map((p) => ({ name: `pub:${p.key}`, kind: "pub" as const, key: p.key, gate })),
     ...legs.map((l) => ({ ...l, gate: l.gate ?? gate })),
   ];
-  const settled = await Promise.all(specs.map((s) => runLeg(s, publishers)));
-  return assemble(settled, maxAgeH, 150, symbol, feed === "company");
+  return singleFlight(`${feed}:${symbol.toUpperCase()}`, async () => {
+    const settled = await settledOf(specs, publishers);
+    return assemble(settled, maxAgeH, 150, symbol, feed === "company");
+  });
+}
+
+function settledOf(specs: LegSpec[], publishers: Publisher[]) {
+  return Promise.all(specs.map((s) => runLeg(s, publishers)));
+}
+
+/**
+ * One pull per key at a time, plus a short last-good memory.
+ *
+ * Every client polls once a minute. Without single-flight, ten open desks that
+ * refresh on the same second fire ten identical upstream requests and get the
+ * publishers to throttle us — which is how a wire goes dark. Without the
+ * last-good memory, one throttled response blanks a desk that was working a
+ * minute ago.
+ */
+const inflight = new Map<string, Promise<NewsResult>>();
+const lastGood = new Map<string, { at: number; data: NewsResult }>();
+const LAST_GOOD_MS = 5 * 60_000;
+
+async function singleFlight(key: string, run: () => Promise<NewsResult>): Promise<NewsResult> {
+  const existing = inflight.get(key);
+  if (existing) return existing;
+  const p = run()
+    .then((data) => {
+      lastGood.set(key, { at: Date.now(), data });
+      return data;
+    })
+    .catch((e: unknown) => {
+      // Every leg is fail-open, so this is only reached if assembly itself
+      // fails. Still prefer stale data over an empty wire.
+      const prev = lastGood.get(key);
+      if (prev) return prev.data;
+      throw e;
+    })
+    .finally(() => {
+      inflight.delete(key);
+    });
+  inflight.set(key, p);
+  return p;
 }
 
 function assemble(

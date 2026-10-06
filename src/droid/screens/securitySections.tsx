@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CompanyResp } from "../lib/quotes";
-import { useApi } from "../lib/quotes";
+import { useApi, useApiPoll } from "../lib/quotes";
 import { cr, istDate, moneyFor, num, pct } from "../lib/format";
 import type { TechSnapshot, Verdict } from "../lib/signals";
 import { macdVerdict, momentumVerdict, riskVerdict, rsiVerdict, trendVerdict } from "../lib/signals";
@@ -502,7 +502,7 @@ export function OptionsSection({ symbol, price }: { symbol: string; price: numbe
 // ----------------------------------------------------------------- NEWS
 
 export function NewsSection({ symbol }: { symbol: string }) {
-  const news = useApi<NewsResp>(`/api/news?symbol=${encodeURIComponent(symbol)}&feed=company`);
+  const news = useApiPoll<NewsResp>(`/api/news?symbol=${encodeURIComponent(symbol)}&feed=company`);
   const items = news.data?.items ?? [];
 
   return (

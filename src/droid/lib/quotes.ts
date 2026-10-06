@@ -60,7 +60,13 @@ function useAsync<T>(fn: () => Promise<T>, deps: React.DependencyList, pollMs = 
     const onVis = () => {
       if (document.visibilityState === "visible") setTick((t) => t + 1);
     };
-    const id = window.setInterval(() => setTick((t) => t + 1), pollMs);
+    // Only tick while the tab is actually on screen. A background interval
+    // still spends the user's battery and, for news, still spends an upstream
+    // request per tick for a screen nobody is looking at.
+    const id = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      setTick((t) => t + 1);
+    }, pollMs);
     document.addEventListener("visibilitychange", onVis);
     return () => {
       window.clearInterval(id);
@@ -211,6 +217,21 @@ export function useApi<T>(path: string, enabled = true): AsyncState<T> {
     () => (enabled ? json<T>(path) : new Promise<never>(() => undefined)),
     [path, enabled],
     0
+  );
+}
+
+/**
+ * A GET that re-fetches on an interval. Use for anything the user reads as a
+ * live wire rather than a snapshot — news in particular. `useApi` fires once
+ * and never again, which is right for reference data and wrong for a headline
+ * feed: a droid home left open overnight would still be showing this morning's
+ * tape.
+ */
+export function useApiPoll<T>(path: string, pollMs = 60_000, enabled = true): AsyncState<T> {
+  return useAsync<T>(
+    () => (enabled ? json<T>(path) : new Promise<never>(() => undefined)),
+    [path, enabled],
+    enabled ? pollMs : 0
   );
 }
 

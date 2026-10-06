@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { store, type Alert } from "@/lib/store";
 import { droidStore } from "../lib/droidStore";
-import { useApi, useMounted } from "../lib/quotes";
+import { useApi, useApiPoll, useMounted } from "../lib/quotes";
 import type { DroidNotif } from "../lib/types";
 import { ago, istClock } from "../lib/format";
 import { Badge, ErrorState, H, Note, Skeleton } from "../ui/Pills";
@@ -38,7 +38,7 @@ export default function Notifications() {
   const [perm, setPerm] = useState<string>("default");
   const [ping, setPing] = useState(false);
   const [pingNote, setPingNote] = useState("");
-  const news = useApi<NewsResp>("/api/news?feed=wire");
+  const news = useApiPoll<NewsResp>("/api/news?feed=wire");
 
   const hydrate = useCallback(() => {
     if (typeof window === "undefined") return;

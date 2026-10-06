@@ -9,7 +9,7 @@ import Link from "next/link";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { droidStore, todayKey } from "../lib/droidStore";
-import { useApi, useQuotes } from "../lib/quotes";
+import { useApi, useApiPoll, useQuotes } from "../lib/quotes";
 import type { BreadthRow, BriefCache, MarketRow } from "../lib/types";
 import { ago, chg, dir, istClock, num } from "../lib/format";
 import { Badge, ErrorState, H, Note, Skeleton, EmptyState } from "../ui/Pills";
@@ -60,7 +60,7 @@ function Section({ title, source, ts, children, caveat }: {
 export default function Brief() {
   const market = useApi<{ rows: MarketRow[]; count: number }>("/api/market");
   const breadth = useApi<BreadthResp>("/api/breadth");
-  const news = useApi<NewsResp>("/api/news?feed=wire");
+  const news = useApiPoll<NewsResp>("/api/news?feed=wire");
 
   const lists = useMemo(() => droidStore.getLists?.() ?? [], []);
   const wl = useMemo(() => (lists[0]?.symbols ?? []).slice(0, 8), [lists]);

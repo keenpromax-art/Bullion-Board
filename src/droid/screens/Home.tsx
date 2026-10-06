@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { droidStore, todayKey } from "../lib/droidStore";
-import { useApi, useQuotes } from "../lib/quotes";
+import { useApi, useApiPoll, useQuotes } from "../lib/quotes";
 import type { BreadthRow, BriefCache, MarketRow } from "../lib/types";
 import { ago, chg, dir, istClock, istDate, num, partOfDay, pct, signed } from "../lib/format";
 import { H, ErrorState, Note, Skeleton, EmptyState, Badge } from "../ui/Pills";
@@ -71,7 +71,7 @@ export default function Home() {
   const router = useRouter();
   const market = useApi<{ rows: MarketRow[] }>("/api/market");
   const breadth = useApi<BreadthResp>("/api/breadth");
-  const news = useApi<NewsResp>("/api/news?feed=wire");
+  const news = useApiPoll<NewsResp>("/api/news?feed=wire");
   const opening = useApi<OpeningResp>("/api/opening");
   const lists = useMemo(() => droidStore.getLists(), []);
   const watch = useMemo(() => (lists[0]?.symbols ?? []).slice(0, 6), [lists]);
