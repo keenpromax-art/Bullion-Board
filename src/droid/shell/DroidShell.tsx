@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { droidStore } from "../lib/droidStore";
+import { checkOpenPing } from "../lib/openAlarm";
 import { useIsDesktop, useIsTablet, useMounted } from "../lib/quotes";
 import RegisterSW from "./RegisterSW";
 import InstallPrompt from "./InstallPrompt";
@@ -65,9 +66,12 @@ export default function DroidShell({ children }: { children: React.ReactNode }) 
     const onStorage = () => hydrate();
     window.addEventListener("storage", onStorage);
     const t = window.setInterval(() => setUnread(droidStore.unreadCount()), 30_000);
+    const t2 = window.setInterval(() => void checkOpenPing(), 30_000);
+    void checkOpenPing();
     return () => {
       window.removeEventListener("storage", onStorage);
       window.clearInterval(t);
+      window.clearInterval(t2);
     };
   }, [hydrate]);
 

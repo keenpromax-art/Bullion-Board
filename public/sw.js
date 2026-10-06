@@ -6,7 +6,7 @@
    - /_next/static and icons → cache-first (immutable by content hash).
    Dev is never cached (registration only happens in production). */
 
-const VERSION = "bullion-droid-v1";
+const VERSION = "bullion-droid-v2";
 const SHELL = "/home";
 
 self.addEventListener("install", (event) => {
@@ -74,4 +74,40 @@ self.addEventListener("fetch", (event) => {
       )
     );
   }
+});
+
+// Daily opening-score ping: Android Chrome wakes the SW when the user has
+// periodic sync armed, so the 09:00 IST score lands without a push worker.
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag !== "openping-daily") return;
+  event.waitUntil(
+    fetch("/api/opening", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("opening failed"))))
+      .then((j) => {
+        const op = j && j.predict;
+        if (!op) throw new Error("opening shape");
+        const call = { GREEN: "GAP UP", RED: "GAP DOWN", FLAT: "STAND ASIDE", NO_DATA: "NO CALL" }[op.verdict] || op.verdict || "—";
+        const edge = typeof op.edge === "number" && isFinite(op.edge) ? (op.edge >= 0 ? "+" : "") + op.edge.toFixed(2) : "—";
+        const gap = typeof op.expectedGapPct === "number" && isFinite(op.expectedGapPct) ? (op.expectedGapPct >= 0 ? "+" : "") + op.expectedGapPct.toFixed(2) + "%" : "—";
+        const conf = typeof op.confidence === "number" && isFinite(op.confidence) ? Math.round(op.confidence * 100) + "%" : "—";
+        return self.registration.showNotification("OPENING CALL: " + call, {
+          body: "EDGE " + edge + " · EXP GAP " + gap + " · CONF " + conf + " · MODULE 109",
+          tag: "openping-daily",
+          renotify: true,
+        });
+      })
+      .catch(() => undefined)
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if ("focus" in c) return c.focus();
+      }
+      return clients.openWindow("/home");
+    })
+  );
 });

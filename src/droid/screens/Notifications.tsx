@@ -14,6 +14,7 @@ import type { DroidNotif } from "../lib/types";
 import { ago, istClock } from "../lib/format";
 import { Badge, ErrorState, H, Note, Skeleton } from "../ui/Pills";
 import SwipeRow from "../ui/SwipeRow";
+import { getOpenPing, setOpenPing, fireOpenPing, registerOpenPing } from "../lib/openAlarm";
 
 interface NewsResp {
   count?: number;
@@ -35,6 +36,8 @@ export default function Notifications() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [evErr, setEvErr] = useState("");
   const [perm, setPerm] = useState<string>("default");
+  const [ping, setPing] = useState(false);
+  const [pingNote, setPingNote] = useState("");
   const news = useApi<NewsResp>("/api/news?feed=wire");
 
   const hydrate = useCallback(() => {
@@ -45,6 +48,7 @@ export default function Notifications() {
       setAlerts([]);
     }
     setNotifs(droidStore.getNotifs());
+    setPing(getOpenPing().enabled);
     try {
       setPerm(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
     } catch {
@@ -237,6 +241,47 @@ export default function Notifications() {
           FIRES WHILE THE APP IS OPEN — THIS IS A SERVERLESS PWA WITH NO PUSH WORKER, SO NOTHING IS
           DELIVERED IN THE BACKGROUND. PRICE ALERTS ARE EVALUATED AGAINST THE LIVE TAPE WHEN YOU HAVE
           THE APP OPEN.
+        </Note>
+      </div>
+
+      <H>OPENING PING</H>
+      <div className="dx-card">
+        <div className="dx-inline">
+          <span className="dx-faint" style={{ fontSize: 11 }}>
+            DAILY 9:00 IST — MODULE 109 OPENING NUMBER AS A NOTIFICATION
+          </span>
+          <span className="dx-spacer" />
+          {ping ? (
+            <button className="dx-btn dx-ghost" onClick={() => { setOpenPing(false); setPing(false); setPingNote(""); }}>
+              ARMED ON — TAP TO DISARM
+            </button>
+          ) : (
+            <button className="dx-btn" onClick={async () => {
+              setOpenPing(true); setPing(true);
+              try {
+                if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
+                  const r = await Notification.requestPermission();
+                  setPerm(String(r));
+                  if (r !== "granted") { setOpenPing(false); setPing(false); setPingNote("ALLOW BROWSER NOTIFICATIONS FIRST."); return; }
+                }
+              } catch { /* unsupported */ }
+              setPingNote(await registerOpenPing());
+            }}>
+              ENABLE 🔔
+            </button>
+          )}
+          <button className="dx-btn dx-ghost" style={{ fontSize: 10 }} onClick={async () => {
+            const ok = await fireOpenPing();
+            setPingNote(ok ? "TEST NOTIFICATION FIRED" : "NO NOTIFICATION — CHECK BELL PERMISSION OR NO TAPE RIGHT NOW");
+          }}>
+            TEST
+          </button>
+        </div>
+        {pingNote ? <Note>{pingNote}</Note> : null}
+        <Note>
+          ON ANDROID CHROME (INSTALLED PWA) THE SERVICE WORKER WAKES FOR ITS DAILY SYNC AND POSTS THE
+          OPENING SCORE; ON EVERY OTHER RUNTIME IT POSTS WHILE THE APP IS OPEN AT 9AM IST. NO NUMBER
+          IS FABRICATED — IF THE TAPE IS OFF THE PING IS SKIPPED, NOT PADDED WITH A GUESS.
         </Note>
       </div>
 
