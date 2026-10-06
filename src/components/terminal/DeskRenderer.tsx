@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MODULE_MAP, MODULES, NEXUS_CHAT_URL, resolveFuncId } from "@/lib/modules";
 import { funcCode } from "@/lib/terminal";
+import { DEFAULT_TARGET_KEY } from "@/lib/opening";
 import { store } from "@/lib/store";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { fmtINR, fmtPct, fmtNum } from "@/lib/utils";
@@ -18,8 +19,10 @@ import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks"
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ANRDesk, CastDesk } from "@/components/CapitalDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
-import { BreadthPanel, Caveats, ConfirmBanner, ForecastPanel, LegBuild, MoversTable, SlotGrid, VerdictBanner } from "@/components/OpeningDesk";
-import { Histogram, EquityDrawdown, AreaChart, HBars } from "@/components/charts";
+import {
+  DeskLive, captureSlot, readCaptureLog,
+} from "@/components/OpeningDesk";
+import { Histogram, EquityDrawdown } from "@/components/charts";
 import { WatchPanel, StratMini, FundaMini, AIMini } from "./MiniDesks";
 import OptionsStrategyDesk from "@/components/OptionsStrategyDesk";
 import { CalcDesks } from "@/components/CalcDesks";
@@ -334,106 +337,93 @@ function NexusDesk() {
 
 function OpeningMini({ symbol }: { symbol: string }) {
   const [snap, setSnap] = useState<any>(null);
+  const [board, setBoard] = useState<any>(null);
   const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
-  async function load() {
-    setLoading(true);
+  const [busy, setBusy] = useState(false);
+  const [market, setMarket] = useState<string>(DEFAULT_TARGET_KEY);
+  const [logRows, setLogRows] = useState<any[]>([]);
+  const [logNote, setLogNote] = useState("");
+
+  const pull = useCallback(async (key: string) => {
+    setBusy(true);
     setErr("");
     try {
-      const r = await fetch("/api/opening");
+      const r = await fetch(`/api/opening?market=${encodeURIComponent(key)}`);
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "snapshot failed");
       setSnap(j);
     } catch (e: any) {
       setErr(e.message);
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  }
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setErr("");
-      try {
-        const r = await fetch("/api/opening");
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || "snapshot failed");
-        if (alive) setSnap(j);
-      } catch (e: any) {
-        if (alive) setErr(e.message);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const intra: any[] = snap?.intraday ?? [];
+
+  const pullBoard = useCallback(async () => {
+    try {
+      const r = await fetch("/api/opening/board");
+      const j = await r.json();
+      if (r.ok) setBoard(j);
+    } catch {
+      /* the rail simply stays empty; the desk is unaffected */
+    }
+  }, []);
+
+  useEffect(() => {
+    const k = store.getOpeningMarket();
+    setMarket(k);
+    setLogRows(readCaptureLog());
+    pull(k);
+    pullBoard();
+  }, [pull, pullBoard]);
+
+  function pickMarket(key: string) {
+    if (key === market) return;
+    store.setOpeningMarket(key);
+    setSnap(null);
+    setMarket(key);
+    pull(key);
+  }
+
+  function logSlot() {
+    if (!snap) return;
+    const n = captureSlot(snap);
+    setLogNote(n < 0 ? "LOG FAILED — STORAGE REFUSED" : `LOGGED ${snap.currentSlot ?? "—"} → ${snap.predict?.verdict ?? "—"}`);
+    if (n >= 0) setLogRows(readCaptureLog());
+    window.setTimeout(() => setLogNote(""), 6000);
+  }
+
+  const stale = !!snap && snap.market?.key !== market;
+
   return (
-    <div className="grid" style={{ gap: 8, minWidth: 0 }}>
+    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
       <div className="toolbar">
-        <button className="pill active">â— LIVE DESK</button>
+        <span className="fn-tag">109 · FNC PRE</span>
         <a
           href={`/opening?symbol=${encodeURIComponent(symbol)}`}
           style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}
         >
-          OPEN FULL â†’
+          OPEN FULL ↗
         </a>
-        <button className="ghost" style={{ padding: "3px 8px", fontSize: 10.5 }} onClick={load} disabled={loading}>
-          {loading ? "LOADINGâ€¦" : "â†» REFRESH"}
-        </button>
       </div>
-      {loading && !snap && <p className="muted">PULLING OVERNIGHT TAPE + ASIA OPENâ€¦</p>}
-      {err && (
-        <p className="neg">
-          ERR: {err} <button className="ghost" onClick={load}>RETRY</button>
-        </p>
-      )}
-      {snap && (
-        <>
-          <VerdictBanner snap={snap} size="sm" />
-          <ForecastPanel snap={snap} size="sm" />
-          <LegBuild score={snap.predict} />
-          <Caveats snap={snap} compact />
-          <ConfirmBanner snap={snap} />
-          <div className="panel">
-            <p className="p-head">Nifty 50 â€” OHLC + intraday path</p>
-            <div className="cells">
-              <div className="cell"><div className="lbl">Open</div><div className="val" style={{ fontSize: 14 }}>{fmtN(snap.nifty?.open)}</div><div className="sub">09:15 IST</div></div>
-              <div className="cell"><div className="lbl">High</div><div className="val" style={{ fontSize: 14 }}>{fmtN(snap.nifty?.high)}</div><div className="sub">day</div></div>
-              <div className="cell"><div className="lbl">Low</div><div className="val" style={{ fontSize: 14 }}>{fmtN(snap.nifty?.low)}</div><div className="sub">day</div></div>
-              <div className="cell"><div className="lbl">Range</div><div className="val" style={{ fontSize: 14 }}>{snap.nifty?.range?.toFixed(1) ?? "â€”"}</div><div className="sub">pts</div></div>
-              <div className="cell"><div className="lbl">Bars</div><div className="val" style={{ fontSize: 14 }}>{String(intra.length)}</div><div className="sub">15m today</div></div>
-              <div className="cell"><div className="lbl">Adv / Dec</div><div className="val" style={{ fontSize: 14 }}><span className="pos">{snap.breadth?.adv ?? "â€”"}</span> / <span className="neg">{snap.breadth?.dec ?? "â€”"}</span></div><div className="sub">{snap.breadth?.source ?? "â€”"}</div></div>
-            </div>
-            {intra.length > 1 && (
-              <div style={{ marginTop: 8 }}>
-                <AreaChart values={intra.map((x) => x.close)} dates={intra.map((x) => x.time)} label="NIFTY" height={110} />
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5 }} className="faint">
-                  <span>{intra[0].time}</span>
-                  <span>{intra[Math.floor(intra.length / 2)].time}</span>
-                  <span>{intra[intra.length - 1].time} IST</span>
-                </div>
-              </div>
-            )}
-          </div>
-          <BreadthPanel snap={snap} />
-          <div className="grid grid-2">
-            <MoversTable rows={snap.breadth?.gainers ?? []} side="gainers" />
-            <MoversTable rows={snap.breadth?.losers ?? []} side="losers" />
-          </div>
-          <SlotGrid snap={snap} />
-        </>
-      )}
+      {logNote && <p className="faint" style={{ fontSize: 10.5, margin: 0 }}>{logNote}</p>}
+      <DeskLive
+        snap={stale ? null : snap}
+        board={board}
+        market={market}
+        onMarket={pickMarket}
+        density="compact"
+        loading={busy}
+        error={err}
+        busy={busy}
+        onRefresh={() => { pull(market); pullBoard(); }}
+        onRetry={() => pull(market)}
+        onLog={logSlot}
+        logRows={logRows}
+      />
     </div>
   );
 }
-
-function fmtN(v: number | null | undefined) {
-  return v === null || v === undefined || !isFinite(v) ? "â€”" : v.toLocaleString("en-IN", { maximumFractionDigits: 1 });
-}
-
 function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
   const mod = MODULE_MAP[id];
   const code = funcCode(id);

@@ -1,0 +1,381 @@
+/* ===========================================================================
+   PRE-MARKET OPENING DESK (module 109 / FNC PRE)
+   ---------------------------------------------------------------------------
+   The desk is a command centre, not a stack of identical panels: a masthead
+   that answers "what am I looking at", a live market rail, a sticky section
+   rail for moving around the desk, one decision hero, then numbered sections
+   with purpose-built instruments — gap gauge, deduction stepper, per-leg
+   deadband axes, breadth heat cells, a confirmation timeline.
+
+   It stays inside the terminal skin: black canvas, amber functions, security
+   yellow securities, IBM Plex Mono, 3px radius, no rounded cards, no
+   gradients, red/green only for direction. Every class is `pre-` prefixed and
+   sized off the CONTAINER, not the viewport, so the same components are
+   correct on the standalone page and inside a narrow terminal panel tile.
+
+   Imported by the root layout, because the desk also renders as a workspace
+   panel at /terminal — a route-scoped stylesheet would leave it unstyled there.
+   =========================================================================== */
+
+.pre-shell { max-width: 1560px; margin: 0 auto; padding: 12px; display: grid; gap: 12px; }
+
+/* ---------- masthead ---------- */
+.pre-mast {
+  position: relative; display: grid; gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto; align-items: start;
+  background: #060607; border: 1px solid var(--grid); border-top: 2px solid var(--amber);
+  border-radius: 3px; padding: 14px 16px 12px;
+}
+.pre-mast::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 3px;
+  box-shadow: inset 0 -1px 0 rgba(255, 160, 40, 0.22);
+}
+.pre-func { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pre-fn-tag { background: var(--amber); color: #000; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 2px; }
+.pre-fn-desk { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; color: var(--amber); text-transform: uppercase; }
+.pre-title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.pre-title-name { font-size: 34px; font-weight: 700; color: var(--sec); letter-spacing: -0.6px; line-height: 1; overflow-wrap: anywhere; }
+.pre-title-sym { font-size: 14px; font-weight: 600; color: var(--faint); letter-spacing: 0.04em; }
+.pre-title-venue { font-size: 11px; letter-spacing: 0.1em; color: var(--sub); border: 1px solid var(--grid); border-radius: 2px; padding: 1px 6px; }
+/* Meta reads as labelled pairs with hairline separators between them, so the
+   eye can find PRIOR CLOSE / OPEN without scanning a run of middots. */
+.pre-mast-meta { display: flex; align-items: baseline; gap: 8px 14px; flex-wrap: wrap; margin-top: 10px; font-size: 11px; color: var(--faint); letter-spacing: 0.04em; }
+.pre-mast-meta > span { display: inline-flex; align-items: baseline; gap: 6px; }
+.pre-mast-meta b { color: var(--text); font-weight: 600; }
+.pre-mast-meta .pre-sep { color: var(--grid); }
+.pre-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); display: inline-block; flex: 0 0 auto; }
+.pre-dot.open { background: var(--green); box-shadow: 0 0 7px var(--green); }
+.pre-dot.pre { background: var(--amber); box-shadow: 0 0 7px var(--amber); }
+.pre-dot.closed { background: #5b5b62; }
+.pre-dot.weekend { background: #3a3a42; }
+.pre-mast-right { display: grid; gap: 8px; justify-items: end; text-align: right; }
+.pre-mast-call { display: grid; gap: 2px; min-width: 236px; border-left: 2px solid var(--grid); padding-left: 12px; }
+.pre-mast-call .lbl { font-size: 9.5px; letter-spacing: 0.14em; color: var(--faint); text-transform: uppercase; }
+.pre-mast-call .val { font-size: 20px; font-weight: 800; line-height: 1.1; }
+.pre-mast-call .sub { font-size: 10.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+.pre-mast-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pre-mast-actions button.ghost { padding: 5px 10px; font-size: 11px; }
+
+/* ---------- market rail ---------- */
+.pre-rail { display: grid; gap: 8px; background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; padding: 10px 12px 12px; }
+.pre-rail-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pre-rail-label { font-size: 10px; letter-spacing: 0.16em; color: var(--faint); text-transform: uppercase; }
+.pre-seg { display: inline-flex; border: 1px solid var(--grid); border-radius: 2px; overflow: hidden; }
+.pre-seg button {
+  background: transparent; border: none; border-right: 1px solid var(--grid);
+  color: var(--sub); font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; padding: 5px 11px; cursor: pointer; text-transform: uppercase;
+}
+.pre-seg button:last-child { border-right: none; }
+.pre-seg button:hover { color: var(--amber); background: rgba(255, 160, 40, 0.08); }
+.pre-seg button.on { background: var(--amber); color: #000; }
+.pre-seg button:focus-visible { outline: 2px solid var(--sec); outline-offset: -2px; }
+.pre-rail-track { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.pre-chip {
+  position: relative; flex: 1 1 0; min-width: 132px; text-align: left;
+  background: var(--panel-2); border: 1px solid var(--grid); border-radius: 3px;
+  padding: 8px 10px 9px; cursor: pointer; font-family: var(--mono);
+  display: grid; gap: 3px; align-content: start;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.pre-chip:hover { border-color: var(--amber); background: rgba(255, 160, 40, 0.07); }
+.pre-chip:focus-visible { outline: 2px solid var(--amber); outline-offset: -1px; }
+.pre-chip.on { border-color: var(--amber); background: rgba(255, 160, 40, 0.1); box-shadow: inset 3px 0 0 var(--amber), 0 0 22px rgba(255, 160, 40, 0.1); }
+.pre-chip-top { display: flex; align-items: center; gap: 6px; }
+.pre-chip-name { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; color: var(--amber); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pre-chip.on .pre-chip-name { color: var(--sec); }
+.pre-chip-px { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
+.pre-chip-sub { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.pre-chip-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.pre-tag { font-size: 8.5px; letter-spacing: 0.1em; padding: 0 4px; border-radius: 2px; border: 1px solid var(--grid); color: var(--faint); }
+.pre-tag.fit { color: var(--green); border-color: rgba(0, 214, 100, 0.5); }
+.pre-tag.tape { color: var(--amber); border-color: rgba(255, 160, 40, 0.5); }
+.pre-chip.dead { opacity: 0.55; }
+.pre-chip.dead .pre-chip-px { color: var(--faint); }
+.pre-rail-note { font-size: 10.5px; color: var(--faint); letter-spacing: 0.02em; }
+.pre-rail-note b { color: var(--sub); font-weight: 600; }
+
+/* ---------- sticky section rail ---------- */
+/* Opaque, not translucent: the desk scrolls a lot of dense tables underneath
+   this bar, and a see-through sticky nav turns them into visual noise. */
+.pre-nav {
+  position: sticky; top: var(--pre-nav-top, 36px); z-index: 15;
+  display: flex; align-items: stretch; overflow-x: auto; scrollbar-width: none;
+  background: #060607; border: 1px solid var(--grid); border-radius: 3px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+.pre-nav::-webkit-scrollbar { height: 0; }
+.pre-nav-btn {
+  flex: 0 0 auto; display: flex; align-items: baseline; gap: 7px; white-space: nowrap;
+  background: transparent; border: none; border-right: 1px solid var(--grid);
+  color: var(--sub); font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; padding: 9px 12px; cursor: pointer;
+  box-shadow: inset 0 -2px 0 transparent;
+}
+.pre-nav-btn:last-of-type { border-right: none; }
+.pre-nav-btn:hover { color: var(--text); background: rgba(255, 160, 40, 0.07); }
+.pre-nav-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+.pre-nav-btn .n { color: var(--amber-deep); font-weight: 700; }
+.pre-nav-btn .st { color: var(--faint); font-weight: 400; letter-spacing: 0.02em; }
+.pre-nav-btn.on { color: var(--amber); background: rgba(255, 160, 40, 0.09); box-shadow: inset 0 -2px 0 var(--amber); }
+.pre-nav-btn.on .n { color: var(--amber); }
+.pre-nav-btn.on .st { color: var(--sub); }
+.pre-nav-spacer { flex: 1 1 auto; min-width: 8px; }
+.pre-nav-keys {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 0 12px;
+  font-size: 9.5px; letter-spacing: 0.1em; color: var(--faint); white-space: nowrap;
+  border-left: 1px solid var(--grid); text-transform: uppercase;
+}
+.pre-nav-keys kbd { font-family: var(--mono); font-size: 9px; border: 1px solid var(--grid); border-radius: 2px; padding: 0 3px; color: var(--sub); }
+
+/* ---------- sections ---------- */
+/* The standalone page pins the nav under a 36px command bar; inside a panel the
+   nav is static (container query below), so the scroll offset collapses. */
+.pre-sec { display: grid; gap: 10px; scroll-margin-top: 88px; }
+.pre-sec-head { display: flex; align-items: center; gap: 10px; }
+.pre-sec-n {
+  font-size: 19px; font-weight: 800; color: var(--amber); line-height: 1;
+  border: 1px solid rgba(255, 160, 40, 0.45); border-radius: 2px; padding: 3px 6px;
+  font-variant-numeric: tabular-nums;
+}
+.pre-sec-t { font-size: 12.5px; font-weight: 700; letter-spacing: 0.14em; color: var(--text); text-transform: uppercase; }
+.pre-sec-rule { flex: 1 1 auto; height: 1px; background: var(--grid); }
+.pre-sec-meta { font-size: 10.5px; color: var(--faint); letter-spacing: 0.06em; text-align: right; text-transform: uppercase; }
+.pre-cols { display: grid; gap: 10px; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; }
+.pre-cols.even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pre-cols.rev { grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); }
+@media (max-width: 1180px) { .pre-cols, .pre-cols.rev { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 860px) { .pre-cols.even { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- decision hero ---------- */
+.pre-hero {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; overflow: hidden;
+}
+.pre-hero-l { padding: 16px 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.pre-hero-r { border-left: 1px solid var(--grid); background: #08080a; padding: 16px 18px; display: grid; gap: 12px; align-content: start; }
+@media (max-width: 1080px) { .pre-hero { grid-template-columns: minmax(0, 1fr); } .pre-hero-r { border-left: none; border-top: 1px solid var(--grid); } }
+.pre-kicker { font-size: 10px; letter-spacing: 0.18em; color: var(--faint); text-transform: uppercase; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pre-verdict { font-size: 40px; font-weight: 800; line-height: 0.98; letter-spacing: -1.2px; }
+.pre-verdict.sm { font-size: 25px; letter-spacing: -0.6px; }
+.pre-verdict-sub { font-size: 12px; color: var(--sub); max-width: 62ch; line-height: 1.6; }
+
+/* Verdict + size as one answer: the call on the left, the magnitude it implies
+   on the right, separated by a hairline so the two read as a pair rather than
+   as two competing headlines. */
+.pre-answer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; }
+.pre-answer-l { min-width: 0; }
+.pre-answer-r {
+  display: grid; gap: 1px; justify-items: end; text-align: right; padding-left: 16px;
+  border-left: 1px solid var(--grid);
+}
+.pre-figure-l { font-size: 9.5px; letter-spacing: 0.14em; color: var(--faint); text-transform: uppercase; }
+@media (max-width: 700px) { .pre-answer { grid-template-columns: minmax(0, 1fr); } .pre-answer-r { justify-items: start; text-align: left; border-left: none; border-top: 1px solid var(--grid); padding: 10px 0 0; } }
+.pre-act { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; border-left: 2px solid var(--amber); padding: 8px 0 8px 12px; background: rgba(255, 160, 40, 0.05); }
+.pre-act-t { font-size: 14px; font-weight: 800; letter-spacing: 0.02em; }
+.pre-act-s { font-size: 11px; color: var(--sub); letter-spacing: 0.04em; }
+.pre-figure-xl { font-size: 38px; font-weight: 800; letter-spacing: -1.2px; line-height: 1.02; font-variant-numeric: tabular-nums; }
+.pre-figure-m { font-size: 11.5px; color: var(--sub); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+/* The gauge keeps its aspect ratio: `meet` + auto height is what stops the axis
+   captions from stretching when the column is wide. */
+.pre-gauge { display: grid; gap: 6px; }
+.pre-gauge svg { display: block; width: 100%; height: auto; }
+.pre-gauge-ax { display: flex; justify-content: space-between; gap: 10px; font-size: 9.5px; color: var(--faint); letter-spacing: 0.06em; }
+.pre-meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pre-meter { background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; padding: 7px 9px 8px; }
+.pre-meter-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pre-meter-l { font-size: 9.5px; letter-spacing: 0.12em; color: var(--faint); text-transform: uppercase; }
+.pre-meter-v { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pre-meter-bar { position: relative; height: 5px; margin-top: 6px; background: #000; border: 1px solid var(--grid); border-radius: 1px; overflow: hidden; }
+.pre-meter-fill { position: absolute; inset: 0 auto 0 0; background: var(--amber); }
+.pre-meter-fill.ok { background: var(--green); }
+.pre-meter-fill.bad { background: var(--red); }
+.pre-badge-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* ---------- deduction stepper ---------- */
+.pre-steps { display: grid; gap: 0; }
+.pre-step { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; scroll-margin-top: 88px; }
+.pre-step-rail { display: grid; grid-template-rows: auto 1fr; justify-items: center; }
+.pre-step-n { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--grid); border-radius: 2px; background: var(--panel-2); font-size: 11px; font-weight: 700; color: var(--sub); font-variant-numeric: tabular-nums; }
+.pre-step.ok .pre-step-n { border-color: rgba(0, 214, 100, 0.55); color: var(--green); }
+.pre-step.fail .pre-step-n { border-color: rgba(255, 69, 58, 0.55); color: var(--red); }
+.pre-step.note .pre-step-n { border-color: rgba(255, 160, 40, 0.55); color: var(--amber); }
+.pre-step-line { width: 1px; background: var(--grid); margin: 4px 0; min-height: 10px; }
+.pre-step:last-child .pre-step-line { display: none; }
+.pre-step-b { padding-bottom: 15px; min-width: 0; }
+.pre-step:last-child .pre-step-b { padding-bottom: 0; }
+.pre-step-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pre-step-t { font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em; color: var(--text); text-transform: uppercase; }
+/* The formula is the payload of each step: security yellow, its own line, so
+   the seven of them can be compared vertically. */
+.pre-step-f { font-size: 12.5px; color: var(--sec); font-variant-numeric: tabular-nums; line-height: 1.5; margin: 4px 0 0; }
+.pre-step-why { font-size: 11px; color: var(--faint); line-height: 1.6; margin: 5px 0 0; max-width: 96ch; }
+
+/* ---------- legs ---------- */
+.pre-legs-tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.pre-legs table { min-width: 900px; }
+.pre-legs table.plain th { text-align: right; }
+.pre-legs table.plain th:first-child, .pre-legs table.plain td:first-child { text-align: left; }
+.pre-legs table.plain td { padding: 5px 10px; font-size: 12px; }
+.pre-legs table.plain tbody tr.off td { opacity: 0.32; }
+/* The bar is a SPAN inside a table cell, so it needs an explicit block box —
+   as an inline element its height is ignored and the absolutely-positioned
+   fills collapse to zero. */
+.pre-bar-cell { position: relative; display: block; width: 116px; margin-left: auto; }
+.pre-bar { display: block; position: relative; height: 9px; width: 100%; }
+.pre-bar::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: #3a3a42; }
+.pre-bar i { position: absolute; top: 0; height: 9px; display: block; }
+.pre-bar i.pos { background: var(--green); }
+.pre-bar i.neg { background: var(--red); }
+.pre-bar i.flat { background: var(--faint); left: 50%; width: 3px !important; transform: translateX(-50%); }
+.pre-leg-note { font-size: 10.5px; color: var(--faint); line-height: 1.55; padding: 6px 10px 8px 10px; border-bottom: 1px solid var(--grid); background: rgba(255, 160, 40, 0.04); }
+.pre-st { font-size: 10px; letter-spacing: 0.06em; white-space: nowrap; }
+.pre-st.live { color: var(--green); }
+.pre-st.prior { color: var(--amber); }
+.pre-st.stale { color: var(--red); }
+.pre-st.none { color: var(--red); }
+.pre-st.dead { color: var(--faint); }
+.pre-st.sat { color: var(--sec); }
+
+/* ---------- factors ---------- */
+.pre-factors { display: grid; gap: 6px; }
+.pre-factor { display: grid; grid-template-columns: 112px minmax(0, 1fr) 150px 62px; gap: 12px; align-items: center; background: none; border: 1px solid transparent; border-radius: 2px; padding: 7px 9px; cursor: pointer; font-family: var(--mono); text-align: left; color: var(--sub); width: 100%; }
+.pre-factor .pre-bar-cell { width: 100%; margin-left: 0; }
+.pre-factor:hover { border-color: var(--grid); background: rgba(255, 160, 40, 0.05); }
+.pre-factor.on { border-color: var(--amber); background: rgba(255, 160, 40, 0.09); color: var(--text); }
+.pre-factor:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+.pre-factor-n { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.pre-factor-w { font-size: 11px; color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; }
+.pre-factor-e { font-size: 11.5px; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) { .pre-factor { grid-template-columns: 92px minmax(0, 1fr) 56px; } .pre-factor .pre-factor-w { display: none; } }
+
+/* ---------- overnight tape cards ---------- */
+.pre-tape { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 8px; }
+.pre-tape-card { background: var(--panel-2); border: 1px solid var(--grid); border-radius: 3px; padding: 8px 10px 9px; display: grid; gap: 5px; }
+.pre-tape-card.shut { border-style: dashed; }
+.pre-tape-card.rejected { border-color: rgba(255, 69, 58, 0.5); }
+.pre-tc-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pre-tc-k { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--amber); }
+.pre-tc-px { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pre-tc-chg { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
+.pre-tc-axis { position: relative; display: block; height: 12px; width: 100%; background: #000; border: 1px solid var(--grid); border-radius: 1px; }
+.pre-tc-axis .zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #3a3a42; }
+.pre-tc-axis .band { position: absolute; top: 3px; bottom: 3px; background: rgba(255, 160, 40, 0.28); }
+.pre-tc-axis .mark { position: absolute; top: 1px; bottom: 1px; width: 3px; border-radius: 1px; }
+.pre-tc-axis-legend { display: flex; justify-content: space-between; font-size: 8.5px; letter-spacing: 0.06em; color: var(--faint); margin-top: -1px; }
+.pre-tc-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 9.5px; color: var(--faint); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+
+/* ---------- breadth ---------- */
+.pre-ad { display: grid; gap: 6px; }
+.pre-ad-bar { display: flex; height: 20px; border: 1px solid var(--grid); border-radius: 2px; overflow: hidden; background: #000; }
+.pre-ad-bar span { display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: #04040a; min-width: 0; overflow: hidden; white-space: nowrap; }
+.pre-ad-bar .a { background: var(--green); }
+.pre-ad-bar .d { background: var(--red); }
+.pre-ad-bar .u { background: #2a2a30; color: var(--sub); }
+/* Breadth heat cells: tinted by how lopsided each segment is, so the shape of
+   the session is legible before any number is read. Tints are drawn from
+   rgba() over the panel colour — no gradients, per DESIGN.md. */
+.pre-heat { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.pre-heat-cell { border: 1px solid var(--grid); border-radius: 2px; padding: 7px 9px 8px; display: grid; gap: 2px; position: relative; background: var(--panel-2); }
+.pre-heat-cell.t-up-strong { background: rgba(0, 214, 100, 0.16); border-color: rgba(0, 214, 100, 0.4); }
+.pre-heat-cell.t-up { background: rgba(0, 214, 100, 0.08); }
+.pre-heat-cell.t-down-strong { background: rgba(255, 69, 58, 0.16); border-color: rgba(255, 69, 58, 0.4); }
+.pre-heat-cell.t-down { background: rgba(255, 69, 58, 0.08); }
+.pre-heat-cell.on { border-color: var(--amber); box-shadow: inset 0 0 0 1px rgba(255, 160, 40, 0.5); }
+.pre-heat-cell.on::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--amber); }
+.pre-heat-n { font-size: 10px; letter-spacing: 0.08em; color: var(--sub); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pre-heat-v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
+.pre-heat-s { font-size: 9.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.pre-movers { display: grid; gap: 3px; }
+.pre-mover { display: grid; grid-template-columns: minmax(72px, 96px) 62px minmax(60px, 1fr); gap: 10px; align-items: center; font-size: 12px; padding: 3px 0; }
+.pre-mover .sec { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pre-mover-bar { height: 9px; background: #000; border: 1px solid var(--grid); border-radius: 1px; overflow: hidden; }
+.pre-mover-bar i { display: block; height: 100%; }
+.pre-mover-bar i.pos { background: var(--green); }
+.pre-mover-bar i.neg { background: var(--red); }
+
+/* ---------- confirm timeline ---------- */
+.pre-tl { display: grid; gap: 10px; }
+.pre-tl-track svg { display: block; width: 100%; height: 46px; }
+/* The four nodes sit UNDER their marks on the track, so they read as one
+   instrument instead of a chart above a table. Each cell names the mark it
+   belongs to. */
+.pre-tl-nodes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pre-tl-node { background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; padding: 7px 9px 8px; display: grid; gap: 2px; min-width: 0; }
+.pre-tl-node.now { border-color: var(--amber); background: rgba(255, 160, 40, 0.07); }
+.pre-tl-l { font-size: 9.5px; letter-spacing: 0.12em; color: var(--faint); text-transform: uppercase; }
+.pre-tl-v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
+.pre-tl-s { font-size: 9.5px; color: var(--faint); line-height: 1.4; }
+
+/* ---------- spec sheet (position guide) ---------- */
+.pre-spec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pre-spec-card { background: var(--panel-2); border: 1px solid var(--grid); border-left: 2px solid var(--amber); border-radius: 2px; padding: 9px 11px 10px; display: grid; gap: 4px; }
+.pre-spec-l { font-size: 9.5px; letter-spacing: 0.14em; color: var(--amber); text-transform: uppercase; }
+.pre-spec-v { font-size: 12.5px; color: var(--text); line-height: 1.6; }
+.pre-spec-card.warn { border-left-color: var(--red); }
+.pre-spec-card.warn .pre-spec-l { color: var(--red); }
+@media (max-width: 860px) { .pre-spec { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- ledger ---------- */
+.pre-ledger { display: grid; gap: 4px; }
+.pre-led-row { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 8px; align-items: start; font-size: 11.5px; line-height: 1.55; padding: 5px 8px; background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; }
+.pre-led-row.sev { border-color: rgba(255, 69, 58, 0.45); }
+.pre-led-row.sev .pre-led-dot { background: var(--red); }
+.pre-led-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); margin-top: 5px; }
+.pre-led-row.quiet .pre-led-dot { background: var(--faint); }
+
+/* ---------- slots ---------- */
+.pre-slots { display: flex; gap: 4px; flex-wrap: wrap; }
+.pre-slot { font-size: 10px; letter-spacing: 0.06em; border: 1px solid var(--grid); border-radius: 2px; padding: 2px 6px; color: var(--faint); }
+.pre-slot.on { border-color: var(--amber); color: var(--amber); background: rgba(255, 160, 40, 0.1); }
+.pre-slot.past { color: var(--sub); border-color: rgba(255, 160, 40, 0.25); }
+
+/* ---------- prose blocks ---------- */
+.pre-card { background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; padding: 12px 14px 13px; display: grid; gap: 8px; }
+.pre-card.accent { border-left: 2px solid var(--amber); }
+.pre-card-h { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; color: var(--amber); text-transform: uppercase; }
+.pre-card-b { font-size: 12px; color: var(--sub); line-height: 1.65; }
+.pre-card-b b { color: var(--text); font-weight: 600; }
+.pre-foot { font-size: 10.5px; color: var(--faint); line-height: 1.6; }
+.pre-foot b { color: var(--sub); font-weight: 600; }
+.pre-note { font-size: 11px; color: var(--sub); line-height: 1.6; }
+.pre-warn { font-size: 11.5px; color: var(--red); line-height: 1.6; }
+.pre-hintbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 10px; letter-spacing: 0.08em; color: var(--faint); text-transform: uppercase; }
+.pre-hintbar kbd { font-family: var(--mono); border: 1px solid var(--grid); border-radius: 2px; padding: 0 4px; color: var(--sub); }
+
+/* ---------- loading / empty ---------- */
+.pre-load { display: grid; gap: 8px; }
+.pre-load-row { height: 12px; background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; position: relative; overflow: hidden; }
+.pre-load-row::after { content: ""; position: absolute; inset: 0 auto 0 -40%; width: 40%; background: rgba(255, 160, 40, 0.12); animation: pre-sweep 1.15s ease-in-out infinite; }
+.pre-load-row.w40 { width: 40%; }
+.pre-load-row.w70 { width: 70%; }
+@keyframes pre-sweep { to { left: 110%; } }
+@media (prefers-reduced-motion: reduce) { .pre-load-row::after { animation: none; left: 0; width: 100%; opacity: 0.35; } }
+
+/* ---------- inside a terminal panel (container queries, not viewport) ---------- */
+@container panel (max-width: 900px) {
+  .pre-mast { grid-template-columns: minmax(0, 1fr); }
+  .pre-mast-right { justify-items: start; text-align: left; }
+  .pre-mast-call { min-width: 0; }
+  .pre-verdict { font-size: 28px; }
+  .pre-figure-xl { font-size: 27px; }
+  /* A panel tile is too narrow for verdict and size side by side. */
+  .pre-answer { grid-template-columns: minmax(0, 1fr); }
+  .pre-answer-r { justify-items: start; text-align: left; border-left: none; border-top: 1px solid var(--grid); padding: 9px 0 0; }
+  .pre-nav { position: static; }
+  .pre-sec { scroll-margin-top: 12px; }
+}
+@container panel (max-width: 620px) {
+  .pre-title-name { font-size: 22px; }
+  .pre-verdict { font-size: 22px; }
+  .pre-figure-xl { font-size: 22px; }
+  .pre-tl-nodes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pre-nav-keys { display: none; }
+  .pre-spec { grid-template-columns: minmax(0, 1fr); }
+  .pre-meters { grid-template-columns: minmax(0, 1fr); }
+  .pre-chip { min-width: 118px; }
+}
+@container panel (max-width: 460px) {
+  .pre-heat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pre-tl-nodes { grid-template-columns: minmax(0, 1fr); }
+}

@@ -3,6 +3,7 @@
 // Uses localStorage so it works on Vercel (serverless has no local disk).
 
 import type { Note } from "./types";
+import { DEFAULT_TARGET_KEY } from "./opening";
 import { DEFAULT_TICKER } from "./watchlist";
 
 export interface Position { id: number; symbol: string; qty: number; avg: number }
@@ -28,6 +29,7 @@ const K = {
   explainCache: "iss.explain.cache.v1",
   explainTrigger: "iss.explain.trigger",
   explainAI: "iss.explain.ai",
+  openingMarket: "iss.opening.market",
 };
 
 // ---------- Explain cache (LRU, capped ~400 entries / ~400KB) ----------
@@ -244,5 +246,13 @@ export const store = {
   },
   setExplainAI(v: boolean): void {
     write(K.explainAI, v);
+  },
+  // Which market the opening desk is read for. One key, both surfaces: the
+  // standalone page and the workspace panel must never disagree about it.
+  getOpeningMarket(): string {
+    return read<string>(K.openingMarket, DEFAULT_TARGET_KEY);
+  },
+  setOpeningMarket(k: string): void {
+    write(K.openingMarket, k);
   },
 };

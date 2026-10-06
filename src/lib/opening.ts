@@ -124,6 +124,300 @@ export function nearestSlot(hhmm: string = istHHMM()): string {
   return best;
 }
 
+// ---- Target markets -------------------------------------------------------
+// "Which market am I trying to see." The overnight information set is global
+// and shared — the same fifteen legs read the same way for every target. What
+// changes with the target is (a) whose OPENING GAP is being called, (b) whose
+// own tape, session clock and breadth are shown, and (c) whether the fitted
+// gap band and publish gate actually apply to that index.
+//
+// WHICH MARKETS ARE OFFERED, AND WHY THE LIST STOPS WHERE IT DOES. Every entry
+// below was checked against the live Yahoo chart feed; nothing is offered that
+// cannot be fetched. A market is NOT offered unless the desk can say something
+// defensible about it:
+//
+//   INDIA  All Indian cash indices ring the same 09:15 IST bell, are
+//          conditioned on the same India-VIX regime, and read off the same
+//          overnight legs, so the call transfers as a DIRECTION and the
+//          magnitude is flagged as a transfer wherever it is not fitted.
+//   GLOBAL The engine publishes NO pre-open call for another venue's opening.
+//          A US open is a ~19:00 IST decision and the admissible leg set at that
+//          minute is not the one read at 09:00 IST; the gap bands were measured
+//          on an Indian index; and on top of that, SPX/NDX/DJI/N225/HSI are
+//          already legs in the engine, so grading their gap against the tape
+//          is partly grading the tape against itself. Those markets are offered
+//          as a TAPE CHECK — their own live session, their realised open, and
+//          the overnight read attached as context — not as a call.
+
+export type MarketGroup = "INDIA" | "GLOBAL";
+
+/**
+ * GAP_CALL — the desk publishes the full pre-open call for this index.
+ * TAPE_CHECK — the desk shows this market's own session and the engine's
+ *   overnight read as context, and refuses to grade the gap against a tape the
+ *   index is itself a component of.
+ */
+export type TargetMode = "GAP_CALL" | "TAPE_CHECK";
+
+export interface OpeningTarget {
+  key: string;
+  label: string;
+  symbol: string;
+  venue: string;
+  group: MarketGroup;
+  mode: TargetMode;
+  /** NSE allIndices row name — that segment's own advance/decline. */
+  breadthIndex?: string;
+  /** Why the breadth segment is not an exact match for this index. */
+  breadthNote?: string;
+  /** IANA zone of the target's cash session. IST timing is derived from this. */
+  tz: string;
+  /** The target's cash session in its own local wall clock. */
+  openHHMM: string;
+  closeHHMM: string;
+  /** The gap band and the publish gate were fitted on THIS index. One only. */
+  calibrated: boolean;
+  /** What the index is. Composition and structure only — no invented weights. */
+  profile: string;
+  /** The instrument that actually carries the view. */
+  instrument: string;
+  /** What a trader should read FIRST on this index out of the overnight tape. */
+  read: string;
+  /** TRUE when this index is also one of the engine's own legs. */
+  alsoLeg: boolean;
+}
+
+export const OPENING_TARGETS: OpeningTarget[] = [
+  {
+    key: "NIFTY", label: "NIFTY 50", symbol: "^NSEI", venue: "NSE", group: "INDIA",
+    mode: "GAP_CALL", breadthIndex: "NIFTY 50", tz: "Asia/Kolkata",
+    openHHMM: "09:15", closeHHMM: "15:30", calibrated: true, alsoLeg: false,
+    profile: "50 NSE-LISTED LARGE CAPS ACROSS EVERY SECTOR. THE BROADEST SINGLE READ ON INDIAN EQUITY RISK — AND THE ONLY INDEX THIS ENGINE WAS MEASURED AGAINST.",
+    instrument: "NIFTY FUTURES ON NSE FOR THE CASH SESSION, OR THE NIFTYBEES ETF WHEN THE POSITION IS NOT HELD TO THE BELL.",
+    read: "THE ENGINE'S HOME TAPE. EVERY LEG WEIGHT, EVERY GAP BAND AND THE PUBLISH GATE BELOW WERE FITTED ON THIS INDEX'S OWN OPENING GAP, SO THIS IS THE ONE SELECTION WHERE THE MAGNITUDE IS A MEASUREMENT RATHER THAN A TRANSFER.",
+  },
+  {
+    key: "BANKNIFTY", label: "NIFTY BANK", symbol: "^NSEBANK", venue: "NSE", group: "INDIA",
+    mode: "GAP_CALL", breadthIndex: "NIFTY BANK", tz: "Asia/Kolkata",
+    openHHMM: "09:15", closeHHMM: "15:30", calibrated: false, alsoLeg: false,
+    profile: "BANKING HEAVY — LARGE PRIVATE-SECTOR BANKS AND THE HIGHEST-BETA BANK NAMES. IT IS A RATE, CREDIT AND GLOBAL-BANK TAPE BEFORE IT IS A BROAD-MARKET TAPE.",
+    instrument: "BANK NIFTY FUTURES ON NSE. THE OTHER INDIAN INDEX WITH A FUTURES CONTRACT DEEP ENOUGH TO CARRY AN OVERNIGHT POSITION.",
+    read: "READ THE RATES AND DOLLAR LEGS BEFORE THE EQUITY LEGS. THE US 10-YEAR, THE DOLLAR AND THE US CASH SET MOVE THIS INDEX MORE CLEANLY THAN THEY MOVE NIFTY 50, AND THE INDIA-VOL REGIME CONDITION IS HERE REALLY A US-RATES CONDITION. THE FITTED BAND IS THE NIFTY 50 BAND — DIRECTION CARRIES, MAGNITUDE IS A TRANSFER.",
+  },
+  {
+    key: "MIDCPNIFTY", label: "NIFTY MIDCAP 50", symbol: "^NSEMDCP50", venue: "NSE", group: "INDIA",
+    mode: "GAP_CALL", breadthIndex: "NIFTY MIDCAP 150",
+    breadthNote: "NSE PUBLISHES ITS ADVANCE/DECLINE UNDER THE MIDCAP 150 NAME; THE MIDCAP 50 SEGMENT IS NOT IN THE FEED.",
+    tz: "Asia/Kolkata", openHHMM: "09:15", closeHHMM: "15:30", calibrated: false, alsoLeg: false,
+    profile: "THE MID-CAP TIER. SMALLER FLOAT, HIGHER BETA, THINNER LIQUIDITY — ITS GAPS ARE LARGER THAN THE HEADLINE INDEX'S AND ITS FIRST-PRINT DISLOCATION IS BIGGER TOO.",
+    instrument: "MIDCAP NIFTY FUTURES ON NSE — CARRY CAPACITY IS THINNER THAN THE HEADLINE INDEX, SO THE SAME POSITION IS HARDER TO EXIT.",
+    read: "A NIFTY-SIZED GAP MEANS SOMETHING DIFFERENT HERE. THIS TIER CARRIES MORE DOMESTIC, NON-ARBITRAGED FIRST-PRINT FLOW, SO THE DIRECTION IS USUALLY RIGHT AND THE MAGNITUDE USUALLY OVERSHOOTS. THE FITTED BAND IS NOT THE RIGHT SCALE HERE — READ THE PERCENT AS A DIRECTION ONLY.",
+  },
+  {
+    key: "SENSEX", label: "SENSEX", symbol: "^BSESN", venue: "BSE", group: "INDIA",
+    mode: "GAP_CALL", breadthIndex: "SENSEX", tz: "Asia/Kolkata",
+    openHHMM: "09:15", closeHHMM: "15:30", calibrated: false, alsoLeg: false,
+    profile: "30 BLUE CHIPS ON THE BOMBAY EXCHANGE — THE OTHER HEADLINE INDIA BENCHMARK. HEAVY OVERLAP WITH NIFTY 50 BUT A DIFFERENT WEIGHTING, A DIFFERENT VENUE AND A DIFFERENT CONSTITUENT COUNT.",
+    instrument: "BSE SENSEX FUTURES, OR THE SENSEXBEES ETF FOR CASH EXPOSURE.",
+    read: "THE CONSTITUENT OVERLAP IS WHY THE DIRECTION CARRIES OVER FROM THE NIFTY FIT AND THE WEIGHTING IS WHY THE MAGNITUDE DOES NOT. BREADTH IS LEGITIMATE HERE: EVERY SENSEX NAME IS ALSO NSE-LISTED, SO THE NSE ADVANCE/DECLINE FEED IS THE RIGHT ONE.",
+  },
+  {
+    key: "NIFTYIT", label: "NIFTY IT", symbol: "^CNXIT", venue: "NSE", group: "INDIA",
+    mode: "GAP_CALL", breadthIndex: "NIFTY IT", tz: "Asia/Kolkata",
+    openHHMM: "09:15", closeHHMM: "15:30", calibrated: false, alsoLeg: false,
+    profile: "INFORMATION TECHNOLOGY ONLY. THE MOST OVERSEAS-EXPOSED INDIAN TIER: US TECH EARNINGS, THE DOLLAR AND THE US CASH TAPE DOMINATE ITS OPEN.",
+    instrument: "NIFTY IT FUTURES ON NSE — LIQUID, AND THE PUREST WAY TO EXPRESS THE US-TAPE READ WITHOUT THE REST OF THE MARKET IN THE TRADE.",
+    read: "THE MOST DIRECTLY LEGGED TARGET IN THE DESK. NASDAQ, THE DOLLAR, THE US 10-YEAR AND THE VIX ARE ITS OWN COMPONENTS RATHER THAN ITS PROXIES, SO THE CALL IS SHARPEST HERE — AND MOST CIRCULAR, BECAUSE THOSE LEGS ARE ALSO IN THE AVERAGE THAT PRODUCED IT.",
+  },
+  {
+    key: "NIFTYPHARMA", label: "NIFTY PHARMA", symbol: "^CNXPHARMA", venue: "NSE", group: "INDIA",
+    mode: "GAP_CALL", breadthIndex: "NIFTY PHARMA", tz: "Asia/Kolkata",
+    openHHMM: "09:15", closeHHMM: "15:30", calibrated: false, alsoLeg: false,
+    profile: "PHARMA AND HEALTHCARE. DEFENSIVE AND IMPORT-LEANING — RUPEE AND US REGULATORY HEADLINES HIT IT DIRECTLY, AND IT USUALLY DOES THE OPPOSITE OF THE BROAD INDEX.",
+    instrument: "NIFTY PHARMA FUTURES ON NSE.",
+    read: "READ THE RUPEE LEG FIRST. A DXY MOVE IS A PHARMA EVENT HERE AND MOSTLY NOISE FOR THE BROAD INDEX, SO A RUPEE-LED OVERNIGHT TAPE THAT FLIPS NIFTY SHOULD NOT BE READ AS A PHARMA CALL.",
+  },
+  {
+    key: "NIFTYAUTO", label: "NIFTY AUTO", symbol: "^CNXAUTO", venue: "NSE", group: "INDIA",
+    mode: "GAP_CALL", breadthIndex: "NIFTY AUTO", tz: "Asia/Kolkata",
+    openHHMM: "09:15", closeHHMM: "15:30", calibrated: false, alsoLeg: false,
+    profile: "AUTOMOBILES AND AUTO COMPONENTS. THE MOST GLOBAL DEMAND-SENSITIVE INDIAN TIER — OIL, THE US/EU REGULATORY TAPE AND THE RUPEE ALL FEED IT.",
+    instrument: "NIFTY AUTO FUTURES ON NSE.",
+    read: "CRUDE IS THE LEAD LEG HERE, NOT THE US FUTURES. AN OIL SPIKE IS DIRECTLY BEARISH FOR THIS INDEX, AND THE ENGINE'S CRUDE LEG IS INVERTED FOR EXACTLY THAT REASON — WATCH IT BEFORE THE EQUITY LEGS.",
+  },
+  {
+    key: "SPX", label: "S&P 500", symbol: "^GSPC", venue: "NYSE", group: "GLOBAL",
+    mode: "TAPE_CHECK", tz: "America/New_York", openHHMM: "09:30", closeHHMM: "16:00",
+    calibrated: false, alsoLeg: true,
+    profile: "THE US LARGE-CAP BENCHMARK AND THE SOURCE OF FIVE OF THIS ENGINE'S FIFTEEN LEGS (ES, SPX, NDX, DJI, VIX). IT IS NOT AN INDEPENDENT READ OF THE TAPE.",
+    instrument: "E-MINI S&P FUTURES (ES) FOR THE OVERNIGHT SESSION; CASH INDEX POSITIONS ARE A DIFFERENT MARKET WITH DIFFERENT HOURS.",
+    read: "NO CALL IS PUBLISHED FOR THIS OPEN. THE US CASH OPEN IS ~19:00 IST (18:30 IST DURING US STANDARD TIME) AND THE LEGS THAT ARE ADMISSIBLE AT THAT MINUTE ARE NOT THE ONES READ AT 09:00 IST. WHAT IS SHOWN IS THIS MARKET'S OWN SESSION AND THE INDIAN-SESSION OVERNIGHT READ ATTACHED AS CONTEXT.",
+  },
+  {
+    key: "NDX", label: "NASDAQ COMP", symbol: "^IXIC", venue: "NASDAQ", group: "GLOBAL",
+    mode: "TAPE_CHECK", tz: "America/New_York", openHHMM: "09:30", closeHHMM: "16:00",
+    calibrated: false, alsoLeg: true,
+    profile: "THE NASDAQ COMPOSITE — THE SAME INSTRUMENT THE ENGINE READS AS ITS `NDX` LEG, ON THE SAME HOURS. SELECTING IT AS THE TARGET MEANS THE TAPE IS BEING GRADED AGAINST ITSELF.",
+    instrument: "E-MINI NASDAQ FUTURES (NQ).",
+    read: "NO CALL IS PUBLISHED FOR THIS OPEN. SEE THE TAPE-CHECK REASON ON THE S&P 500 SELECTION — IT IS IDENTICAL, AND THE CIRCULARITY IS TIGHTER HERE BECAUSE NQ IS ALSO A LEG.",
+  },
+  {
+    key: "DJI", label: "DOW JONES", symbol: "^DJI", venue: "NYSE", group: "GLOBAL",
+    mode: "TAPE_CHECK", tz: "America/New_York", openHHMM: "09:30", closeHHMM: "16:00",
+    calibrated: false, alsoLeg: true,
+    profile: "30 US BLUE CHIPS, PRICE-WEIGHTED, AND THE ENGINE'S `DJI` LEG. THE VALUE/INDUSTRIAL READ ON THE OVERNIGHT TAPE, USUALLY THE HIGHEST-CORRELATED OF THE THREE US CASH LEGS.",
+    instrument: "E-MINI DOW FUTURES (YM).",
+    read: "NO CALL IS PUBLISHED FOR THIS OPEN. SEE THE TAPE-CHECK REASON ON THE S&P 500 SELECTION.",
+  },
+  {
+    key: "N225", label: "NIKKEI 225", symbol: "^N225", venue: "TSE", group: "GLOBAL",
+    mode: "TAPE_CHECK", tz: "Asia/Tokyo", openHHMM: "09:00", closeHHMM: "15:30",
+    calibrated: false, alsoLeg: true,
+    profile: "JAPAN'S PRICE-WEIGHTED BLUE CHIP INDEX AND THE ENGINE'S `N225` ASIA LEAD — THE LEG THAT OPENS 05:30 IST, THE EARLIEST PRINT THE INDIAN OPEN GETS TO SEE.",
+    instrument: "NIKKEI 225 FUTURES ON CME.",
+    read: "NO CALL IS PUBLISHED FOR THIS OPEN. ITS SESSION IS ALREADY HALF OVER BY THE TIME THE INDIAN BELL RINGS, SO ITS PRINT IS PART OF THE INDIAN CALL'S INPUT AND CANNOT ALSO BE ITS OUTPUT.",
+  },
+  {
+    key: "HSI", label: "HANG SENG", symbol: "^HSI", venue: "HKEX", group: "GLOBAL",
+    mode: "TAPE_CHECK", tz: "Asia/Hong_Kong", openHHMM: "09:30", closeHHMM: "16:00",
+    calibrated: false, alsoLeg: true,
+    profile: "HONG KONG'S MAIN INDEX AND THE ENGINE'S `HSI` ASIA LEG — OPENS 07:00 IST AND CLOSES BEFORE THE INDIAN BELL.",
+    instrument: "HANG SENG INDEX FUTURES ON HKEX.",
+    read: "NO CALL IS PUBLISHED FOR THIS OPEN. LIKE NIKKEI, IT IS AN INPUT TO THE 09:00 IST INDIAN READ, SO IT CANNOT BE GRADED BY IT.",
+  },
+];
+
+export const DEFAULT_TARGET_KEY = "NIFTY";
+
+/** Why each market group is offered on the terms it is offered. Rendered on the rail. */
+export const MARKET_GROUP_NOTE: Record<MarketGroup, string> = {
+  INDIA:
+    "SAME BELL, SAME INDIA-VOL REGIME, SAME FIFTEEN OVERNIGHT LEGS — THE CALL IS PUBLISHED IN FULL. THE GAP BAND AND GATE WERE FITTED ON NIFTY 50 ALONE, SO EVERY OTHER INDEX HERE IS MARKED AS A TRANSFER.",
+  GLOBAL:
+    "NO CALL FOR ANOTHER VENUE'S OPEN: THE LEGS ARE READ AT 09:00 IST, THEIR BELLS ARE NOT, AND FIVE OF THESE INDICES ARE LEGS IN THE ENGINE ITSELF. YOU GET THE MARKET'S OWN SESSION WITH THE OVERNIGHT READ ATTACHED AS CONTEXT.",
+};
+
+export function isTargetKey(k: string | null | undefined): boolean {
+  return !!k && OPENING_TARGETS.some((t) => t.key === k);
+}
+
+/** Unknown or missing keys fall back to the fitted index rather than 404. */
+export function openingTarget(key?: string | null): OpeningTarget {
+  const k = (key ?? "").trim().toUpperCase();
+  return OPENING_TARGETS.find((t) => t.key === k) ?? OPENING_TARGETS[0]!;
+}
+
+/** The leg key that IS this target, when the two overlap. */
+export function targetLegOverlap(t: OpeningTarget): string | null {
+  if (!t.alsoLeg) return null;
+  return PRE_OPEN_LEGS.find((l) => l.symbol === t.symbol)?.short ?? "A LEG";
+}
+
+/** Which row of the breadth matrix belongs to this target, if any. */
+export function breadthKeyForTarget(t: OpeningTarget): string | null {
+  switch (t.breadthIndex) {
+    case "NIFTY 50": return "nifty50";
+    case "NIFTY 500": return "n500";
+    case "NIFTY MIDCAP 150": return "midcap";
+    case "NIFTY SMALLCAP 250": return "smallcap";
+    case "NIFTY TOTAL MARKET": return "total";
+    case "NIFTY BANK": return "bank";
+    case "NIFTY IT": return "it";
+    case "NIFTY PHARMA": return "pharma";
+    case "NIFTY AUTO": return "auto";
+    case "SENSEX": return "sensex";
+    default: return null;
+  }
+}
+
+// ---- Target session clock (DST resolved, not hand-tabulated) ---------------
+// A US cash open moves between 18:30 and 19:00 IST across the year and the
+// Tokyo/Hong Kong opens never move. Publishing one hardcoded IST window for a
+// global target would be an hour wrong twice a year, so the window is derived
+// from the platform's own tz database.
+
+/** The zone's UTC offset in ms at instant `at`. */
+function tzOffsetMs(at: number, tz: string): number {
+  const p = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(at));
+  const g = (t: string) => Number(p.find((x) => x.type === t)?.value);
+  let hh = g("hour");
+  if (!isFinite(hh) || hh === 24) hh = 0;
+  const asUTC = Date.UTC(g("year"), g("month") - 1, g("day"), hh, g("minute"), g("second"));
+  return asUTC - Math.floor(at / 1000) * 1000;
+}
+
+/** Epoch for a wall clock in `tz`, treating `wallUtc` as that clock read as UTC. */
+function wallClockToEpoch(wallUtc: number, tz: string): number {
+  let e = wallUtc;
+  for (let i = 0; i < 3; i++) e = wallUtc - tzOffsetMs(e, tz);
+  return e;
+}
+
+/** `hhmm` in `tz`, on `now`'s calendar day in that zone, as minutes since IST midnight. */
+function zonedSessionMinutes(now: Date, tz: string, hhmm: string): number {
+  const p = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  }).formatToParts(now);
+  const g = (t: string) => Number(p.find((x) => x.type === t)?.value);
+  const [h, m] = hhmm.split(":").map(Number);
+  const y = g("year"), mo = g("month"), d = g("day");
+  if (![y, mo, d, h, m].every((v) => isFinite(v))) return NaN;
+  const e = wallClockToEpoch(Date.UTC(y, mo - 1, d, h, m), tz);
+  // Absolute IST minutes: NOT wrapped at 1440, because a US close is 02:30 IST
+  // the next morning and the window has to survive midnight to compare.
+  return Math.round((e + IST_OFFSET_SEC * 1000) / 60000);
+}
+
+export type TargetSessionState = "PRE_OPEN" | "OPEN" | "CLOSED" | "WEEKEND" | "UNKNOWN";
+
+export const TARGET_SESSION_LABEL: Record<TargetSessionState, string> = {
+  PRE_OPEN: "PRE-OPEN",
+  OPEN: "OPEN NOW",
+  CLOSED: "CLOSED",
+  WEEKEND: "WEEKEND",
+  UNKNOWN: "SESSION UNKNOWN",
+};
+
+/** How far ahead of the bell the pre-open read is considered live. */
+export const TARGET_PREOPEN_MIN = 45;
+
+export interface TargetSession {
+  openMin: number | null;
+  closeMin: number | null;
+  state: TargetSessionState;
+  /** Minutes until the next open. 0 when open, negative when already past it. */
+  toOpen: number | null;
+  /** The window rendered as IST wall clock, wrap-safe. */
+  istLabel: string;
+}
+
+export function targetSession(t: OpeningTarget, now: Date = istNow()): TargetSession {
+  const openMin = zonedSessionMinutes(now, t.tz, t.openHHMM);
+  const closeMin = zonedSessionMinutes(now, t.tz, t.closeHHMM);
+  if (!isFinite(openMin) || !isFinite(closeMin)) {
+    return { openMin: null, closeMin: null, state: "UNKNOWN", toOpen: null, istLabel: "—" };
+  }
+  const nowAbs = Math.round((now.getTime() + IST_OFFSET_SEC * 1000) / 60000);
+  const dow = new Intl.DateTimeFormat("en-US", { timeZone: t.tz, weekday: "short" }).format(now);
+  const toOpen = openMin - nowAbs;
+  let state: TargetSessionState;
+  if (dow === "Sat" || dow === "Sun") state = "WEEKEND";
+  else if (nowAbs >= openMin && nowAbs < closeMin) state = "OPEN";
+  else if (toOpen > 0 && toOpen <= TARGET_PREOPEN_MIN) state = "PRE_OPEN";
+  else state = "CLOSED";
+  const close = closeMin > openMin ? closeMin : closeMin + 1440;
+  return {
+    openMin, closeMin, state, toOpen,
+    istLabel: `${minutesToHHMM(((openMin % 1440) + 1440) % 1440)}–${minutesToHHMM(((close % 1440) + 1440) % 1440)} IST`,
+  };
+}
+
 // ---- Leg catalogue -------------------------------------------------------
 export type LegGroup = "FUTURES" | "ASIA" | "US CASH" | "FX" | "MACRO" | "VOL";
 

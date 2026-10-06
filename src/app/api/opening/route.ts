@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { yahooFetch } from "@/lib/yahoo";
 import {
   CAPTURE_SLOTS, DECISION_MIN, MODEL_PROVENANCE, OPENING_UNIVERSE,
-  PRE_OPEN_LEGS, REGIME_MEASURED, STALE_SHARE_WARN, VIX_THRESHOLD,
+  PRE_OPEN_LEGS, REGIME_MEASURED, STALE_SHARE_WARN, TARGET_SESSION_LABEL, VIX_THRESHOLD,
   buildConfirm, buildLegVote, buildScore, gapBand, gapState, istDateFromUnix, istHHMMFromUnix,
-  istMinutes, istNow, istStamp, nearestSlot, pctChange, readMode, round2, sessionPhase,
+  istMinutes, istNow, istStamp, nearestSlot, openingTarget, breadthKeyForTarget,
+  pctChange, readMode, round2, sessionPhase, targetLegOverlap, targetSession,
   vixCondition, vixRegime,
 } from "@/lib/opening";
-import type { GapState, LegSpec, LegVote, SessionPhase } from "@/lib/opening";
+import type { GapState, LegSpec, LegVote, OpeningTarget, SessionPhase } from "@/lib/opening";
 
 // Live pre-market snapshot for module 109 / FNC PRE.
 //
@@ -25,6 +26,14 @@ import type { GapState, LegSpec, LegVote, SessionPhase } from "@/lib/opening";
 // nobody runs: it rebuilt every leg from the prior daily close, which is ~23h
 // stale for the overnight futures and ~22h stale for Asia, while the live desk
 // was reading all of them fresh.
+//
+// WHICH MARKET. `?market=` picks the index whose opening gap is being called and
+// whose own tape, session clock and breadth are shown. The fifteen legs and
+// their 09:00 IST reading rules are the SAME for every choice — they are an
+// overnight information set, not an index — so switching markets changes the
+// target, not the engine. What does change is whether the fitted band applies,
+// which the wire states per market instead of assuming it: see OPENING_TARGETS
+// for why a global market is served as a tape check rather than a call.
 
 // ---- how each leg's % change is derived ----
 type RefMode =
@@ -272,10 +281,16 @@ async function nseBreadth(): Promise<BreadthFeed> {
     const f = (jAll?.data ?? []).find((d: any) => d.index === name);
     return [Number(f?.advances ?? 0), Number(f?.declines ?? 0), Number(f?.unchanged ?? 0)];
   };
+  // Every segment the market selector can ask for, in one scrape. The headline
+  // A/D is the SELECTED target's own segment — showing NIFTY 50 breadth while
+  // the desk is calling NIFTY BANK is a mismatch dressed as a measurement.
   const matrix = {
     nifty50: pick("NIFTY 50"), n500: pick("NIFTY 500"),
     midcap: pick("NIFTY MIDCAP 150"), smallcap: pick("NIFTY SMALLCAP 250"),
     total: pick("NIFTY TOTAL MARKET"),
+    bank: pick("NIFTY BANK"), it: pick("NIFTY IT"),
+    pharma: pick("NIFTY PHARMA"), auto: pick("NIFTY AUTO"),
+    sensex: pick("SENSEX"),
   };
   let [a50, d50, u50] = matrix.nifty50;
   if (!a50 && !d50 && rows.length) {
@@ -315,7 +330,7 @@ async function fallbackBreadth(nowSec: number, todayIST: string): Promise<Breadt
   const z: Triple = [0, 0, 0];
   return {
     adv, dec, unc, rows, source: "YAHOO",
-    matrix: { nifty50: [adv, dec, unc], n500: z, midcap: z, smallcap: z, total: z },
+    matrix: { nifty50: [adv, dec, unc], n500: z, midcap: z, smallcap: z, total: z, bank: z, it: z, pharma: z, auto: z, sensex: z },
   };
 }
 
@@ -341,35 +356,57 @@ const PHASE_LABEL: Record<SessionPhase, string> = {
   CASH_OPEN: "CASH OPEN — FIRST 15M, GAP FORMING",
   MIDDAY: "MIDDAY SESSION — INTRADAY OBSERVATION",
   CLOSE: "CLOSING SESSION — INTRADAY OBSERVATION",
-  POST_CLOSE: "POST-CLOSE — NIFTY SETTLED, TAPES ARE LAST-PRINT",
+  POST_CLOSE: "POST-CLOSE — INDIAN CASH SETTLED, TAPES ARE LAST-PRINT",
 };
 
-/** Which 09:15 IST session the published call is actually about. */
-function predictionTarget(phase: SessionPhase): string {
-  return phase === "OVERNIGHT" || phase === "PRE_OPEN" || phase === "OPENING_WINDOW"
+/** Which cash session the published call is actually about. */
+function predictionTarget(
+  phase: SessionPhase,
+  t: OpeningTarget,
+  sess: ReturnType<typeof targetSession>
+): string {
+  if (t.mode === "TAPE_CHECK") {
+    // A global market has no 09:15 IST bell. Naming one would be the desk
+    // claiming to call an open it has never measured.
+    return sess.state === "WEEKEND"
+      ? `${t.label} — SHUT FOR THE WEEKEND`
+      : `${t.label} — OWN SESSION ${sess.istLabel}`;
+  }
+  const when = phase === "OVERNIGHT" || phase === "PRE_OPEN" || phase === "OPENING_WINDOW"
     ? "TODAY 09:15 IST OPEN"
     : "NEXT SESSION 09:15 IST OPEN";
+  return `${t.label} — ${when}`;
 }
 
 export async function GET(req: NextRequest) {
   // ?summary=1 is the 5-minute ticker chip: call + forecast + regime only.
   // Skips the NSE scrape, the intraday path and the per-stock rows entirely.
   const lite = req.nextUrl.searchParams.get("summary") === "1";
+  // Which market the desk is being read for. An unknown key falls back to the
+  // fitted index and says so, rather than silently serving a different market.
+  const asked = (req.nextUrl.searchParams.get("market") ?? req.nextUrl.searchParams.get("target") ?? "").trim().toUpperCase();
+  const t = openingTarget(asked);
+  const unknownMarket = !!asked && t.key !== asked;
+  const sess = targetSession(t);
   const now = istNow();
   const nowSec = Math.floor(Date.now() / 1000);
   const nowMin = istMinutes(now);
   const phase = sessionPhase(now);
   const todayIST = istDateFromUnix(nowSec);
+  // A tape check never renders the confirm/gap model, so it never pays for the
+  // NSE breadth scrape either.
+  const wantBreadth = !lite && t.mode === "GAP_CALL";
 
   try {
-    // All of this runs concurrently: every leg tape + Nifty + VIX + the breadth
-    // scrape. The scrape used to run AFTER the Yahoo legs, putting its full
-    // 25s worst case on the critical path for a panel that only needs A/D.
-    const [legReads, niftyRaw, vixRaw, breadth] = await Promise.all([
+    // All of this runs concurrently: every leg tape + the target index + VIX +
+    // the breadth scrape. The scrape used to run AFTER the Yahoo legs, putting
+    // its full 25s worst case on the critical path for a panel that only needs
+    // A/D.
+    const [legReads, idxRaw, vixRaw, breadth] = await Promise.all([
       Promise.all(PRE_OPEN_LEGS.map((s) => readLeg(s, nowSec, nowMin, todayIST))),
-      fetchChart("^NSEI", "5d", "60m"),
+      fetchChart(t.symbol, "5d", "60m"),
       fetchChart(PLANS.INDIAVIX.symbol, PLANS.INDIAVIX.range, "1d"),
-      lite ? Promise.resolve(null) : breadthLeg(nowSec, todayIST),
+      wantBreadth ? breadthLeg(nowSec, todayIST) : Promise.resolve(null),
     ]);
 
     const legs: LegVote[] = PRE_OPEN_LEGS.map((spec, i) =>
@@ -384,6 +421,20 @@ export async function GET(req: NextRequest) {
 
     // leg-level integrity notes -> visible caveats, never silent drops
     const caveats: string[] = [];
+    if (unknownMarket) caveats.push(`UNKNOWN MARKET "${asked}" — ${t.label} SERVED INSTEAD`);
+    // Which index the model was fitted on, stated once for every other choice.
+    if (!t.calibrated) {
+      caveats.push(t.mode === "TAPE_CHECK"
+        ? `NO CALL PUBLISHED FOR ${t.label} — TAPE CHECK ONLY. THE GAP BAND, THE GATE AND THE LEG WINDOWS BELOW ARE THE 09:00 IST INDIAN DESK'S, NOT ${t.label}'S.`
+        : `GAP BAND + PUBLISH GATE ARE THE NIFTY 50 FIT APPLIED TO ${t.label} — DIRECTION CARRIES, MAGNITUDE IS NOT MEASURED ON THIS INDEX.`);
+    }
+    const overlap = targetLegOverlap(t);
+    if (overlap) caveats.push(`${t.label} IS ALSO THE \`${overlap}\` LEG IN THIS ENGINE — THE OVERNIGHT READ IS NOT INDEPENDENT OF IT`);
+    if (!t.breadthIndex && t.mode === "GAP_CALL") {
+      caveats.push(`NO ${t.label} ADVANCE/DECLINE FEED — NSE PUBLISHES A/D PER INDIAN INDEX ONLY`);
+    } else if (t.breadthNote) {
+      caveats.push(`BREADTH SEGMENT IS "${t.breadthIndex}" — ${t.breadthNote}`);
+    }
     PRE_OPEN_LEGS.forEach((spec, i) => {
       const r = legReads[i];
       if (r.issue) caveats.push(`${spec.short} NO VOTE — ${r.issue}`);
@@ -405,21 +456,21 @@ export async function GET(req: NextRequest) {
     }
     const regime = vixRegime(vixLast);
 
-    // ---- Nifty: live price, prior close, today's open, intraday path ----
+    // ---- target index: live price, prior close, today's open, intraday path ----
     let nLast: number | null = null, nPrev: number | null = null, nOpen: number | null = null;
     let nHigh: number | null = null, nLow: number | null = null;
     let intraday: Array<{ time: string; open: number; high: number; low: number; close: number }> = [];
-    if (niftyRaw) {
-      nLast = num(niftyRaw.meta.regularMarketPrice) ?? lastNonNull(niftyRaw.c);
-      nPrev = num(niftyRaw.meta.previousClose);
+    if (idxRaw) {
+      nLast = num(idxRaw.meta.regularMarketPrice) ?? lastNonNull(idxRaw.c);
+      nPrev = num(idxRaw.meta.previousClose);
       const today: typeof intraday = [];
-      for (let k = 0; k < niftyRaw.ts.length; k++) {
-        const c = num(niftyRaw.c[k]);
-        if (c === null || istDateFromUnix(niftyRaw.ts[k]) !== todayIST) continue;
+      for (let k = 0; k < idxRaw.ts.length; k++) {
+        const c = num(idxRaw.c[k]);
+        if (c === null || istDateFromUnix(idxRaw.ts[k]) !== todayIST) continue;
         today.push({
-          time: istHHMMFromUnix(niftyRaw.ts[k]),
-          open: num(niftyRaw.o[k]) ?? c, high: num(niftyRaw.h[k]) ?? c,
-          low: num(niftyRaw.l[k]) ?? c, close: c,
+          time: istHHMMFromUnix(idxRaw.ts[k]),
+          open: num(idxRaw.o[k]) ?? c, high: num(idxRaw.h[k]) ?? c,
+          low: num(idxRaw.l[k]) ?? c, close: c,
         });
       }
       if (today.length) {
@@ -428,56 +479,95 @@ export async function GET(req: NextRequest) {
         nLow = Math.min(...today.map((b) => b.low));
         if (!lite) intraday = today;
       }
-      if (nLast === null || nPrev === null) caveats.push("NIFTY TAPE PARTIAL — GAP CANNOT BE MEASURED");
+      if (nLast === null || nPrev === null) caveats.push(`${t.label} TAPE PARTIAL — THE GAP CANNOT BE MEASURED`);
+      else if (!today.length && sess.state !== "WEEKEND") {
+        caveats.push(`${t.label} HAS NOT OPENED TODAY ON THIS CLOCK — IT OPENS ${sess.istLabel}. GAP AND CONFIRM STAY DASHED UNTIL THEN.`);
+      }
     } else {
-      caveats.push("NIFTY TAPE OFF — GAP AND CONFIRM MODEL UNAVAILABLE");
+      caveats.push(`${t.label} TAPE OFF — GAP AND CONFIRM MODEL UNAVAILABLE`);
     }
     const gap: GapState = gapState(nOpen, nPrev, nLast);
 
     // ---- the pre-open model ----
     const predict = buildScore(legs, regime);
     const egapPct = predict.expectedGapPct;
-    const egapPts = egapPct !== null && nPrev ? (egapPct / 100) * nPrev : null;
+    // Points are only published for a market the call is actually about: the
+    // percent is a NIFTY 50 fit, so turning it into another index's points
+    // would be inventing a number in that index's own units.
+    const egapPts = t.mode === "GAP_CALL" && egapPct !== null && nPrev ? (egapPct / 100) * nPrev : null;
+    const scope = t.mode === "GAP_CALL" ? "" : "INDIAN OPEN: ";
     if (predict.verdict === "NO_DATA")
-      caveats.push(`LEG COVERAGE ${(predict.coverage * 100).toFixed(0)}% BELOW FLOOR — NO DIRECTION PUBLISHED`);
+      caveats.push(`${scope}LEG COVERAGE ${(predict.coverage * 100).toFixed(0)}% BELOW FLOOR — NO DIRECTION PUBLISHED`);
     else if (predict.verdict === "FLAT")
-      caveats.push(`FORECAST GAP ${egapPct === null ? "—" : `${egapPct >= 0 ? "+" : ""}${egapPct.toFixed(2)}%`} DOES NOT CLEAR THE ±${predict.gate.toFixed(2)}% PUBLISH GATE — STAND ASIDE`);
+      caveats.push(`${scope}FORECAST GAP ${egapPct === null ? "—" : `${egapPct >= 0 ? "+" : ""}${egapPct.toFixed(2)}%`} DOES NOT CLEAR THE ±${predict.gate.toFixed(2)}% PUBLISH GATE — STAND ASIDE`);
     if (predict.staleShare >= STALE_SHARE_WARN)
       caveats.push(`${(predict.staleShare * 100).toFixed(0)}% OF REPORTING WEIGHT IS STALE — CONFIDENCE SCALED DOWN`);
     if (egapPct !== null && Math.abs(egapPct) < 0.15)
-      caveats.push(`FORECAST GAP ${egapPct >= 0 ? "+" : ""}${egapPct.toFixed(2)}% IS INSIDE THE ±0.15% NO-EDGE BAND`);
+      caveats.push(`${scope}FORECAST GAP ${egapPct >= 0 ? "+" : ""}${egapPct.toFixed(2)}% IS INSIDE THE ±0.15% NO-EDGE BAND`);
 
     // ---- breadth, and whether it is even admissible ----
     const sessionFresh = !!breadth?.rows.length && !!nOpen;
     let breadthOut: Record<string, unknown> | null = null;
+    let breadthProxy = false;
     if (breadth) {
-      const total = breadth.adv + breadth.dec + breadth.unc;
+      // The headline A/D is the SELECTED index's own segment when NSE prints
+      // one. Falling back to NIFTY 50 is allowed but labelled, because a
+      // NIFTY-50 breadth number next to a NIFTY BANK call is a mismatch.
+      const bKey = breadthKeyForTarget(t);
+      const own = bKey ? breadth.matrix[bKey] : undefined;
+      const ownUsable = !!own && own[0] + own[1] + own[2] > 0;
+      const head: Triple = ownUsable ? own! : [breadth.adv, breadth.dec, breadth.unc];
+      const headLabel = ownUsable ? t.breadthIndex! : "NIFTY 50";
+      const proxy = !ownUsable && !!t.breadthIndex;
+      breadthProxy = proxy;
+      const total = head[0] + head[1] + head[2];
       const sorted = [...breadth.rows].sort((a, c) => c.chgPct - a.chgPct);
       breadthOut = {
-        adv: breadth.adv, dec: breadth.dec, unc: breadth.unc, total,
-        pct: total ? Math.round(((breadth.adv - breadth.dec) / total) * 10000) / 100 : null,
-        sentiment: total ? (breadth.adv > breadth.dec ? "BULLISH" : breadth.dec > breadth.adv ? "BEARISH" : "NEUTRAL") : null,
+        adv: head[0], dec: head[1], unc: head[2], total,
+        pct: total ? Math.round(((head[0] - head[1]) / total) * 10000) / 100 : null,
+        sentiment: total ? (head[0] > head[1] ? "BULLISH" : head[1] > head[0] ? "BEARISH" : "NEUTRAL") : null,
         matrix: breadth.matrix, source: breadth.source,
+        label: headLabel, proxy, note: proxy ? `NSE PRINTED NO A/D FOR "${t.breadthIndex}" — NIFTY 50 IS SHOWN AS A PROXY, NOT AS ${t.label} BREADTH` : t.breadthNote ?? null,
         sessionFresh, universe: breadth.rows.length,
         gainers: lite ? [] : sorted.slice(0, 5),
         losers: lite ? [] : sorted.slice(-5).reverse(),
         rows: lite ? [] : breadth.rows,
       };
-    } else if (!lite) {
+      if (proxy) caveats.push(`NO ${t.breadthIndex} ADVANCE/DECLINE IN THE FEED — NIFTY 50 A/D SHOWN AS A PROXY`);
+      if (!sessionFresh) caveats.push("BREADTH IS FROM THE LAST COMPLETED SESSION — A 09:00 IST A/D SNAPSHOT IS NOT RECONSTRUCTABLE, SO IT IS EXCLUDED FROM THE CALL");
+    } else if (!lite && t.mode === "GAP_CALL") {
       caveats.push("NSE BREADTH FEED OFF — CONFIRM MODEL RUNS ON THE GAP ALONE");
     }
-    const confirm = buildConfirm(
-      gap,
-      breadth ? { adv: breadth.adv, dec: breadth.dec, unc: breadth.unc } : null,
-      egapPct
-    );
+    // A proxy A/D must not grade the call it is standing in for, and a tape
+    // check has no call to grade — so the confirm model is not merely hidden in
+    // the UI, it is never computed for those cases.
+    const confirm = t.mode !== "GAP_CALL"
+      ? null
+      : buildConfirm(
+          gap,
+          breadth && !breadthProxy ? { adv: breadth.adv, dec: breadth.dec, unc: breadth.unc } : null,
+          egapPct
+        );
 
     return NextResponse.json({
       fetchedAtIST: istStamp(),
-      phase, phaseLabel: PHASE_LABEL[phase], target: predictionTarget(phase),
+      phase, phaseLabel: PHASE_LABEL[phase], target: predictionTarget(phase, t, sess),
       currentSlot: nearestSlot(), slots: CAPTURE_SLOTS,
       decisionMinuteIST: `${String(Math.floor(DECISION_MIN / 60)).padStart(2, "0")}:${String(DECISION_MIN % 60).padStart(2, "0")}`,
-      nifty: {
+      market: {
+        key: t.key, label: t.label, symbol: t.symbol, venue: t.venue, group: t.group,
+        mode: t.mode, calibrated: t.calibrated, alsoLeg: t.alsoLeg,
+        legOverlap: targetLegOverlap(t),
+        profile: t.profile, instrument: t.instrument, read: t.read,
+        breadthIndex: t.breadthIndex ?? null, breadthNote: t.breadthNote ?? null,
+        session: {
+          state: sess.state, label: TARGET_SESSION_LABEL[sess.state],
+          istWindow: sess.istLabel, toOpenMin: sess.toOpen,
+          localWindow: `${t.openHHMM}–${t.closeHHMM} ${t.tz}`,
+        },
+      },
+      index: {
+        label: t.label, symbol: t.symbol,
         last: nLast, prevClose: nPrev, open: nOpen, high: nHigh, low: nLow,
         chg: pctChange(nLast, nPrev), session: sessionFresh,
         range: nHigh !== null && nLow !== null ? nHigh - nLow : null,
@@ -490,14 +580,15 @@ export async function GET(req: NextRequest) {
       forecast: {
         expectedGapPct: egapPct,
         expectedGapPts: egapPts === null ? null : round2(egapPts),
-        probUp: predict.probUp,
-        probDirectional: predict.probDirectional,
+        probUp: t.mode === "GAP_CALL" ? predict.probUp : null,
+        probDirectional: t.mode === "GAP_CALL" ? predict.probDirectional : null,
         band: predict.band,
         bandLabel: gapBand(regime).label,
         slopePctPerEdge: gapBand(regime).slope,
         interceptPct: gapBand(regime).intercept,
         residualSdPct: gapBand(regime).residSd,
         gate: predict.gate,
+        calibrated: t.calibrated,
         note: "GAP = BAND INTERCEPT + BAND SLOPE x EDGE, AND THE PUBLISH GATE IS IN THESE SAME UNITS. THE SLOPE IS THE WALK-FORWARD FOLD MEDIAN FOR THAT REGIME, NOT THE IN-SAMPLE FIT.",
       },
       model: MODEL_PROVENANCE,
