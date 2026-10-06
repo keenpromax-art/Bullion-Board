@@ -241,20 +241,48 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .top-check:hover { color: var(--text); box-shadow: none; transform: none; background: none; }
 .top-check.active { color: var(--amber); font-weight: 700; }
-.top-cols { display: grid; grid-template-columns: 1fr 300px; flex: 1; min-height: 0; }
+/* `1fr 300px`: the 1fr track is a MIN track, so a fixed 300px rail subtracted
+   from a narrow panel left the news column at 218px and the headline at 7px.
+   minmax(0,1fr) lets it actually reach zero and the rail is capped so it yields
+   before the headlines do. Below 560px the rail stacks underneath. */
+/* The rail is a clamp, not a fixed 300px. In a 613px terminal panel a fixed
+   rail took half the width and squeezed the headline to 77px; capping it at a
+   third means it always yields to the headlines, which carry the story. */
+.top-cols { display: grid; grid-template-columns: minmax(0, 1fr) clamp(168px, 33%, 300px); flex: 1; min-height: 0; }
 @media (max-width: 900px) { .top-cols { grid-template-columns: 1fr; } .top-rail { border-left: none !important; border-top: 1px solid var(--grid); } }
+/* The source column is the first thing to go. A headline with no source beats a
+   source with no headline, and the source stays in the article itself. The
+   breakpoint is on the PANEL axis: this desk also runs in a narrow workspace
+   tile on a wide monitor, where a viewport query would never fire. */
+@container panel (max-width: 760px) {
+  .top-src { display: none; }
+}
+@container panel (max-width: 460px) {
+  .top-cols { grid-template-columns: minmax(0, 1fr); }
+  .top-rail { border-left: none !important; border-top: 1px solid var(--grid); }
+  .top-row { grid-template-columns: 26px minmax(0, 1fr) auto; }
+}
 .top-main { padding: 10px 14px 14px 14px; min-width: 0; min-height: 0; overflow: auto; }
 .top-sec { color: var(--amber); font-size: 13px; font-weight: 600; margin: 0 0 8px 0; }
 .top-more { color: var(--link); cursor: pointer; }
 .top-more:hover { text-decoration: underline; }
 .top-list { list-style: none; margin: 0; padding: 0; }
-.top-row { display: flex; gap: 8px; align-items: baseline; padding: 3.5px 0; font-size: 13px; }
+/* The row is a grid, not a flex line with a `flex: 1` headline. Source and time
+   had fixed min-widths (64 + 44px) and the headline was the only shrinkable
+   child, so on a narrow panel the headline collapsed to 3-12px and every
+   headline became an unreadable sliver (measured cw=3 while sw=905). Give the
+   headline the `minmax(0,1fr)` track and cap the metadata with max-width, so
+   the text that carries the story is the text that survives. */
+.top-row {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  gap: 8px; align-items: baseline; padding: 3.5px 0; font-size: 13px;
+}
 .top-row:hover { background: rgba(255, 160, 40, 0.06); }
-.top-num { color: var(--amber); min-width: 30px; }
-.top-head { color: #f5f5f4; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-num { color: var(--amber); }
+.top-head { color: #f5f5f4; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top-row.read .top-head { color: #6d6d75; }
-.top-src { color: var(--faint); font-size: 11px; min-width: 64px; }
-.top-time { color: var(--sub); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+.top-src { color: var(--faint); font-size: 11px; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-time { color: var(--sub); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .unread { width: 8px; height: 8px; min-width: 8px; background: #4da3ff; border-radius: 1px; align-self: center; box-shadow: 0 0 6px rgba(77, 163, 255, 0.8); }
 .top-rail { border-left: 1px solid var(--grid); padding: 8px 12px; display: grid; gap: 8px; align-content: start; background: #050506; min-height: 0; overflow: auto; }
 .rail-head { color: var(--amber); font-size: 13px; font-weight: 700; margin: 0 0 3px 0; }
@@ -822,6 +850,29 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
   .term-status .term-status-spacer { flex: 1 1 0; min-width: 0; }
   /* trailing bleed so the last control isn't flush against the scroll edge */
   .term-status::after { content: ""; flex: 0 0 8px; }
+
+  /* The bar scrolls with a hidden scrollbar, so from 1024px down the right
+     half — the workspace switcher, layout picker, AI and help controls, the
+     clock — sits off-screen with no affordance saying it is there. The
+     low-value read-outs yield first (they are duplicated in the cmd bar and
+     the tape), the controls never do. Measured: 1711px of content in a
+     1020px bar. */
+  .term-status .hide-md { display: none; }
+  /* The desk switcher is the one control that grows with the user's own
+     workspace, so it is the one control that gets a ceiling. It stays fully
+     usable — it scrolls within its own box. */
+  .term-status .desk-chips { max-width: 260px; overflow-x: auto; }
+}
+/* The clock is the last read-out to go, at the narrowest desktop widths. */
+@media (max-width: 639px) { .term-status .hide-lg { display: none; } }
+/* At this width the bar still scrolls, so make that visible. A hidden
+   scrollbar plus hidden content reads as a terminal that has simply run out of
+   room, which is what the user reported. */
+@media (max-width: 1100px) {
+  .term-status { scrollbar-width: thin; scrollbar-color: rgba(255, 160, 40, 0.4) transparent; }
+  .term-status::-webkit-scrollbar { height: 2px; }
+  .term-status::-webkit-scrollbar-track { background: transparent; }
+  .term-status::-webkit-scrollbar-thumb { background: rgba(255, 160, 40, 0.4); border-radius: 1px; }
 }
 
 /* === PHONE (<=767px): the terminal is now a first-class surface === */
@@ -844,8 +895,11 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 }
 
 /* keep the one breakpoint that used to do double duty (640 vs 639 disagreed) */
-@media (max-width: 639px) {
-  .term-status .hide-sm { display: none; }
+    @media (max-width: 639px) {
+      .term-status .hide-sm { display: none; }
+      /* With both tiers gone only the essential read-outs and the action
+         cluster remain: feed, panel count, desk switcher, and the controls. */
+      .term-status .desk-chips { max-width: 168px; overflow-x: auto; }
   .ai-fab { top: 6px; right: 8px; padding: 4px 9px; font-size: 11px; }
   .cmdbar, .nav { padding-right: 68px; }
   body:has(.term-root) .cmdbar { padding-right: 8px; }

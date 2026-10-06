@@ -99,6 +99,10 @@ export default function StatusBar({
   })();
   return (
     <div className="statusbar term-status" role="status" aria-label="Terminal status">
+      {/* hide-sm = below 1024px, hide-md = below 1400px. The bar scrolls with a
+          hidden scrollbar, so anything past ~1400px of content is simply gone
+          with no affordance. The low-value read-outs yield first; the desk
+          switcher and the action cluster never do. */}
       <span><span className="feed-dot" />YAHOO FEED · LIVE</span>
       <span className="dot hide-sm">|</span>
       <span className="hide-sm">{MODULES.length} FUNC</span>
@@ -106,7 +110,7 @@ export default function StatusBar({
       <span>{panelCount} PANEL{panelCount === 1 ? "" : "S"} OPEN</span>
       <span className="dot">|</span>
       {workspaceSlot}
-      <span className="dot">|</span>
+      <span className="dot hide-md">|</span>
       <span className="hl hide-sm">DESKS:</span>
       <span className="desk-chips" role="tablist" aria-label="Virtual desktops">
         {desks.map((n, i) => (
@@ -129,11 +133,13 @@ export default function StatusBar({
       </span>
       {focusLabel && (
         <>
-          <span className="dot hide-sm">|</span>
-          <span className="hide-sm">FOCUS: {focusLabel}</span>
+          <span className="dot hide-md">|</span>
+          <span className="hide-md">FOCUS: {focusLabel}</span>
         </>
       )}
-      {ticker && <span className="sec hide-sm">{ticker}</span>}
+      {/* The ticker repeats the cmd bar's ticker field verbatim, so it is the
+          first thing to go when the bar runs out of room. */}
+      {ticker && <span className="sec hide-lg">{ticker}</span>}
       <span className="term-status-spacer" />
       <select
         className="lay-sel"
@@ -147,23 +153,23 @@ export default function StatusBar({
       <button
         className="add-btn" onClick={onAdd} disabled={addDisabled}
         title={addDisabled ? "Max 4 panels — close one to add another" : "Add panel"}
-      >+ PANEL</button>
+      >+ <span className="hide-md">PANEL</span></button>
       <a
         className="add-btn" href="/home"
         title="Bullion Droid — the mobile-first surface"
         aria-label="Open Bullion Droid"
-      >◧ DROID</a>
+      >◧ <span className="hide-md">DROID</span></a>
       {onSettings && (
         <button
           className="add-btn" onClick={onSettings}
           title="Open settings desk (SET) — API key · model · FRED"
           aria-label="Open settings"
-        >⚙ SET</button>
+        >⚙ <span className="hide-md">SET</span></button>
       )}
       <span className="set-wrap" ref={setWrapRef}>
         <button
           className="add-btn" onClick={() => setSetOpen((v) => !v)}
-          title="Global settings — API key · model · FRED (applies to ALL panels)"
+          title={`Global settings — ${shortModel} · ${summary.hasKey ? "key stored" : "no key"} (applies to ALL panels)`}
           aria-label="Global settings"
           aria-expanded={setOpen}
         >⚙ <span className="hide-sm">{shortModel} · {summary.hasKey ? "● KEY" : "○ SRV"}</span><span className="sr-only">Global settings</span></button>
@@ -177,9 +183,9 @@ export default function StatusBar({
       {onTour && (
         <button
           className="add-btn" onClick={onTour}
-          title="Replay the first-run guided tour"
-          aria-label="Replay guided tour"
-        >? TOUR</button>
+title="Replay the first-run guided tour"
+        aria-label="Replay guided tour"
+      >? <span className="hide-md">TOUR</span></button>
       )}
       <button
         className="add-btn"
@@ -188,8 +194,8 @@ export default function StatusBar({
         title="Toggle EXPLAIN MODE — every label becomes explainable (Alt+E)"
         aria-label="Toggle explain mode"
         aria-pressed={explainMode}
-      >{explainMode ? "EXPLAIN ● ON" : "EXPLAIN"}</button>
-      <span>{clock} IST</span>
+      ><span className="hide-md">EXPLAIN</span><span className="sr-only">Toggle explain mode</span>{explainMode ? " ● ON" : ""}</button>
+      <span className="hide-sm">{clock} IST</span>
     </div>
   );
 }
