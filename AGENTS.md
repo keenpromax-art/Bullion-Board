@@ -12,7 +12,7 @@ No Bloomberg trademarks, logo, or wordmark anywhere in code, copy, or UI.
 
 ## Architecture (where things live)
 
-- `src/lib/modules.ts` — module registry (`MODULE_MAP`, ids 1–115). Start here.
+- `src/lib/modules.ts` — module registry (`MODULE_MAP`, ids 1–116). Start here.
 - Desks: dedicated components in `src/components/*Desks.tsx`, wired twice —
   `src/app/module/[id]/page.tsx` (deep-link pages) and
   `src/components/terminal/DeskRenderer.tsx` (workspace panels). Both surfaces

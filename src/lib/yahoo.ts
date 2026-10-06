@@ -249,6 +249,22 @@ export async function yahooQuoteSummary(symbol: string, modules: string): Promis
   }
 }
 
+// Crumb for routes that need POST auth (finance/screener, quoteSummary).
+// Refreshes the cookie jar first, exactly like yahooQuoteSummary does.
+export async function yahooCrumb(force = false): Promise<string> {
+  if (!CRUMB || force || Date.now() - crumbAt > 30 * 60 * 1000) {
+    await ensureYahooCookies(true);
+    const r = await fetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
+      headers: { "User-Agent": yahooHeaders()["User-Agent"], Accept: "*/*", ...(YCOOKIE ? { cookie: YCOOKIE } : {}) },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) throw new Error(`crumb ${r.status}`);
+    CRUMB = (await r.text()).trim();
+    crumbAt = Date.now();
+  }
+  return CRUMB;
+}
+
 export function barsToCloses(bars: OHLCBar[]): number[] {
   return bars.map((b) => b.close);
 }

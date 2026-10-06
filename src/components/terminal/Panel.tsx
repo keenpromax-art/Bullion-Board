@@ -26,6 +26,7 @@ const FULL_HREF: Record<string, string> = {
   "106": "/events",
   "107": "/breadth",
   "38": "/macro",
+  "116": "/universe",
 };
 
 function fullHrefFor(spec: PanelSpec): string | null {

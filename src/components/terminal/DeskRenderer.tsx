@@ -55,7 +55,7 @@ export const SYMBOL_LESS = new Set([
   "38", "41", "44", "45", "46", "47", "49", "51", "53",
   "65", "67", "72", "73", "75",
   "101", "102", "104", "107", "108", "109", "110", "111",
-  "114", "115", "SET",
+  "114", "115", "SET", "116",
   // Notebook-port universe scans: ticker is meaningless (universe pill inside).
   "76", "77", "78", "79", "80", "82", "83", "84",
 ]);
@@ -556,6 +556,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (funcId === "113") return <CastDesk symbol={sym} />;
   if (funcId === "114") return <NexusDesk />;
   if (funcId === "115") return <BookReader />;
+  if (funcId === "116") return <FrameDesk src="/universe" label="WORLD UNIVERSE" />;
 
   if (!mod) return <p className="neg">UNKNOWN FUNCTION {funcId}.</p>;
 

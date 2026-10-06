@@ -12,6 +12,9 @@ tsconfig.tsbuildinfo
 .env
 .env*.local
 
+# world-universe snapshot (rebuild via POST /api/universe/refresh)
+data/
+
 # python original (kept for reference, not deployed)
 # special.py is kept but ignored by Vercel build via .vercelignore if needed
 my_*.json

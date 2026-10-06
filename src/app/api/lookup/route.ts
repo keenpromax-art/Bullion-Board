@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUniverse, searchUniverse } from "@/lib/universe";
 import { yahooHeaders } from "@/lib/yahoo";
 import { WATCHLIST } from "@/lib/watchlist";
 
@@ -63,6 +64,26 @@ export async function GET(req: NextRequest) {
     }
   } catch { /* fall through to local */ }
   const seen = new Set(rows.map((r) => r.symbol));
+  // World index (disk-cached) fills the gap between live Yahoo hits and the
+  // NSE-only watchlist — this is what makes global tickers addressable offline.
+  try {
+    const uni = await getUniverse();
+    if (uni) {
+      for (const u of searchUniverse(uni, q, 10)) {
+        if (rows.length >= 8) break;
+        if (!seen.has(u.symbol)) {
+          seen.add(u.symbol);
+          rows.push({
+            symbol: u.symbol,
+            name: u.name.toUpperCase().slice(0, 44),
+            exch: u.exchange.slice(0, 12),
+            type: "EQ",
+            local: true,
+          });
+        }
+      }
+    }
+  } catch { /* cold index — keep NSE watchlist fallback */ }
   for (const a of ALIASES) {
     if (rows.length >= 8) break;
     if (!seen.has(a.symbol) && (a.symbol.includes(q) || a.name.includes(q))) {
