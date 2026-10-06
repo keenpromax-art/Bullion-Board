@@ -1785,10 +1785,6 @@ export function SectionRail({ sections, active, onJump }: {
           <span className="st">{s.status}</span>
         </button>
       ))}
-      <span className="pre-nav-spacer" />
-      <span className="pre-nav-keys">
-        <kbd>1</kbd>–<kbd>9</kbd> jump · <kbd>M</kbd> market · <kbd>R</kbd> refresh
-      </span>
     </nav>
   );
 }
