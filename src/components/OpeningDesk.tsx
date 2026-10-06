@@ -143,6 +143,17 @@ export interface HeadlineWire {
   folds: number;
 }
 export interface HistoryWire {
+  /** FALSE when the desk publishes no verdict for this index — nothing to grade. */
+  graded: boolean;
+  /** Why the rebuild was refused, when `graded` is false. */
+  skipReason?: string;
+  /** Which index this rebuild graded, and whether it is the fitted one. */
+  target: {
+    key: string; label: string; symbol: string; venue: string;
+    group: string; mode: string;
+    fitted: boolean; alsoLeg: boolean;
+    transfer: string;
+  };
   days: number; band: number; gapGraded: number; sessions: number;
   upGaps: number; dnGaps: number; flatGaps: number; gapHitPct: number;
   oos: HeadlineWire;

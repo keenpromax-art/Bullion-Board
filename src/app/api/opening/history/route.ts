@@ -8,7 +8,7 @@ import {
   round2, round3, vixRegime,
 } from "@/lib/opening";
 import type { Bar, Outcome, PriorIndex, Regime, Score, Verdict } from "@/lib/opening";
-import { STALE_SHARE_WARN } from "@/lib/opening";
+import { OPENING_TARGETS, STALE_SHARE_WARN } from "@/lib/opening";
 
 // Zero-lookahead audit of the LIVE model.
 //
@@ -261,20 +261,60 @@ export async function GET(req: NextRequest) {
   // Capped at 800 because the hourly reconstruction tops out at Yahoo's 730-day
   // limit; asking for more would silently grade sessions the legs cannot see.
   const days = Math.max(60, Math.min(800, parseInt(req.nextUrl.searchParams.get("days") || "800", 10) || 800));
+  // The rebuild follows whatever index the live desk is showing. A scorecard
+  // that always grades NIFTY 50 while the desk is on NIFTY BANK is a scorecard
+  // about a different security than the one on screen.
+  const key = (req.nextUrl.searchParams.get("market") || "NIFTY").toUpperCase();
+  const target = OPENING_TARGETS.find((m) => m.key === key) ?? OPENING_TARGETS[0]!;
+  const identity = {
+    key: target.key, label: target.label, symbol: target.symbol, venue: target.venue,
+    group: target.group, mode: target.mode,
+    /** TRUE only for the index the engine's constants were fitted on. */
+    fitted: target.calibrated,
+    /** TRUE when this index is also one of the engine's own legs. */
+    alsoLeg: target.alsoLeg,
+    /** Why a non-fitted index is graded against fitted constants. */
+    transfer: target.calibrated
+      ? "MEASURED ON THIS INDEX — EVERY BAND AND THE GATE WERE FITTED HERE."
+      : `THE BAND SLOPES AND GATE BELOW WERE FITTED ON NIFTY 50. THIS REBUILD MEASURES THEM ON ${target.label} SO THE DRIFT ROW SHOWS HOW WRONG THE TRANSFER IS — DIRECTION CARRIES, MAGNITUDE IS A TRANSFER.`,
+  };
+  const cacheKey = `rb:${target.symbol}:${days}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return NextResponse.json(cached);
   try {
-    const [nifty, vix, legDaily, legHourly] = await Promise.all([
-      dailySeries("^NSEI"),
+    // A TAPE_CHECK market has no published verdict, by design: the legs print at
+    // 09:00 IST and a New York or Tokyo open has no validated session mapping.
+    // There is no prediction here, so there is nothing to grade. Saying so beats
+    // manufacturing a scorecard for a call the desk never makes.
+    if (target.mode === "TAPE_CHECK") {
+      const body = { days, band: 0, gapGraded: 0, sessions: 0, upGaps: 0, dnGaps: 0, flatGaps: 0, gapHitPct: 0, graded: false, target: identity, items: [] };
+      cacheSet(cacheKey, body);
+      return skip(`${target.label} IS A TAPE CHECK, NOT A CALL. THE ENGINE'S LEGS ARE READ AT 09:00 IST AND THIS INDEX OPENS AT ${target.openHHMM} ${target.venue === "NYSE" || target.venue === "NASDAQ" ? "ET" : "LOCAL"}, SO THE LIVE DESK PUBLISHES NO VERDICT, NO GAP FORECAST AND NO PROBABILITY FOR IT. THERE IS NO PREDICTION TO SCORE — GRADING THE ENGINE'S INTERNAL NUMBER ANYWAY WOULD BE EXACTLY THE "SCORING A MODEL NOBODY RAN" ERROR THIS PANEL EXISTS TO REFUSE.`, days, identity);
+    }
+    const [series, vix, legDaily, legHourly] = await Promise.all([
+      dailySeries(target.symbol),
       dailySeries("^INDIAVIX"),
       Promise.all(PRE_OPEN_LEGS.map((l) => dailySeries(l.symbol))),
       Promise.all(PRE_OPEN_LEGS.map((l) => hourlySeries(l.symbol))),
     ]);
-    if (!nifty || nifty.bars.length < 60) throw new Error("no nifty history");
+    // Yahoo serves as little as a single bar for some indices (^CNXAUTO is the
+    // live example). A 60-session rebuild is impossible on one bar, and a 502
+    // for an index the desk happily offers in its own rail reads as a crash
+    // rather than as a missing measurement. So it is reported as one.
+    if (!series || series.bars.length < 60) {
+      const have = series?.bars.length ?? 0;
+      cacheSet(cacheKey, { graded: false });
+      return skip(
+        `NO REBUILDABLE HISTORY FOR ${target.label} (${target.symbol}). THE PRICE FEED RETURNS ${have} DAILY ${have === 1 ? "BAR" : "BARS"}, AND A WALK-FORWARD REBUILD NEEDS AT LEAST 60. THE LIVE DESK STILL QUOTES THIS INDEX — IT IS THE *SCORECARD* THAT CANNOT BE BUILT, NOT THE MARKET.`,
+        days, identity,
+      );
+    }
     const missing = PRE_OPEN_LEGS.filter((_, i) => !legDaily[i]).map((l) => l.short);
     const noHourly = PRE_OPEN_LEGS.filter((_, i) => !legHourly[i]).map((l) => l.short);
 
     const vixClose = new Map((vix?.bars ?? []).map((b) => [b.date, b.close]));
-    const niftyIdx = new Map(nifty.bars.map((b, i) => [b.date, i]));
-    const dates = nifty.bars.map((b) => b.date).slice(-days);
+    const niftyIdx = new Map(series.bars.map((b, i) => [b.date, i]));
+    const dates = series.bars.map((b) => b.date).slice(-days);
 
     // ---- one pass: readings, live engine output, and the vote matrix ----
     const rows: Row[] = [];
@@ -283,9 +323,9 @@ export async function GET(req: NextRequest) {
     const howMix: Record<string, Record<string, number>> = {};
 
     for (const date of dates) {
-      const i = niftyIdx.get(date)!;
-      const session = nifty.bars[i];
-      const prevBar = i > 0 ? nifty.bars[i - 1] : null;
+const i = niftyIdx.get(date)!;
+      const session = series.bars[i];
+      const prevBar = i > 0 ? series.bars[i - 1] : null;
 
       const reads = PRE_OPEN_LEGS.map((spec, k) => legReading(date, spec, legDaily[k], legHourly[k]));
       PRE_OPEN_LEGS.forEach((spec, k) => {
@@ -605,10 +645,10 @@ rows.push({
     };
 
     const liveAll = headline(rows);
-    const gapGraded = rows.filter((r) => r.gapOutcome !== "NO_DATA");
+const gapGraded = rows.filter((r) => r.gapOutcome !== "NO_DATA");
     const vixLast = vix?.bars.length ? vix.bars[vix.bars.length - 1] : null;
 
-    return NextResponse.json({
+    const body = {
       days: rows.length,
       band: FLAT_BAND_PCT,
       sessions: rows.length,
@@ -667,12 +707,17 @@ rows.push({
       legCount: PRE_OPEN_LEGS.length,
       missingLegs: missing,
       noHourlyLegs: noHourly,
-      rows: oos.slice().reverse().slice(0, 400),
+rows: oos.slice().reverse().slice(0, 400),
+      graded: true,
+      target: identity,
       _meta: {
-        target: "GAP = OPEN vs PRIOR CLOSE",
+        target: `${target.label} (${target.symbol}, ${target.venue}) — GAP = OPEN vs PRIOR CLOSE`,
         engine: "SAME LEG SPECS + VOTE MATH + GATE + MAGNITUDE MODEL AS /api/opening",
         model: MODEL_PROVENANCE,
         limits: [
+          ...(target.calibrated ? [] : [
+            `THIS REBUILD MEASURED ${target.label}; EVERY PUBLISHED CONSTANT WAS FITTED ON NIFTY 50. THE BANDS ROW SHOWS THE SIZE OF THAT TRANSFER — A LARGE DRIFT MEANS THE LIVE MAGNITUDE IS WRONG FOR THIS INDEX`,
+          ]),
           "HOURLY RECONSTRUCTION COSTS UP TO 60 MIN OF STALENESS ON THE 24H LEGS VS THE LIVE TICK",
           "NO BREADTH LEG IN THIS MODEL — HISTORICAL 09:00 IST A/D IS NOT RECONSTRUCTABLE, AND THE LIVE PREDICTION EXCLUDES IT TOO",
           "DAY RETURN IS REPORTED AS A SECONDARY COLUMN, NEVER AS THE PREDICTION TARGET",
@@ -680,18 +725,59 @@ rows.push({
           "THE PUBLISH GATE IS APPLIED TO A FORECAST WHOSE BAND COEFFICIENTS WERE FITTED ON THE WHOLE HISTORY, SO THE LIVE GATE IS MARGINALLY OPTIMISTIC; THE BIAS IS FOUR NUMBERS ON 738 POINTS AND IS NOT ADJUSTED FOR",
           "INTRADAY PATH / MOMENTUM FEATURES WERE TESTED AND REJECTED — THE 09:00 LEVEL ALREADY CONTAINS THEM",
           "CROSS-FACTOR DISAGREEMENT PREDICTS THE RESIDUAL ONLY WEAKLY (r=0.17) SO IT HAIRCUTS CONFIDENCE AND NEVER MOVES THE FORECAST",
-          ...(noHourly.length ? [`NO HOURLY HISTORY FOR ${noHourly.join(", ")} — THESE FELL BACK TO THE PRIOR DAILY CLOSE AND ARE UNDERSTATED`] : []),
+...(noHourly.length ? [`NO HOURLY HISTORY FOR ${noHourly.join(", ")} — THESE FELL BACK TO THE PRIOR DAILY CLOSE AND ARE UNDERSTATED`] : []),
         ],
       },
-    });
+    };
+    cacheSet(cacheKey, body);
+    return NextResponse.json(body);
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "history failed" }, { status: 502 });
   }
 }
 
+/**
+ * A rebuild is deterministic for a given index and window, and it costs 1-3s of
+ * upstream series. React mounts twice in dev and the desk re-renders on market
+ * and day changes, so without this the same 738 sessions get rebuilt several
+ * times per visit. Keyed by symbol+window and held briefly: long enough to
+ * absorb a double-mount, short enough that a new session's prints land.
+ */
+const REBUILD_TTL = 15 * 60_000;
+const rebuildCache = new Map<string, { at: number; body: unknown }>();
+
+function cacheGet(key: string): unknown | undefined {
+  const hit = rebuildCache.get(key);
+  if (!hit) return undefined;
+  if (Date.now() - hit.at > REBUILD_TTL) { rebuildCache.delete(key); return undefined; }
+  return hit.body;
+}
+function cacheSet(key: string, body: unknown) {
+  if (rebuildCache.size > 24) rebuildCache.clear();
+  rebuildCache.set(key, { at: Date.now(), body });
+}
+
 /** First scored fold must leave room for the ridge's inner validation split. */
 function block0(n: number): number {
   return Math.floor(n * 0.25);
+}
+
+/**
+ * The "there is nothing to grade, and here is why" payload. Deliberately a
+ * normal 200 with `graded: false` rather than an error: the desk is reporting a
+ * measurement it cannot make, which is information, not a fault. The client
+ * renders the reason in the panel so a missing scorecard never reads as a
+ * missing market.
+ */
+function skip(reason: string, days: number, target: unknown) {
+  return NextResponse.json({
+    days, band: 0, gapGraded: 0, sessions: 0,
+    upGaps: 0, dnGaps: 0, flatGaps: 0, gapHitPct: 0,
+    graded: false,
+    skipReason: reason,
+    target,
+    items: [],
+  });
 }
 
 

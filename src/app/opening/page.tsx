@@ -178,7 +178,7 @@ export default function OpeningPage() {
       <>
         <CommandBar ticker={ticker} onTicker={() => {}} />
         <main className="container grid">
-          <Scorecard />
+          <Scorecard market={market} />
         </main>
         <StatusBar extra="PRE" />
       </>
@@ -227,15 +227,20 @@ export default function OpeningPage() {
 
 /* ---------------- scorecard tab ---------------- */
 
-function Scorecard() {
+function Scorecard({ market }: { market: string }) {
   const [data, setData] = useState<HistoryWire | null>(null);
   const [err, setErr] = useState("");
   const [days, setDays] = useState(800);
 
+  // The rebuild follows the live desk's selection. Clearing on a market change
+  // stops one index's numbers sitting under another's label while the new
+  // rebuild is still in flight.
+  useEffect(() => { setData(null); setErr(""); }, [market]);
+
   useEffect(() => {
     let alive = true;
     setErr("");
-    fetch(`/api/opening/history?days=${days}`)
+    fetch(`/api/opening/history?days=${days}&market=${encodeURIComponent(market)}`)
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || "backfill failed");
@@ -243,7 +248,7 @@ function Scorecard() {
       })
       .catch((e) => alive && setErr(e.message));
     return () => { alive = false; };
-  }, [days]);
+  }, [days, market]);
 
   return (
     <div className="grid">

@@ -42,8 +42,12 @@ const edge = o.dirSignPct !== null && o.dirBasePct !== null ? o.dirSignPct - o.d
   const topConf = h.confCalibration?.bands?.find((b) => b.key === h.confCalibration.topBandKey);
   return (
     <div className="panel panel-glow">
-      <p className="p-head">
-        Accuracy scorecard — out-of-sample rebuild of the live engine · {h.sessions} sessions
+<p className="p-head">
+        Accuracy scorecard — out-of-sample rebuild of the live engine · {h.target?.label ?? "this index"} ·{" "}
+        {h.sessions} sessions
+        {h.target && !h.target.fitted && (
+          <span className="badge" style={{ marginLeft: 8 }}>FITTED ON NIFTY 50 — TRANSFERRED HERE</span>
+        )}
       </p>
       <div className="cells">
         <Cell
@@ -680,9 +684,47 @@ function ConfidenceCalibration({ h }: { h: HistoryWire }) {
 }
 
 export function ScorecardPanels({ h }: { h: HistoryWire }) {
+  // A TAPE CHECK market has no published call, so there is nothing to grade.
+  // Say exactly that rather than rendering NIFTY 50's numbers under a different
+  // index's name — which is the one mistake this panel exists to prevent.
+  if (h.graded === false) {
+    return (
+      <div className="panel panel-glow">
+        <p className="p-head">
+          Accuracy scorecard — not available for {h.target?.label ?? "this market"}
+        </p>
+        <div className="cell" style={{ borderColor: "rgba(255,160,40,0.45)" }}>
+          <div className="lbl">NO PREDICTION TO SCORE</div>
+          <div className="sub" style={{ fontSize: 11.5, lineHeight: 1.6, marginTop: 4 }}>
+            {h.skipReason ?? "THE DESK PUBLISHES NO VERDICT FOR THIS MARKET."}
+          </div>
+        </div>
+        <p className="muted" style={{ fontSize: 11, margin: "10px 0 0" }}>
+          SWITCH THE LIVE DESK TO AN INDIAN INDEX — NIFTY 50, NIFTY BANK, SENSEX, NIFTY IT, NIFTY PHARMA, NIFTY
+          AUTO OR NIFTY MIDCAP 50 — AND THE REBUILD FOLLOWS THE SELECTION AND RE-RUNS ON THAT INDEX&apos;S OWN
+          OPENING GAPS.
+        </p>
+      </div>
+    );
+  }
+  const t = h.target;
   return (
     <div className="grid">
       <ScorecardHeadline h={h} />
+      <div className="panel" style={{ borderColor: t?.fitted ? "rgba(0,214,100,0.35)" : "rgba(255,160,40,0.4)" }}>
+        <p className="p-head">What this rebuild graded</p>
+        <div className="cells">
+          <Cell lbl="Index" val={t?.label ?? "—"} sub={`${t?.symbol ?? "—"} · ${t?.venue ?? "—"}`} />
+          <Cell
+            lbl="Constants"
+            val={t?.fitted ? "FITTED HERE" : "TRANSFERRED"}
+            sub={t?.fitted ? "BANDS AND GATE MEASURED ON THIS INDEX" : "FITTED ON NIFTY 50 — SEE BANDS"}
+            cls={t?.fitted ? "pos" : "neg"}
+          />
+          <Cell lbl="Sample" val={`${h.sessions} sess`} sub={h._meta.model.sample} />
+        </div>
+        <p className="muted" style={{ fontSize: 11, margin: "8px 0 0" }}>{t?.transfer ?? ""}</p>
+      </div>
       <ProvenancePanel h={h} />
       <ConfidenceCalibration h={h} />
       <LegEvidenceTable h={h} />
