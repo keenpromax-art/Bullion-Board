@@ -37,8 +37,9 @@ function ScorecardHeadline({ h }: { h: HistoryWire }) {
   const is = h.inSample;
   const flatShare = h.gapGraded ? (h.flatGaps / h.gapGraded) * 100 : 0;
   const alwaysUp = h.gapGraded ? ((h.upGaps + h.flatGaps) / h.gapGraded) * 100 : 0;
-  const edge = o.dirSignPct !== null && o.dirBasePct !== null ? o.dirSignPct - o.dirBasePct : null;
+const edge = o.dirSignPct !== null && o.dirBasePct !== null ? o.dirSignPct - o.dirBasePct : null;
   const beats = edge !== null && edge > 0;
+  const topConf = h.confCalibration?.bands?.find((b) => b.key === h.confCalibration.topBandKey);
   return (
     <div className="panel panel-glow">
       <p className="p-head">
@@ -109,6 +110,29 @@ function ScorecardHeadline({ h }: { h: HistoryWire }) {
           <li className="muted">
             The benchmark is the best single always-call on exactly the {o.dirN} sessions the model actually
             called — not a flattering average, and not a different sample size.
+          </li>
+          <li className="muted">
+            <strong className="muted">Confidence does not order accuracy.</strong>{" "}
+            {h.confCalibration?.monotone === false ? (
+              <>
+                The desk is consistently <em>under</em>-promising — stated {topConf?.label ?? "—"} confidence of{" "}
+                {topConf?.statedPct?.toFixed(1) ?? "—"}% was right{" "}
+                {topConf?.hitPct?.toFixed(1) ?? "—"}% of the time — but the hit rate is roughly flat across
+                every band, so a higher number does not mean a likelier call. Read it as a tape-quality
+                read-out, not a probability.
+              </>
+            ) : h.confCalibration?.monotone === true ? (
+              <>Higher confidence bands measure more accurate on this rebuild. The ordering, and its per-band
+                calibration gap, are printed in the confidence table.</>
+            ) : (
+              <>Too few bands carry enough directional calls to judge the ordering. The bands are printed below
+                rather than dropped.</>
+            )}
+          </li>
+          <li className="muted">
+            A low confidence band is mostly <em>stand aside</em>, not a weak call: the publish gate floors
+            confidence at 0.45 × tape quality, so the 20–40% bands are mostly FLAT sessions the desk declined
+            to call. Grade them and you are grading the gate, not the model.
           </li>
           {h._meta.limits.map((l, i) => <li key={i} className="muted">{l}</li>)}
         </ul>
@@ -531,11 +555,136 @@ function ProvenancePanel({ h }: { h: HistoryWire }) {
   );
 }
 
+/**
+ * Confidence calibration — the direct question: when the desk printed a
+ * confidence, how often was it right, and did being right pay?
+ *
+ * The three numbers that matter per band:
+ *   STATED   the average confidence the desk published for those sessions
+ *   HIT      the share of its directional calls in that band that were right
+ *   CALIBR   HIT − STATED. Negative means the desk over-promises in that band,
+ *            which is the only figure here that can embarrass the model.
+ *
+ * "Helped" is measured, not asserted: AVG GAP RIGHT − AVG GAP WRONG. If a band
+ * is accurate but the calls it got right moved no more than the ones it got
+ * wrong, the accuracy bought nothing.
+ */
+function ConfidenceCalibration({ h }: { h: HistoryWire }) {
+  const cc = h.confCalibration;
+  if (!cc?.bands?.length) return null;
+  const widest = Math.max(0.05, ...cc.bands.map((b) => Math.max(b.ptsRight, b.ptsWrong)));
+  const graded = cc.bands.filter((b) => b.hitPct !== null);
+  const top = graded[0];
+  return (
+    <div className="panel">
+      <p className="p-head">Confidence calibration — what the desk&apos;s own confidence number was worth</p>
+      <div className="scrollx">
+        <table className="plain">
+          <thead>
+            <tr>
+              <th>CONFIDENCE</th>
+              <th style={{ textAlign: "right" }}>SESSIONS</th>
+              <th style={{ textAlign: "right" }}>CALLS</th>
+              <th style={{ textAlign: "right" }}>RIGHT</th>
+              <th style={{ textAlign: "right" }}>WRONG</th>
+              <th style={{ textAlign: "right" }}>STATED</th>
+              <th style={{ textAlign: "right" }}>HIT RATE</th>
+              <th style={{ textAlign: "right" }}>CALIBRATION</th>
+              <th style={{ textAlign: "right" }}>MOVE CAUGHT</th>
+              <th style={{ textAlign: "right" }}>MOVE LOST</th>
+              <th style={{ textAlign: "right" }}>SPREAD</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cc.bands.map((b) => {
+              const thin = b.dirN < cc.minN;
+              const over = b.calibPts !== null && b.calibPts < -5;
+              return (
+                <tr key={b.key}>
+                  <td>
+                    <strong>{b.label}</strong>
+                    {b.key === cc.topBandKey && <span className="badge fnc" style={{ marginLeft: 6 }}>TOP</span>}
+                  </td>
+                  <td style={{ textAlign: "right" }} className="faint">{b.n}</td>
+                  <td style={{ textAlign: "right" }}>{b.calls}</td>
+                  <td style={{ textAlign: "right" }} className="pos">{b.right}</td>
+                  <td style={{ textAlign: "right" }} className={b.wrong ? "neg" : "faint"}>{b.wrong}</td>
+                  <td style={{ textAlign: "right" }} className="faint">
+                    {b.statedPct === null ? "—" : `${b.statedPct.toFixed(1)}%`}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {b.hitPct === null || thin ? (
+                      <span className="faint" title={`only ${b.dirN} directional calls — under ${cc.minN}`}>n/a</span>
+                    ) : (
+                      <strong>{b.hitPct.toFixed(1)}%</strong>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right" }} className={over ? "neg" : b.calibPts === null || thin ? "faint" : "pos"}>
+                    {b.calibPts === null || thin ? "—" : `${b.calibPts >= 0 ? "+" : "−"}${Math.abs(b.calibPts).toFixed(1)} pts`}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <span style={{ display: "inline-block", width: 78, position: "relative", height: 10 }}>
+                      <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: (b.ptsRight / widest) * 78, background: "#00d664" }} />
+                      <span style={{ position: "absolute", left: 0, top: 6, bottom: 0, width: (b.ptsWrong / widest) * 78, background: "#ff453a" }} />
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "right" }} className="pos">+{b.ptsRight.toFixed(1)}%</td>
+                  <td style={{ textAlign: "right" }} className={b.ptsWrong ? "neg" : "faint"}>−{b.ptsWrong.toFixed(1)}%</td>
+                  <td style={{ textAlign: "right" }} className={toneClass(b.spreadPct)}>
+                    {b.spreadPct === null || thin ? "—" : `${b.spreadPct >= 0 ? "+" : ""}${b.spreadPct.toFixed(2)}%`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="cells" style={{ marginTop: 12 }}>
+        <Cell
+          lbl="Confidence ordering"
+          val={cc.monotone === null ? "n/a" : cc.monotone ? "HOLDS" : "FAILS"}
+          sub={cc.verdict}
+          cls={cc.monotone === null ? "faint" : cc.monotone ? "pos" : "neg"}
+        />
+        <Cell
+          lbl={`Highest band (${top?.label ?? "—"})`}
+          val={top?.hitPct === null || top === undefined ? "n/a" : `${top.hitPct.toFixed(1)}%`}
+          sub={top?.statedPct === null || top === undefined ? "TOO FEW CALLS" : `STATED ${top.statedPct.toFixed(1)}% · N=${top.dirN}`}
+          cls={top && top.hitPct !== null && top.statedPct !== null && top.hitPct >= top.statedPct ? "pos" : "neg"}
+        />
+        <Cell
+          lbl="Net move captured"
+          val={`${cc.bands.reduce((s, b) => s + b.ptsRight, 0) >= 0 ? "+" : ""}${(cc.bands.reduce((s, b) => s + b.ptsRight, 0) - cc.bands.reduce((s, b) => s + b.ptsWrong, 0)).toFixed(1)}%`}
+          sub="MOVE CAUGHT MINUS MOVE LOST, ALL BANDS"
+          cls={cc.bands.reduce((s, b) => s + b.ptsRight, 0) - cc.bands.reduce((s, b) => s + b.ptsWrong, 0) >= 0 ? "pos" : "neg"}
+        />
+      </div>
+
+      <p className="muted" style={{ fontSize: 11, margin: "10px 0 0" }}>
+        <strong className="muted">HOW TO READ THIS.</strong> FIND THE BAND MATCHING A LIVE CALL&apos;S CONFIDENCE AND
+        COMPARE HIT RATE WITH STATED. IF HIT RATE IS BELOW STATED, THE DESK IS OVER-PROMISING IN THAT BAND AND
+        THE NUMBER IS A DISPLAY QUANTITY, NOT A PROBABILITY. CALIBRATION IS THE ONLY COLUMN HERE THAT CAN
+        DISAGREE WITH THE DESK&apos;S OWN SCORE.
+      </p>
+      <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0" }}>
+        GRADED OUT-OF-SAMPLE: CONFIDENCE IS RECOMPUTED ON EACH FOLD&apos;S OWN FORECAST, NOT CARRIED OVER FROM
+        THE FULL-SAMPLE FIT. `n/a` MEANS FEWER THAN {cc.minN} GENUINELY DIRECTIONAL CALLS IN THE BAND — THOSE
+        ROWS ARE PRINTED, NOT HIDDEN. ONLY DIRECTIONAL CALLS ARE GRADED: A FLAT CALL CARRIES A CONFIDENCE (THE
+        FORMULA FLOORS AT 0.45 × TAPE QUALITY) BUT &quot;WAS THE DIRECTION RIGHT&quot; IS NOT A QUESTION ABOUT
+        IT. CONFIDENCE IS BUILT FROM COVERAGE, STALE SHARE, FACTOR DISAGREEMENT AND DISTANCE PAST THE GATE — SO
+        A HIGH BAND MEANS A STRONG TAPE BEYOND THE GATE, NOT A PROOF OF ANYTHING.
+      </p>
+    </div>
+  );
+}
+
 export function ScorecardPanels({ h }: { h: HistoryWire }) {
   return (
     <div className="grid">
       <ScorecardHeadline h={h} />
       <ProvenancePanel h={h} />
+      <ConfidenceCalibration h={h} />
       <LegEvidenceTable h={h} />
       <CalibrationTable h={h} />
       <OperatingCurve h={h} />      <RegimeTable h={h} />

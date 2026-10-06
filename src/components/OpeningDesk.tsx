@@ -167,6 +167,28 @@ export interface HistoryWire {
   gateSweep: Array<HeadlineWire & { egapMin: number; legacy: boolean }>;
   legacyGate: HeadlineWire & { edgeMin: number; regimeMult: Record<string, number> };
   calibration: CalibBucketWire[];
+  /**
+   * Grading the desk's own published confidence number, out-of-sample. Edge
+   * buckets say "is the signal big"; this says "when we said 60%, were we
+   * right, and did being right capture more move than being wrong cost".
+   */
+  confCalibration: {
+    bands: Array<{
+      key: string; label: string; lo: number; hi: number;
+      n: number; calls: number; dirN: number; right: number; wrong: number;
+      hitPct: number | null;
+      statedPct: number | null;
+      calibPts: number | null;
+      ptsRight: number; ptsWrong: number;
+      avgGapRight: number | null; avgGapWrong: number | null;
+      spreadPct: number | null;
+    }>;
+    /** Do higher bands actually measure more accurate? null = too few to judge. */
+    monotone: boolean | null;
+    verdict: string;
+    topBandKey: string | null;
+    minN: number;
+  };
   regimeSplit: Array<{
     regime: string; band: string; bandSlope: number; bandResidSd: number;
     calls: number; n: number;

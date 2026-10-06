@@ -8,6 +8,7 @@ import {
   round2, round3, vixRegime,
 } from "@/lib/opening";
 import type { Bar, Outcome, PriorIndex, Regime, Score, Verdict } from "@/lib/opening";
+import { STALE_SHARE_WARN } from "@/lib/opening";
 
 // Zero-lookahead audit of the LIVE model.
 //
@@ -168,8 +169,32 @@ const avg = (xs: number[]) => (xs.length ? round3(xs.reduce((a, b) => a + b, 0) 
 interface Row {
   date: string; edge: number | null; egap: number | null; coverage: number; staleShare: number; verdict: Verdict;
   regime: Regime | null; conflict: boolean;
+  /** Live-engine confidence at this session, and the factor disagreement that fed it. */
+  confidence: number; disagreement: number | null;
   gapPct: number | null; dayPct: number | null;
   gapOutcome: Outcome; dayOutcome: Outcome;
+}
+
+/**
+ * The live confidence formula, reproduced exactly so the scorecard can grade
+ * the number the desk actually publishes. Copied rather than imported because
+ * `buildScore` takes the whole leg vote array; here we have the already-folded
+ * edge and the session's tape quality, which is all the formula consumes.
+ *
+ * Any change to the formula in lib/opening.ts must be mirrored here or the
+ * calibration table grades a confidence the desk does not print.
+ */
+function confidenceOf(
+  verdict: Verdict, egap: number | null, coverage: number,
+  staleShare: number, disagreement: number | null, conflict: boolean
+): number {
+  if (verdict === "NO_DATA" || egap === null) return 0;
+  const gate = conflict ? EGAP_MIN * 1.5 : EGAP_MIN;
+  const mag = Math.abs(egap);
+  const margin = verdict === "FLAT" ? 0 : Math.min(1, (mag - gate) / gate);
+  const fresh = 1 - Math.min(1, staleShare / STALE_SHARE_WARN);
+  const agree = disagreement === null ? 1 : Math.max(0.55, 1 - Math.min(1, disagreement / 0.45) * 0.45);
+  return round3(coverage * fresh * agree * (0.45 + 0.55 * Math.max(margin, 0)));
 }
 
 /** The like-for-like headline. Model and benchmark on the SAME sessions. */
@@ -281,9 +306,10 @@ export async function GET(req: NextRequest) {
       const dayPct = pctChange(session.close, prevBar ? prevBar.close : null);
       const { gap, day } = gradePrediction(score.verdict, gapPct, dayPct, FLAT_BAND_PCT);
 
-      rows.push({
+rows.push({
         date, edge: score.edge, coverage: score.coverage, staleShare: score.staleShare,
         verdict: score.verdict, regime: score.regime, conflict: score.conflict, egap: score.expectedGapPct,
+        confidence: score.confidence, disagreement: score.disagreement,
         gapPct: gapPct === null ? null : round2(gapPct),
         dayPct: dayPct === null ? null : round2(dayPct),
         gapOutcome: gap, dayOutcome: day,
@@ -348,7 +374,12 @@ export async function GET(req: NextRequest) {
         const verdict: Verdict = eg === null ? "NO_DATA" : Math.abs(eg) >= gate ? (eg > 0 ? "GREEN" : "RED") : "FLAT";
         const g = rows[i]!.gapPct;
         const { gap, day } = gradePrediction(verdict, g, rows[i]!.dayPct, FLAT_BAND_PCT);
-        oos.push({ ...rows[i]!, edge: e === null ? null : round3(e), egap: eg === null ? null : round3(eg), verdict, gapOutcome: gap, dayOutcome: day });
+        // Confidence is recomputed on the FOLD's own forecast, not carried over
+        // from the full-sample score: grading the in-sample confidence against an
+        // out-of-sample outcome is exactly the leak this scorecard exists to
+        // refuse.
+        const conf = confidenceOf(verdict, eg, rows[i]!.coverage, rows[i]!.staleShare, rows[i]!.disagreement, rows[i]!.conflict);
+        oos.push({ ...rows[i]!, edge: e === null ? null : round3(e), egap: eg === null ? null : round3(eg), verdict, confidence: conf, gapOutcome: gap, dayOutcome: day });
         oosProbs.push(eg !== null && rs ? round3(normCdf(eg / rs)) : null);
         oosPred.push(eg);
         oosBand.push(bk);
@@ -441,6 +472,80 @@ export async function GET(req: NextRequest) {
         dirSignPct: dg.length ? hitPct(dg.map((r) => (((r.gapPct as number) > 0) === (r.verdict === "GREEN") ? 1 : 0))) : null,
       };
     });
+
+    // ---- confidence calibration --------------------------------------------
+    // The question the scorecard exists to answer: when the desk says "60%
+    // confident", how often is it right, and how much move did being right
+    // actually capture? Edge buckets answer a different question (is the signal
+    // big), which is why both tables exist.
+    //
+    // Bins are on the PUBLISHED confidence, not on an edge proxy, so a reader
+    // can look at a live call, see its confidence, and find the matching row.
+    const CONF_BANDS: Array<{ key: string; label: string; lo: number; hi: number }> = [
+      { key: "C70", label: "≥ 70%", lo: 0.7, hi: 1.01 },
+      { key: "C60", label: "60 – 70%", lo: 0.6, hi: 0.7 },
+      { key: "C50", label: "50 – 60%", lo: 0.5, hi: 0.6 },
+      { key: "C40", label: "40 – 50%", lo: 0.4, hi: 0.5 },
+      { key: "C30", label: "30 – 40%", lo: 0.3, hi: 0.4 },
+      { key: "C20", label: "20 – 30%", lo: 0.2, hi: 0.3 },
+      { key: "C00", label: "< 20%", lo: 0, hi: 0.2 },
+    ];
+    const confBands = CONF_BANDS.map((b) => {
+      const inB = oos.filter((r) => r.confidence >= b.lo && r.confidence < b.hi && r.gapPct !== null);
+      // A band is graded only on calls the desk actually made. FLAT calls get a
+      // confidence (the formula floors at 0.45 × tape quality) but "was the
+      // direction right" is not a question about them.
+      const calls = inB.filter((r) => r.verdict === "GREEN" || r.verdict === "RED");
+      const dirSet = calls.filter((r) => Math.abs(r.gapPct as number) > FLAT_BAND_PCT);
+      const right = dirSet.filter((r) => (r.gapPct as number) > 0 === (r.verdict === "GREEN"));
+      const wrong = dirSet.filter((r) => !right.includes(r));
+      const hitRate = dirSet.length ? round2((right.length / dirSet.length) * 100) : null;
+      const stated = avg(inB.map((r) => r.confidence));
+      const rightGap = right.map((r) => Math.abs(r.gapPct as number));
+      const wrongGap = wrong.map((r) => Math.abs(r.gapPct as number));
+      const avgRight = avg(rightGap), avgWrong = avg(wrongGap);
+      return {
+        key: b.key, label: b.label,
+        lo: b.lo, hi: Math.min(1, b.hi),
+        n: inB.length,
+        calls: calls.length,
+        dirN: dirSet.length,
+        right: right.length,
+        wrong: wrong.length,
+        hitPct: hitRate,
+        /** Mean confidence the desk printed for these sessions, in percent. */
+        statedPct: stated === null ? null : round2(stated * 100),
+        /** hitPct − statedPct. Negative means the desk over-promises here. */
+        calibPts: hitRate !== null && stated !== null ? round2(hitRate - stated * 100) : null,
+        /** Move captured on the calls it got right, in forecast percent. */
+        ptsRight: round2(rightGap.reduce((s, v) => s + v, 0)),
+        /** Move it walked into on the calls it got wrong. */
+        ptsWrong: round2(wrongGap.reduce((s, v) => s + v, 0)),
+        avgGapRight: avgRight,
+        avgGapWrong: avgWrong,
+        /** Did being right actually pay? Positive = the right calls moved more. */
+        spreadPct: avgRight !== null && avgWrong !== null ? round3(avgRight - avgWrong) : null,
+      };
+    });
+    // Monotonicity is the real test of whether confidence means anything: if a
+    // higher band is not more accurate, the number is decoration.
+    const graded = confBands.filter((b) => b.hitPct !== null);
+    const monotone = graded.length >= 3
+      ? graded.every((b, i) => i === 0 || b.hitPct! <= graded[i - 1]!.hitPct! + 2)
+      : null;
+    const topBand = graded[0] ?? null;
+    const confCalibration = {
+      bands: confBands,
+      monotone,
+      /** What a reader should do with the whole table. */
+      verdict: monotone === null
+        ? "TOO FEW BANDS TO JUDGE — PRINTED, NOT HIDDEN"
+        : monotone
+          ? "HIGHER CONFIDENCE BANDS ARE MORE ACCURATE — THE NUMBER CARRIES INFORMATION"
+          : "CONFIDENCE DOES NOT ORDER ACCURACY — TREAT IT AS A DISPLAY NUMBER, NOT A PROBABILITY",
+      topBandKey: topBand?.key ?? null,
+      minN: 12,
+    };
 
     // ---- regime split, with the measured spread behind each multiplier ----
     const regimeSplit = (["CALM", "NORMAL", "STRESS"] as Regime[]).map((rg) => {
@@ -543,6 +648,7 @@ export async function GET(req: NextRequest) {
 
       weights: legEvidence,
       calibration,
+    confCalibration,
       regimeSplit,
       gateSweep,
       legacyGate: { edgeMin: 0.30, regimeMult: legacyMult, ...legacy },
