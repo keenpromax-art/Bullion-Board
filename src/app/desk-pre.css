@@ -503,6 +503,25 @@
 :root[data-theme="light"] .pre-led-row,
 :root[data-theme="light"] .pre-nav { box-shadow: var(--panel-lift); }
 
+/* TINT STRENGTH.
+
+   This desk's identity surfaces are tinted with 4-7% amber, which is the right
+   weight over a black panel — a barely-there warmth is all a dark canvas can
+   carry. Over white the same percentages land at ~1.05:1 against the panel,
+   which is not a tint at all: the decision banner (`.pre-act`), the leg note
+   and the two "this is the mark that matters" cards were all painting nothing.
+   On light every one of them steps up until the tint is actually visible,
+   which is how the warmth in this theme is carried at all — the accent has to
+   stay text-safe, so the colour lives in the wash. */
+:root[data-theme="light"] .pre-act { background: color-mix(in srgb, var(--amber) 13%, var(--panel)); }
+:root[data-theme="light"] .pre-leg-note { background: color-mix(in srgb, var(--amber) 11%, var(--panel)); }
+:root[data-theme="light"] .pre-tl-node.now { background: color-mix(in srgb, var(--amber) 13%, var(--panel-2)); }
+:root[data-theme="light"] .pre-tn.close { background: color-mix(in srgb, var(--amber) 13%, var(--panel-2)); }
+:root[data-theme="light"] .pre-factor:hover { background: color-mix(in srgb, var(--amber) 10%, var(--panel)); }
+:root[data-theme="light"] .pre-nav-btn:hover { background: color-mix(in srgb, var(--amber) 12%, var(--panel)); }
+:root[data-theme="light"] .pre-chip:hover { background: color-mix(in srgb, var(--amber) 11%, var(--panel-2)); }
+:root[data-theme="light"] .pre-chip.on { background: color-mix(in srgb, var(--amber) 15%, var(--panel-2)); }
+
 /* The heat cells tint themselves with 8-16% of green or red over the panel.
    Over white those washes are much weaker than over black, so the STRONG
    tier doubles its weight and the weak tier lifts with it — the lopsidedness

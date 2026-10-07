@@ -331,7 +331,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 /* ---------------- swipe tabs ---------------- */
 .dx-tabs {
   position: sticky; top: calc(var(--dx-top) + var(--dx-safe-t)); z-index: 40;
-  background: var(--dx-bg); border-bottom: 1px solid var(--dx-grid);
+  background: var(--dx-chrome); border-bottom: 1px solid var(--dx-grid);
   overflow: hidden;
 }
 .dx-tabs-strip { display: flex; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
@@ -475,7 +475,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 .dx-bridge-bar {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
   padding-top: calc(var(--dx-safe-t) + 6px);
-  background: var(--dx-track); border-bottom: 1px solid color-mix(in srgb, var(--dx-amber) 40%, transparent); min-height: calc(var(--dx-top) + var(--dx-safe-t));
+  background: var(--dx-chrome); border-bottom: 1px solid color-mix(in srgb, var(--dx-amber) 45%, transparent); min-height: calc(var(--dx-top) + var(--dx-safe-t));
 }
 .dx-bridge-body { flex: 1; min-height: 0; overflow: auto; padding: 10px; padding-bottom: calc(var(--dx-safe-b) + 20px); }
 .dx-bridge-body .panel { margin: 0; }

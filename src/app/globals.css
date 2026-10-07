@@ -333,6 +333,7 @@
 :root[data-theme="light"] .fnrow:hover,
 :root[data-theme="light"] .top-row:hover,
 :root[data-theme="light"] .plain tbody tr:hover { background: color-mix(in srgb, var(--amber) 10%, transparent); }
+:root[data-theme="light"] .term-settings-toggle:hover { background: color-mix(in srgb, var(--amber) 12%, transparent); }
 
 * { box-sizing: border-box; }
 /* Tells the UA which palette to render its OWN furniture in â€” scrollbars, form
