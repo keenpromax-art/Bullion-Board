@@ -1291,6 +1291,319 @@ export function GapPathChart({ snap, height = 150 }: { snap: OpeningSnap; height
 }
 
 // ---------------------------------------------------------------------------
+// intraday track — six hourly marks from now to the bell
+// ---------------------------------------------------------------------------
+
+export interface PathMarkWire {
+  j: number; slot: number; ist: string; local: string; close: boolean;
+  state: "PROJECTED" | "BEYOND_BELL" | "NO_SAMPLE";
+  level: number | null; lo: number | null; hi: number | null;
+  pctFromAnchor: number | null; pctFromPrior: number | null;
+  pAbovePrior: number | null; pUp: number | null; n: number;
+}
+export interface PathWire {
+  fetchedAtIST?: string;
+  market: { key: string; label: string; symbol: string; venue: string; tz: string; openHHMM: string; closeHHMM: string };
+  session: { state: string; label: string; istWindow: string; localWindow: string; toOpenMin: number | null };
+  anchor: {
+    level: number | null; prevClose: number | null; open: number | null; gapPct: number | null;
+    barsSettled: number; barsForming: number; capacity: number;
+  };
+  marks: PathMarkWire[];
+  bucket: { key: string; label: string; n: number; pooled: boolean; total: number; note: string };
+  grade: {
+    split: string; n: number; hitPct: number | null; maePct: number | null;
+    baseHitPct: number | null; edgePts: number | null; verdict: string; note: string;
+  } | null;
+  sample: { sessions: number; capacity: number; windowFrom: string | null; windowTo: string | null; floor: number };
+  realised: Array<{ ist: string; local: string; close: number; settled: boolean }>;
+  summary: { marksPublished: number; markHours: number; verdict: string };
+  caveats: string[];
+}
+
+/**
+ * The projected track on one axis: what has printed today as a solid line, the
+ * six marks as a dashed median inside its own p10/p90 fan, both struck against
+ * the prior close. Slot index is the x, so the realised hours and the projected
+ * hours occupy the same scale and the seam between them is a fact about the
+ * session rather than an artefact of two charts stapled together.
+ */
+function TrackChart({ wire }: { wire: PathWire }) {
+  const a = wire.anchor;
+  const marks = wire.marks.filter((m) => m.state === "PROJECTED");
+  const done = wire.realised.filter((b) => b.settled);
+  const W = 340, H = 168, PL = 6, PR = 6, PT = 16, PB = 20;
+  const cap = Math.max(1, a.capacity - 1);
+  const xs = (slot: number) => (PL + (slot / cap) * (W - PL - PR)).toFixed(1);
+
+  const vals: number[] = [];
+  if (a.prevClose) vals.push(a.prevClose);
+  if (a.level) vals.push(a.level);
+  for (const b of wire.realised) vals.push(b.close);
+  for (const m of marks) {
+    for (const v of [m.level, m.lo, m.hi]) if (v !== null && isFinite(v)) vals.push(v);
+  }
+  if (vals.length < 2) return null;
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = Math.max((hi - lo) * 0.12, hi * 0.0004);
+  const y0 = lo - pad, y1 = hi + pad;
+  const ys = (v: number) => (PT + (1 - (v - y0) / (y1 - y0 || 1)) * (H - PT - PB)).toFixed(1);
+
+  const seam = a.barsSettled;
+  const real = done.map((b, i) => `${xs(Math.min(i, seam))},${ys(b.close)}`).join(" ");
+  const fanTop = marks.map((m) => `${xs(m.slot!)},${ys(m.hi!)}`);
+  const fanBot = marks.map((m) => `${xs(m.slot!)},${ys(m.lo!)}`).reverse();
+  const line = marks.map((m) => `${xs(m.slot!)},${ys(m.level!)}`);
+  const anchorX = xs(Math.min(seam, cap));
+  const anchorY = a.level !== null ? ys(a.level) : null;
+
+  return (
+    <div className="pre-track-chart">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: H }}
+        role="img"
+        aria-label={`${wire.market.label} intraday track: ${done.length} settled hours printed, ${marks.length} hourly marks projected to the close`}
+      >
+        {a.prevClose !== null && (
+          <>
+            <line x1="0" y1={ys(a.prevClose)} x2={W} y2={ys(a.prevClose)} stroke="#5b5b62" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+            <text x="2" y={(Number(ys(a.prevClose)) - 3).toFixed(1)} fill="#5b5b62" fontSize="8" vectorEffect="non-scaling-stroke">PRIOR CLOSE {fprice(a.prevClose, 0)}</text>
+          </>
+        )}
+        {marks.length > 1 && (
+          <polygon points={`${anchorX},${anchorY ?? ys(a.level ?? 0)} ${fanTop.join(" ")} ${fanBot.join(" ")}`}
+            fill="rgba(255,160,40,0.10)" stroke="rgba(255,160,40,0.32)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        )}
+        {real && <polyline points={real} fill="none" stroke="#f5f5f4" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />}
+        {anchorY !== null && (
+          <line x1={anchorX} y1={anchorY} x2={marks[0] ? xs(marks[0].slot!) : anchorX} y2={marks[0] ? ys(marks[0].lo!) : anchorY}
+            stroke="#a1a1aa" strokeWidth="1" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+        )}
+        {line.length > 1 && <polyline points={line.join(" ")} fill="none" stroke="#ffa028" strokeWidth="1.8" strokeDasharray="5 3" vectorEffect="non-scaling-stroke" />}
+        {anchorY !== null && <circle cx={anchorX} cy={anchorY} r="3.5" fill="#030304" stroke="#f5f5f4" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />}
+        {marks.map((m) => (
+          <circle key={m.j} cx={xs(m.slot!)} cy={ys(m.level!)} r={m.close ? 4 : 2.6} fill={m.close ? "#ffa028" : "#030304"} stroke="#ffa028" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+        ))}
+      </svg>
+      <div className="pre-track-ax">
+        <span>{wire.market.openHHMM} OPEN</span>
+        <span className="pos">PRINTED</span>
+        <span className="amber">CONDITIONAL MEDIAN · p10–p90 FAN</span>
+        <span>{wire.market.closeHHMM} CLOSE</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One card per hourly mark. The bar under the number is the fan drawn to the
+ * scale of the whole day, so a 0.9% range on mark 1 and a 1.6% range on the close
+ * are visibly different widths rather than both filling the cell.
+ */
+function TrackNode({ m, lo, hi }: { m: PathMarkWire; lo: number; hi: number }) {
+  if (m.state !== "PROJECTED" || m.level === null) {
+    return (
+      <div className="pre-tn dead">
+        <span className="pre-tn-t">{m.ist}</span>
+        <span className="pre-tn-v">—</span>
+        <span className="pre-tn-s">{m.state === "BEYOND_BELL" ? "PAST THE BELL" : "NO SAMPLE"}</span>
+      </div>
+    );
+  }
+  const span = hi - lo || 1;
+  const at = (v: number) => Math.max(0, Math.min(100, ((v - lo) / span) * 100));
+  const up = (m.pctFromPrior ?? 0) >= 0;
+  return (
+    <div className={`pre-tn${m.close ? " close" : ""}`}>
+      <span className="pre-tn-t">{m.ist}<em>{m.local}</em></span>
+      <span className={`pre-tn-v ${toneClass(m.pctFromPrior)}`}>{fprice(m.level, 1)}</span>
+      <span className={`pre-tn-s ${up ? "pos" : "neg"}`}>{f2(m.pctFromPrior, "%")} VS PRIOR</span>
+      <span className="pre-tn-bar" title={`p10 ${fprice(m.lo, 1)} — p90 ${fprice(m.hi, 1)}`}>
+        <i style={{ left: `${at(m.lo!).toFixed(1)}%`, width: `${Math.max(1, at(m.hi!) - at(m.lo!)).toFixed(1)}%` }} />
+        <b style={{ left: `${at(m.level).toFixed(1)}%` }} />
+      </span>
+      <span className="pre-tn-s">
+        P&gt;PRIOR <b>{fpct((m.pAbovePrior ?? 0) * 100)}</b> · n {m.n}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The in-depth movement view. Six marks, one an hour, from where the session
+ * actually is to the closing bell — conditioned on the same gap band the call
+ * was made in, and graded out of sample against an always-up baseline so the
+ * reader can see whether the median earned the right to be drawn at all.
+ */
+export function IntradayTrack({ market, onClose }: { market: string; onClose?: () => void }) {
+  const [wire, setWire] = useState<PathWire | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(true);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    setBusy(true);
+    setError(null);
+    fetch(`/api/opening/path?market=${encodeURIComponent(market)}`, { signal: ac.signal })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j?.error ?? `PATH ${r.status}`);
+        setWire(j as PathWire);
+      })
+      .catch((e: unknown) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(e instanceof Error ? e.message : "PATH UNAVAILABLE");
+      })
+      .finally(() => { if (!ac.signal.aborted) setBusy(false); });
+    return () => ac.abort();
+  }, [market, nonce]);
+
+  if (busy && !wire) {
+    return (
+      <div className="pre-card">
+        <span className="pre-card-h">Intraday track · rebuilding the session sample</span>
+        <div className="pre-load"><div className="pre-load-row w70" /><div className="pre-load-row" /><div className="pre-load-row w40" /></div>
+        <p className="pre-foot">
+          TWO YEARS OF HOURLY BARS ARE BEING REBUILT INTO SESSIONS ON THIS VENUE&apos;S OWN CALENDAR. THE CONDITIONAL
+          DISTRIBUTION IS NOT AVAILABLE UNTIL EVERY SESSION HAS A PRIOR CLOSE TO MEASURE AGAINST.
+        </p>
+      </div>
+    );
+  }
+
+  if (error || !wire) {
+    return (
+      <div className="pre-card" style={{ borderLeftColor: "var(--red)" }}>
+        <span className="pre-card-h">Intraday track unavailable</span>
+        <p className="pre-card-b">
+          {error ?? "NO PATH PAYLOAD"} — THE TRACK NEEDS TWO YEARS OF HOURLY BARS ON THIS VENUE&apos;S OWN CLOCK. WITHOUT
+          A SAMPLE THERE IS NO HONEST SIX-MARK PATH, SO NONE IS SHOWN.
+        </p>
+        <div><button className="ghost" onClick={() => setNonce((n) => n + 1)}>↻ Retry</button></div>
+      </div>
+    );
+  }
+
+  const a = wire.anchor;
+  const g = wire.grade;
+  const marks = wire.marks;
+  const live = marks.filter((m) => m.state === "PROJECTED");
+  const beyond = marks.filter((m) => m.state !== "PROJECTED").length;
+  const spread = live.length
+    ? (Math.max(...live.map((m) => m.pctFromAnchor ?? 0)) - Math.min(...live.map((m) => m.pctFromAnchor ?? 0)))
+    : null;
+  const vals = [
+    ...(a.prevClose ? [a.prevClose] : []),
+    ...(a.level ? [a.level] : []),
+    ...wire.realised.map((b) => b.close),
+    ...live.flatMap((m) => [m.level!, m.lo!, m.hi!]),
+  ];
+  const lo = vals.length ? Math.min(...vals) : 0;
+  const hi = vals.length ? Math.max(...vals) : 1;
+  const edgeTone = g?.edgePts === null || g === null ? "" : g.edgePts >= 5 ? "ok" : g.edgePts > 0 ? "fnc" : "bad";
+
+  return (
+    <>
+      <div className="pre-cols">
+        <div className="pre-card">
+          <span className="pre-card-h">
+            {wire.market.label} · {live.length} hourly marks to the {wire.market.closeHHMM} {wire.market.tz.split("/")[1]} bell
+          </span>
+          {live.length ? (
+            <>
+              <TrackChart wire={wire} />
+              <div className="pre-tn-row">
+                {marks.map((m) => <TrackNode key={m.j} m={m} lo={lo} hi={hi} />)}
+              </div>
+            </>
+          ) : (
+            <p className="pre-empty">
+              NO MARKS LEFT TO PROJECT — {wire.market.label} IS {wire.session.label} ON THIS CLOCK AND ALL{" "}
+              {a.capacity} HOURLY BARS OF THE SESSION HAVE SETTLED. THE TRACK IS PUBLISHED FOR THE HOURS AHEAD, NOT
+              FOR HOURS ALREADY PRINTED.
+            </p>
+          )}
+          <div className="pre-track-foot">
+            <p className="pre-foot">
+              ONE MARK AN HOUR FROM WHERE THE SESSION IS TO THE CLOSING PRINT. EACH MARK IS THE MEDIAN OF THE HISTORICAL
+              MOVE OVER THAT HOUR, TAKEN ONLY FROM{" "}
+              <b>{wire.bucket.pooled ? `ALL ${wire.bucket.total} SESSIONS` : `${wire.bucket.n} OF ${wire.bucket.total} SESSIONS`}</b>{" "}
+              {wire.bucket.pooled ? "— THE GAP CONDITION IS NOT IN THE NUMBER" : "WHOSE OPEN GAP FELL IN TODAY'S BAND"}.
+              THE BAR UNDER EACH LEVEL IS THAT MARK&apos;S OWN p10–p90 RANGE, DRAWN TO THE SCALE OF THE WHOLE DAY — READ
+              THE BAR, NOT THE NUMBER: A {spread === null ? "—" : `${spread.toFixed(2)}%`} SPREAD BETWEEN THE FIRST AND
+              LAST MARK IS THE HONEST WIDTH OF A DAY THAT CANNOT BE CALLED FROM HERE.
+            </p>
+            {beyond > 0 && (
+              <p className="pre-warn">
+                {beyond} OF {marks.length} MARKS FALL PAST THE {wire.market.closeHHMM} BELL AND ARE PUBLISHED AS DASHES.
+                THE DESK DOES NOT EXTEND A SIX-HOUR TRACK BEYOND THE CLOSING PRINT TO FILL THE ROW.
+              </p>
+            )}
+            {wire.bucket.note && <p className={wire.bucket.pooled ? "pre-warn" : "pre-note"}>{wire.bucket.note}</p>}
+          </div>
+        </div>
+
+        <div className="pre-card">
+          <span className="pre-card-h">How the track is anchored · and what it is worth</span>
+          <div className="cells">
+            <Cell lbl="Anchor" val={fprice(a.level, 1)} sub={a.level !== null && a.prevClose ? f2(((a.level / a.prevClose) - 1) * 100, "%") + " VS PRIOR" : "—"} cls={toneClass(a.level !== null && a.prevClose ? (a.level / a.prevClose - 1) * 100 : null)} />
+            <Cell lbl="Condition" val={wire.bucket.key.replace("_", " ")} sub={`${wire.bucket.n} OF ${wire.bucket.total} SESSIONS`} cls={wire.bucket.pooled ? "neg" : ""} />
+            <Cell lbl="Hours done" val={`${a.barsSettled}/${a.capacity}`} sub={a.barsForming ? `${a.barsForming} FORMING` : "ALL SETTLED"} />
+            <Cell lbl="Open gap" val={f2(a.gapPct, "%")} sub={a.open !== null ? `OPEN ${fprice(a.open, 1)}` : "NOT OPENED"} cls={toneClass(a.gapPct)} />
+            <Cell lbl="Sample" val={wire.sample.sessions.toLocaleString("en-IN")} sub={`${wire.sample.windowFrom ?? "—"} → ${wire.sample.windowTo ?? "—"}`} />
+            <Cell lbl="Out-of-sample" val={g ? fpct(g.hitPct) : "—"} sub={g ? `${g.n.toLocaleString("en-IN")} SCORED MARKS` : "NOT GRADED"} cls={edgeTone === "ok" ? "pos" : edgeTone === "bad" ? "neg" : ""} />
+          </div>
+
+          {g ? (
+            <>
+              <div className="pre-meters">
+                <Meter
+                  label="Conditional median hit rate" value={(g.hitPct ?? 0) / 100} display={fpct(g.hitPct)}
+                  tone={edgeTone === "ok" ? "ok" : edgeTone === "bad" ? "bad" : undefined}
+                  tick={(g.baseHitPct ?? 0) / 100}
+                  foot={`TICK = NAIVE "IT ALWAYS GOES UP" AT ${fpct(g.baseHitPct)} · EDGE ${g.edgePts === null ? "—" : f2(g.edgePts, " PTS")}`}
+                />
+                <Meter
+                  label="Mark error (MAE)" value={Math.min(1, (g.maePct ?? 0) / 1)} display={`${g.maePct?.toFixed(2) ?? "—"}%`}
+                  foot={`MEAN ABSOLUTE ERROR PER MARK, OUT OF SAMPLE`}
+                />
+              </div>
+              <div className="pre-badge-row">
+                <span className={`badge ${edgeTone}`}>{g.verdict}</span>
+                <span className="badge">{g.split}</span>
+              </div>
+              <p className="pre-foot">
+                {g.note} AN EDGE OF {g.edgePts === null ? "—" : g.edgePts.toFixed(2)} POINTS IS WHAT THE CONDITIONING
+                BOUGHT OVER A COIN FLIP — READ IT BEFORE TRUSTING THE LINE.
+              </p>
+            </>
+          ) : (
+            <p className="pre-warn">
+              NO GRADE — TOO FEW SESSIONS IN THE CONDITIONAL SAMPLE TO FIT ON ONE HALF AND SCORE ON THE OTHER. A DESK
+              THAT CANNOT SCORE ITS OWN TRACK OUT OF SAMPLE SHOWS THE SHAPE WITHOUT A VERDICT.
+            </p>
+          )}
+
+          <div className="pre-ledger">
+            {(wire.caveats ?? []).map((c, i) => (
+              <div key={i} className={`pre-led-row${SEVERE.test(c) ? " sev" : ""}`}>
+                <span className="pre-led-dot" />
+                <span>{c}</span>
+              </div>
+            ))}
+            {!wire.caveats?.length && (
+              <div className="pre-led-row"><span className="pre-led-dot" /><span>NO OPEN CAVEATS ON THIS TRACK.</span></div>
+            )}
+          </div>
+          <p className="pre-foot">LOADED {wire.fetchedAtIST ?? "—"} · TRACK CONDITIONING IS INDEPENDENT OF THE GAP FORECAST — A FLAT PRE-OPEN VERDICT DOES NOT MEAN THE PATH IS FLAT, AND A GREEN VERDICT DOES NOT MOVE THESE MARKS.</p>
+          {onClose && <div><button className="ghost" onClick={onClose}>▾ Hide track</button></div>}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 05 · breadth
 // ---------------------------------------------------------------------------
 
@@ -1638,6 +1951,9 @@ const SEVERE = /NO TAPE|NO VOTE|TAPE OFF|PARTIAL|BELOW FLOOR|UNAVAILABLE|NOT IN 
 /** The local capture ledger. Never leaves the browser. */
 export const CAPTURE_KEY = "iss.opening.log";
 
+/** Remembers whether the reader wants the in-depth intraday track open. */
+export const TRACK_KEY = "iss.opening.track";
+
 export function readCaptureLog(): any[] {
   if (typeof window === "undefined") return [];
   try {
@@ -1906,6 +2222,24 @@ export function DeskLive(props: DeskLiveProps) {
   const [openLeg, setOpenLeg] = useState<string | null>(null);
   const [bSearch, setBSearch] = useState("");
   const [bStatus, setBStatus] = useState("ALL");
+  // The in-depth intraday track is an OPTION, not a default panel: it costs a
+  // two-year hourly rebuild, so it is fetched only once switched on. The choice
+  // is remembered because a reader who wants it usually wants it on every visit.
+  const [track, setTrack] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(TRACK_KEY) === "1") setTrack(true);
+    } catch {
+      /* private mode — the toggle still works, it just will not be remembered */
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TRACK_KEY, track ? "1" : "0");
+    } catch {
+      /* nothing to do: the desk works without the preference */
+    }
+  }, [track]);
 
   // The rail is presentational without a handler (read-only render), so it
   // degrades to a no-op instead of throwing.
@@ -1921,7 +2255,8 @@ export function DeskLive(props: DeskLiveProps) {
   }, []);
 
   // Desk keyboard: digits jump sections, M cycles the market in the current
-  // group, R refreshes. Never while typing in a field or holding a modifier.
+  // group, R refreshes, T toggles the intraday track. Never while typing in a
+  // field or holding a modifier.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1943,6 +2278,11 @@ export function DeskLive(props: DeskLiveProps) {
           const i = peers.findIndex((r) => r.key === market);
           choose(peers[(i + 1) % peers.length]!.key);
         }
+        return;
+      }
+      if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        setTrack((v) => !v);
         return;
       }
       if (e.key === "r" || e.key === "R") {
@@ -2094,8 +2434,22 @@ export function DeskLive(props: DeskLiveProps) {
                 <Cell lbl="Range" val={snap.index?.range != null ? fprice(snap.index.range, 2) : "—"} sub="PTS" />
                 <Cell lbl="Open gap" val={f2(snap.gap?.gapPct ?? null, "%")} sub="VS PRIOR CLOSE" cls={toneClass(snap.gap?.gapPct)} />
               </div>
+              <div className="pre-legs-tools" style={{ marginTop: 8 }}>
+                <button
+                  className={`pill${track ? " active" : ""}`}
+                  onClick={() => setTrack(!track)}
+                  aria-pressed={track}
+                  title="Six hourly marks from now to the closing bell, conditioned on past sessions in today's gap band"
+                >
+                  {track ? "▣ Intraday track ON" : "▢ Intraday track · 6 marks to the bell"}
+                </button>
+                <span className="pre-rail-label" style={{ marginLeft: "auto" }}>
+                  {track ? "IN-DEPTH MOVEMENT" : "PRESS T"}
+                </span>
+              </div>
             </div>
           </div>
+          {track && <IntradayTrack market={market} onClose={() => setTrack(false)} />}
         </Section>
       )}
 
@@ -2159,6 +2513,7 @@ export function DeskLive(props: DeskLiveProps) {
       <div className="pre-hintbar">
         <span><kbd>1</kbd>–<kbd>9</kbd> jump to a section</span>
         <span><kbd>M</kbd> next market in the group</span>
+        <span><kbd>T</kbd> intraday track</span>
         <span><kbd>R</kbd> refresh the tape</span>
         <span>·</span>
         <span>FOR STUDY AND EDUCATION ONLY · NOT INVESTMENT ADVICE</span>

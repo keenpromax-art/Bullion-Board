@@ -316,6 +316,39 @@
 .pre-tl-v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
 .pre-tl-s { font-size: 9.5px; color: var(--faint); line-height: 1.4; }
 
+/* ---------- intraday track: six hourly marks to the bell ----------
+   The chart and the six node cards are ONE instrument on one slot axis, so the
+   node strip sits directly under the marks it belongs to — the same contract
+   the confirm timeline keeps. The node is the mark's own fan drawn to the scale
+   of the whole day, which is why a narrow hour reads narrow instead of being
+   stretched to fill its cell. */
+.pre-track-chart { display: grid; gap: 4px; }
+.pre-track-chart svg { display: block; width: 100%; height: 168px; }
+.pre-track-ax { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; letter-spacing: 0.08em; color: var(--faint); text-transform: uppercase; }
+.pre-track-ax .pos { color: var(--text); }
+.pre-track-ax .amber { color: var(--amber); }
+.pre-track-foot { display: grid; gap: 6px; }
+
+.pre-tn-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.pre-tn { background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; padding: 7px 8px 8px; display: grid; gap: 3px; align-content: start; min-width: 0; }
+.pre-tn.close { border-color: rgba(255, 160, 40, 0.55); background: rgba(255, 160, 40, 0.07); }
+.pre-tn.dead { border-style: dashed; opacity: 0.62; }
+.pre-tn-t { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--amber); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 5px; }
+.pre-tn-t em { font-style: normal; font-size: 9px; font-weight: 400; letter-spacing: 0.06em; color: var(--faint); }
+/* tabular-nums everywhere, and the level never wraps: a wrapped index level is
+   read as two numbers. */
+.pre-tn-v { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; white-space: nowrap; }
+.pre-tn-s { font-size: 9px; color: var(--faint); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.pre-tn-s b { color: var(--sub); font-weight: 600; }
+.pre-tn-bar { position: relative; display: block; height: 8px; background: #000; border: 1px solid var(--grid); border-radius: 1px; margin: 2px 0; }
+.pre-tn-bar i { position: absolute; top: 0; bottom: 0; background: rgba(255, 160, 40, 0.26); }
+.pre-tn-bar b { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--amber); }
+
+@media (max-width: 1180px) { .pre-tn-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .pre-tn-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container panel (max-width: 720px) { .pre-tn-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container panel (max-width: 380px) { .pre-tn-row { grid-template-columns: minmax(0, 1fr); } }
+
 /* ---------- spec sheet (position guide) ---------- */
 .pre-spec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .pre-spec-card { background: var(--panel-2); border: 1px solid var(--grid); border-left: 2px solid var(--amber); border-radius: 2px; padding: 9px 11px 10px; display: grid; gap: 4px; }
