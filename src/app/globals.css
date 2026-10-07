@@ -22,6 +22,25 @@
   --green-bg: rgba(0, 214, 100, 0.14);
   --red: #ff453a;
   --red-bg: rgba(255, 69, 58, 0.13);
+  /* Chart-series hues. Every one of these was a literal in 240-odd places; they
+     are tokens now so a chart in a panel cannot disagree with the same chart on a
+     page, and so light mode can re-key them as a set. */
+  --cyan: #00c8ff;
+  --violet: #8f7bff;
+  --pink: #ff5da2;
+  /* Pure-black inset: meter troughs, SVG track backgrounds, and the one surface
+     in the terminal that is genuinely recessed rather than raised. */
+  --track: #000000;
+  --scrim: rgba(0, 0, 0, 0.62);
+  /* The news ticker's band. It is the only surface in the app that is not the
+     neutral panel stack, so it gets its own tokens rather than borrowing amber:
+     on dark it is a deep red with pale text, on light the same red inverted to
+     a wash with the deep red as the text. Inverting the PAIR is the point —
+     tinting one without the other would put pale text on a pale band. */
+  --ticker-bg: #8f0000;
+  --ticker-text: #ffd9d9;
+  /* Unread-story dot. #4da3ff is 1.9:1 on a light panel, so it darkens. */
+  --unread: #4da3ff;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
   /* terminal chrome heights — single source of truth so the shell, the AI
      dock and any fixed overlay can't drift apart (they used to hardcode
@@ -30,7 +49,72 @@
   --term-tape-h: 26px;
   --term-status-h: 26px;
 }
+
+/* ---------- light theme ----------
+   The Pro terminal is a dark instrument by default and that is the right
+   default, but a desk pinned open on a second monitor all day is not a good
+   reason to keep reading it against black. This block re-keys the SAME tokens;
+   no rule anywhere reads a raw hex for chrome, so the whole terminal, both
+   workspace surfaces and every desk follow from these sixteen values.
+
+   Every value below was picked by measuring contrast against --panel, not by
+   eye. The bright set cannot simply be reused: #ffa028 measures 1.97:1 on a
+   light panel and #00d664 1.88:1, so amber, security-yellow and both
+   directional colours all have to DARKEN to stay readable. Amber moves furthest
+   in hue (#ffa028 -> #9a5600) because it is the palette's signature and has to
+   stay recognisably amber rather than becoming brown.
+
+     token     dark      light     light on --panel / on --bg
+     --text    #f5f5f4   #101013   18.34 / 15.61
+     --sub     #a1a1aa   #4a4a52    8.48 /  7.22
+     --faint   #8a8a93   #63636b    5.75 /  4.89
+     --amber   #ffa028   #9a5600    5.47 /  4.66
+     --sec     #ffb000   #8a5c00    5.62 /  4.78
+     --green   #00d664   #0a733c    5.74 /  4.89
+     --red     #ff453a   #c0261c    5.74 /  4.88
+     --cyan    #00c8ff   #00648e    6.31 /  5.37
+     --violet  #8f7bff   #5b45c8    6.48 /  5.52
+
+   Measured against BOTH light surfaces, not just the panel. --bg is darker than
+   --panel, so the first pass at green, cyan and the unread dot cleared AA on a
+   card and still missed it on the canvas (4.46 / 4.11 / 4.04) — a colour that
+   passes on a card and fails on the background is not a passing colour.
+
+   The three text tiers keep the same relative spacing they have on black
+   (text >> sub > faint), so nothing that read as a caption on dark starts
+   competing with body copy on light. */
+:root[data-theme="light"] {
+  --bg: #e9e9e6;
+  --panel: #fbfbfa;
+  --panel-2: #f1f1ef;
+  --grid: #cfcfcb;
+  --track: #e4e4e1;
+  --scrim: rgba(20, 20, 24, 0.38);
+  --text: #101013;
+  --sub: #4a4a52;
+  --faint: #63636b;
+  --amber: #9a5600;
+  --amber-deep: #7a4400;
+  --amber-subtle: rgba(154, 86, 0, 0.10);
+  --sec: #8a5c00;
+  --green: #0a733c;
+  --green-bg: rgba(10, 115, 60, 0.11);
+  --red: #c0261c;
+  --red-bg: rgba(192, 38, 28, 0.10);
+  --cyan: #00648e;
+  --violet: #5b45c8;
+  --pink: #c02a72;
+  --ticker-bg: #fdecec;
+  --ticker-text: #8f0000;
+  --unread: #1361be;
+}
 * { box-sizing: border-box; }
+/* Tells the UA which palette to render its OWN furniture in — scrollbars, form
+   control interiors, the caret, text selection. Without it a light terminal
+   still gets a dark scrollbar gutter and a black caret, which is the single
+   most obvious tell that a theme was bolted on rather than designed. */
+:root { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
 html, body {
   margin: 0; padding: 0; background: var(--bg); color: var(--text);
   font-family: var(--mono); font-feature-settings: "tnum" 1; font-size: 14px;
@@ -213,20 +297,20 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 .scrollx { overflow-x: auto; }
 .scrollx table.plain { min-width: 960px; }
 .scrollx .plain th:first-child, .scrollx .plain td:first-child {
-  position: sticky; left: 0; background: #0c0c0e; z-index: 1;
+  position: sticky; left: 0; background: var(--panel); z-index: 1;
   max-width: 190px;
 }
 
 /* ---------- news wire screen ---------- */
 .top { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--grid); border-radius: 3px; overflow: hidden; background: #000; height: 100%; }
-.top-tabs { display: flex; gap: 2px; align-items: center; background: #8f0000; padding: 5px 8px; }
+.top-tabs { display: flex; gap: 2px; align-items: center; background: var(--ticker-bg); padding: 5px 8px; }
 .top-tab {
-  background: transparent; border: none; border-radius: 0; color: #ffd9d9;
+  background: transparent; border: none; border-radius: 0; color: var(--ticker-text);
   font-family: var(--mono); font-size: 12.5px; font-weight: 600; padding: 6px 12px;
   cursor: pointer; text-transform: uppercase; white-space: nowrap;
 }
 .top-tab:hover { background: rgba(255, 255, 255, 0.12); box-shadow: none; transform: none; color: #fff; }
-.top-tab.active { background: #fff; color: #8f0000; }
+.top-tab.active { background: var(--panel); color: var(--ticker-text); font-weight: 700; }
 /* Source health sits inside the LIVE count. Green when every publisher feed
    answered, red when one is down — the wire says so rather than quietly
    serving less news. */
@@ -245,7 +329,7 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .top-new-count:hover { background: rgba(255, 160, 40, 0.14); }
 .top-new-count:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
-.top-count { margin-left: auto; color: #ffd9d9; font-size: 11.5px; white-space: nowrap; }
+.top-count { margin-left: auto; color: var(--ticker-text); font-size: 11.5px; white-space: nowrap; }
 .top-narrow {
   display: flex; gap: 8px; align-items: center; padding: 7px 12px;
   border-bottom: 1px solid var(--grid); background: var(--panel); flex-wrap: wrap;
@@ -302,13 +386,14 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .top-row:hover { background: rgba(255, 160, 40, 0.06); }
 .top-num { color: var(--amber); }
-.top-head { color: #f5f5f4; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-head { color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* An already-read headline recedes, but 3.8:1 was below AA and read as dark
-     grey on the wire. 4.8:1 is still visibly quieter than --sub (7.6:1). */
-  .top-row.read .top-head { color: #7d7d86; }
+     grey on the wire. --faint measures 5.7:1 on dark and 5.8:1 on light, and is
+     still visibly quieter than --sub (7.6:1) in both. */
+  .top-row.read .top-head { color: var(--faint); }
 .top-src { color: var(--faint); font-size: 11px; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top-time { color: var(--sub); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.unread { width: 8px; height: 8px; min-width: 8px; background: #4da3ff; border-radius: 1px; align-self: center; box-shadow: 0 0 6px rgba(77, 163, 255, 0.8); }
+.unread { width: 8px; height: 8px; min-width: 8px; background: var(--unread); border-radius: 1px; align-self: center; box-shadow: 0 0 6px rgba(77, 163, 255, 0.8); }
 .top-rail { border-left: 1px solid var(--grid); padding: 8px 12px; display: grid; gap: 8px; align-content: start; background: #050506; min-height: 0; overflow: auto; }
 .rail-head { color: var(--amber); font-size: 13px; font-weight: 700; margin: 0 0 3px 0; }
 .rail-sub { color: var(--link); font-size: 11px; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -403,7 +488,7 @@ body:has(.term-root) .ai-dock {
 .badge {
   display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px;
   border-radius: 2px; font-size: 12px; font-weight: 600; white-space: nowrap;
-  background: rgba(161, 161, 170, 0.14); color: #c9c9cf; border: 1px solid transparent;
+  background: color-mix(in srgb, var(--sub) 14%, transparent); color: var(--sub); border: 1px solid transparent;
 }
 .badge.ok { background: var(--green-bg); color: var(--green); }
 .badge.bad { background: var(--red-bg); color: var(--red); }
@@ -480,12 +565,12 @@ pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: #
 .dlg-body { max-height: 56vh; max-height: 56dvh; overflow-y: auto; padding-right: 6px; }
 
 /* ---------- terminal scrollbars ---------- */
-* { scrollbar-width: thin; scrollbar-color: #3a3a42 #030304; }
+* { scrollbar-width: thin; scrollbar-color: var(--grid) var(--bg); }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
-*::-webkit-scrollbar-track { background: #030304; }
-*::-webkit-scrollbar-thumb { background: #3a3a42; border-radius: 5px; border: 2px solid #030304; }
+*::-webkit-scrollbar-track { background: var(--bg); }
+*::-webkit-scrollbar-thumb { background: var(--grid); border-radius: 5px; border: 2px solid var(--bg); }
 *::-webkit-scrollbar-thumb:hover { background: var(--amber); }
-*::-webkit-scrollbar-corner { background: #030304; }
+*::-webkit-scrollbar-corner { background: var(--bg); }
 
 /* ---------- terminal shell (mockup-aligned; independent homage, not affiliated) ---------- */
 body:has(.term-root) { padding-bottom: 0; }

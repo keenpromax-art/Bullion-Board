@@ -47,24 +47,24 @@ function PayoffChart({ s, spot, sd1, lot }: { s: StrategyResult; spot: number; s
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H }} preserveAspectRatio="none">
         {/* ±1SD band */}
-        <rect x={X(Math.max(spot - sd1, lo))} y={PAD} width={Math.max(X(Math.min(spot + sd1, hi)) - X(Math.max(spot - sd1, lo)), 0)} height={H - PAD * 2} fill="rgba(255,160,40,0.07)" />
-        <path d={zonePts} fill={up ? "rgba(0,214,100,0.10)" : "rgba(255,69,58,0.10)"} />
-        <line x1={PAD} x2={W - PAD} y1={zeroY} y2={zeroY} stroke="#5b5b62" strokeWidth="1" strokeDasharray="5 4" />
-        <polyline points={pts} fill="none" stroke={pnls[pnls.length - 1] >= 0 || Math.max(...pnls) > 0 ? "#ffa028" : "#ff453a"} strokeWidth="2" />
+        <rect x={X(Math.max(spot - sd1, lo))} y={PAD} width={Math.max(X(Math.min(spot + sd1, hi)) - X(Math.max(spot - sd1, lo)), 0)} height={H - PAD * 2} fill="color-mix(in srgb, var(--amber) 7%, transparent)" />
+        <path d={zonePts} fill={up ? "color-mix(in srgb, var(--green) 10%, transparent)" : "color-mix(in srgb, var(--red) 10%, transparent)"} />
+        <line x1={PAD} x2={W - PAD} y1={zeroY} y2={zeroY} stroke="var(--faint)" strokeWidth="1" strokeDasharray="5 4" />
+        <polyline points={pts} fill="none" stroke={pnls[pnls.length - 1] >= 0 || Math.max(...pnls) > 0 ? "var(--amber)" : "var(--red)"} strokeWidth="2" />
         {/* breakevens */}
         {s.breakevens.map((be, i) => (
           <g key={i}>
-            <line x1={X(be)} x2={X(be)} y1={PAD} y2={H - PAD} stroke="#8f7bff" strokeWidth="1" strokeDasharray="3 3" />
-            <text x={X(be)} y={H - 2} fontSize="9" fill="#8f7bff" textAnchor="middle">BE {Math.round(be).toLocaleString("en-IN")}</text>
+            <line x1={X(be)} x2={X(be)} y1={PAD} y2={H - PAD} stroke="var(--violet)" strokeWidth="1" strokeDasharray="3 3" />
+            <text x={X(be)} y={H - 2} fontSize="9" fill="var(--violet)" textAnchor="middle">BE {Math.round(be).toLocaleString("en-IN")}</text>
           </g>
         ))}
         {/* spot */}
-        <line x1={spotX} x2={spotX} y1={PAD} y2={H - PAD} stroke="#f5f5f4" strokeWidth="1.2" />
-        <text x={spotX + 4} y={PAD + 10} fontSize="10" fill="#f5f5f4" fontWeight="700">SPOT {Math.round(spot).toLocaleString("en-IN")}</text>
+        <line x1={spotX} x2={spotX} y1={PAD} y2={H - PAD} stroke="var(--text)" strokeWidth="1.2" />
+        <text x={spotX + 4} y={PAD + 10} fontSize="10" fill="var(--text)" fontWeight="700">SPOT {Math.round(spot).toLocaleString("en-IN")}</text>
         {/* strikes */}
         {s.legs.map((l, i) => (
           <g key={i}>
-            <line x1={X(Math.min(Math.max(l.strike, lo), hi))} x2={X(Math.min(Math.max(l.strike, lo), hi))} y1={H - 34} y2={H - PAD} stroke={l.action === "buy" ? "#00d664" : "#ff453a"} strokeWidth="1.5" />
+            <line x1={X(Math.min(Math.max(l.strike, lo), hi))} x2={X(Math.min(Math.max(l.strike, lo), hi))} y1={H - 34} y2={H - PAD} stroke={l.action === "buy" ? "var(--green)" : "var(--red)"} strokeWidth="1.5" />
           </g>
         ))}
       </svg>
@@ -233,7 +233,7 @@ export default function OptionsStrategyDesk({ symbol, data }: { symbol: string; 
               key={s.name}
               onClick={() => setSelName(s.name)}
               style={{
-                textAlign: "left", cursor: "pointer", background: sel.name === s.name ? "rgba(255,160,40,0.10)" : "var(--panel-2)",
+                textAlign: "left", cursor: "pointer", background: sel.name === s.name ? "color-mix(in srgb, var(--amber) 10%, transparent)" : "var(--panel-2)",
                 border: sel.name === s.name ? "1px solid var(--amber)" : "1px solid var(--grid)", borderRadius: 3, padding: 12, color: "inherit", fontFamily: "inherit",
               }}
             >
@@ -351,7 +351,7 @@ export default function OptionsStrategyDesk({ symbol, data }: { symbol: string; 
             <thead><tr><th>#</th><th>STRATEGY</th><th>TYPE</th><th style={{ textAlign: "right" }}>SCORE</th><th style={{ textAlign: "right" }}>DEBIT/CREDIT ×{mult.toLocaleString("en-IN")}</th><th style={{ textAlign: "right" }}>MAX P</th><th style={{ textAlign: "right" }}>MAX L</th><th style={{ textAlign: "right" }}>BE</th><th style={{ textAlign: "right" }}>P%</th><th style={{ textAlign: "right" }}>R:R</th></tr></thead>
             <tbody>
               {visible.map((s, i) => (
-                <tr key={s.name} style={s.name === sel.name ? { background: "rgba(255,160,40,0.10)" } : undefined}>
+                <tr key={s.name} style={s.name === sel.name ? { background: "color-mix(in srgb, var(--amber) 10%, transparent)" } : undefined}>
                   <td className="faint">{i + 1}</td>
                   <td><button className="ghost" onClick={() => setSelName(s.name)} style={{ padding: "2px 6px" }}><strong className={s.name === sel.name ? "sec" : ""}>{(i < 3 ? "★ " : "") + s.name.toUpperCase()}</strong></button><div className="faint" style={{ fontSize: 10.5 }}>{s.biasSuitedFor}</div></td>
                   <td><span className="badge fnc">{s.category.toUpperCase()}</span></td>

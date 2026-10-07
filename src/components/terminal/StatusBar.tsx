@@ -7,6 +7,7 @@ import { store } from "@/lib/store";
 import { useExplain } from "@/components/Explain";
 import SettingsDesk, { SETTINGS_CHANGED_EVENT } from "./SettingsDesk";
 import type { TilingPreset } from "@/lib/terminal/workspaceStore";
+import { useExperience } from "@/app/experiences/ExperienceProvider";
 
 const LAYOUTS: Array<{ id: TilingPreset; label: string }> = [
   { id: "1-up", label: "1-UP" },
@@ -59,6 +60,7 @@ export default function StatusBar({
   // Global settings: one control for every panel (key/model/FRED live in
   // one browser store — this drop-up edits the same values everywhere).
   const [setOpen, setSetOpen] = useState(false);
+  const { resolved, setTheme } = useExperience();
   const [summary, setSummary] = useState({ model: "", hasKey: false });
   const setWrapRef = useRef<HTMLSpanElement>(null);
 
@@ -159,6 +161,23 @@ export default function StatusBar({
         title="Bullion Droid — the mobile-first surface"
         aria-label="Open Bullion Droid"
       >◧ <span className="hide-md">DROID</span></a>
+      {/* Theme lives in the status bar, not behind a settings trip. A terminal
+          reader who wants the light canvas switches it once and then lives with
+          it all session; making that a two-click journey through a dialog meant
+          nobody ever did it. The button shows the theme it will SWITCH TO, not
+          the one in force, so the glyph is never ambiguous. `System` is folded
+          into the toggle rather than offered as a third state here — the full
+          three-way choice lives in /settings. */}
+      <button
+        className="add-btn"
+        onClick={() => setTheme(resolved === "dark" ? "light" : "dark")}
+        title={resolved === "dark"
+          ? "Switch to the LIGHT canvas — measured for daylight and glare"
+          : "Switch to the DARK canvas — the default terminal instrument"}
+        aria-label={resolved === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+      >
+        {resolved === "dark" ? "☀" : "☾"} <span className="hide-md">{resolved === "dark" ? "LIGHT" : "DARK"}</span>
+      </button>
       {onSettings && (
         <button
           className="add-btn" onClick={onSettings}
@@ -190,7 +209,7 @@ title="Replay the first-run guided tour"
       <button
         className="add-btn"
         onClick={toggleExplain}
-        style={explainMode ? { color: "#ffa028", borderColor: "#ffa028" } : undefined}
+        style={explainMode ? { color: "var(--amber)", borderColor: "var(--amber)" } : undefined}
         title="Toggle EXPLAIN MODE — every label becomes explainable (Alt+E)"
         aria-label="Toggle explain mode"
         aria-pressed={explainMode}

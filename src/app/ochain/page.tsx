@@ -465,13 +465,13 @@ export default function OChainPage() {
                 const atm = r.strike === strike;
                 return (
                   <g key={r.strike}>
-                    <rect x={i * bw + 1} y={70 - hc} width={bw / 2 - 1} height={hc} fill={atm ? "#ffa028" : "#ff453a"} opacity="0.85" />
-                    <rect x={i * bw + bw / 2} y={70} width={bw / 2 - 1} height={hp} fill={atm ? "#ffd28f" : "#00d664"} opacity="0.85" />
-                    {i % 4 === 0 && <text x={i * bw} y={146} fontSize="9" fill="#8a8a93">{r.strike >= 1000 ? `${(r.strike / 1000).toFixed(1)}k` : r.strike}</text>}
+                    <rect x={i * bw + 1} y={70 - hc} width={bw / 2 - 1} height={hc} fill={atm ? "var(--amber)" : "var(--red)"} opacity="0.85" />
+                    <rect x={i * bw + bw / 2} y={70} width={bw / 2 - 1} height={hp} fill={atm ? "var(--amber)" : "var(--green)"} opacity="0.85" />
+                    {i % 4 === 0 && <text x={i * bw} y={146} fontSize="9" fill="var(--faint)">{r.strike >= 1000 ? `${(r.strike / 1000).toFixed(1)}k` : r.strike}</text>}
                   </g>
                 );
               })}
-              <line x1="0" x2="640" y1="70" y2="70" stroke="#5b5b62" strokeWidth="1" />
+              <line x1="0" x2="640" y1="70" y2="70" stroke="var(--faint)" strokeWidth="1" />
             </svg>
             <div className="pills" style={{ marginTop: 6 }}>
               <span className="badge bad">■ CE OI (UP)</span>
@@ -487,8 +487,8 @@ export default function OChainPage() {
               <p className="p-head">IV smile — % by strike</p>
               <LineChart
                 series={[
-                  { label: "CE IV", color: "#ff453a", values: win.map((r) => r.ceIV || null) },
-                  { label: "PE IV", color: "#00d664", values: win.map((r) => r.peIV || null) },
+                  { label: "CE IV", color: "var(--red)", values: win.map((r) => r.ceIV || null) },
+                  { label: "PE IV", color: "var(--green)", values: win.map((r) => r.peIV || null) },
                 ]}
                 height={130}
                 yFmt={(v) => `${v.toFixed(0)}%`}
@@ -507,19 +507,19 @@ export default function OChainPage() {
           <div className="grid grid-2">
             <div className="panel">
               <p className="p-head">Payoff — LONG {strike} CE @ {sel.ceLTP.toFixed(2)} · BE {cePay.breakeven.toFixed(1)}</p>
-              <LineChart series={[{ label: "PNL", color: "#ffa028", values: cePay.pnls }]} height={130} yFmt={(v) => v.toFixed(0)} xLabels={[cePay.xs[0].toFixed(0), cePay.xs[30].toFixed(0), cePay.xs[59].toFixed(0)]} />
+              <LineChart series={[{ label: "PNL", color: "var(--amber)", values: cePay.pnls }]} height={130} yFmt={(v) => v.toFixed(0)} xLabels={[cePay.xs[0].toFixed(0), cePay.xs[30].toFixed(0), cePay.xs[59].toFixed(0)]} />
             </div>
             <div className="panel">
               <p className="p-head">Payoff — LONG {strike} PE @ {sel.peLTP.toFixed(2)} · BE {pePay.breakeven.toFixed(1)}</p>
-              <LineChart series={[{ label: "PNL", color: "#8f7bff", values: pePay.pnls }]} height={130} yFmt={(v) => v.toFixed(0)} xLabels={[pePay.xs[0].toFixed(0), pePay.xs[30].toFixed(0), pePay.xs[59].toFixed(0)]} />
+              <LineChart series={[{ label: "PNL", color: "var(--violet)", values: pePay.pnls }]} height={130} yFmt={(v) => v.toFixed(0)} xLabels={[pePay.xs[0].toFixed(0), pePay.xs[30].toFixed(0), pePay.xs[59].toFixed(0)]} />
             </div>
             <div className="panel">
               <p className="p-head">Theta decay — CE · {sel.ceIV.toFixed(1)}% IV</p>
-              <LineChart series={[{ label: "THEO PX", color: "#ff453a", values: ceDecay ? ceDecay.prices : [] }]} height={110} yFmt={(v) => v.toFixed(1)} xLabels={["30D", "15D", "1D"]} />
+              <LineChart series={[{ label: "THEO PX", color: "var(--red)", values: ceDecay ? ceDecay.prices : [] }]} height={110} yFmt={(v) => v.toFixed(1)} xLabels={["30D", "15D", "1D"]} />
             </div>
             <div className="panel">
               <p className="p-head">Theta decay — PE · {sel.peIV.toFixed(1)}% IV</p>
-              <LineChart series={[{ label: "THEO PX", color: "#00d664", values: peDecay ? peDecay.prices : [] }]} height={110} yFmt={(v) => v.toFixed(1)} xLabels={["30D", "15D", "1D"]} />
+              <LineChart series={[{ label: "THEO PX", color: "var(--green)", values: peDecay ? peDecay.prices : [] }]} height={110} yFmt={(v) => v.toFixed(1)} xLabels={["30D", "15D", "1D"]} />
             </div>
           </div>
         )}
@@ -536,7 +536,7 @@ export default function OChainPage() {
                 </tr></thead>
                 <tbody>
                   {rows.map((r) => (
-                    <tr key={r.strike} onClick={() => pickStrike(r.strike)} title={`OPEN ${r.strike} DOSSIER`} style={{ cursor: "pointer", ...(r.strike === strike ? { background: "rgba(255,160,40,0.10)" } : {}) }}>
+                    <tr key={r.strike} onClick={() => pickStrike(r.strike)} title={`OPEN ${r.strike} DOSSIER`} style={{ cursor: "pointer", ...(r.strike === strike ? { background: "color-mix(in srgb, var(--amber) 10%, transparent)" } : {}) }}>
                       <td style={{ textAlign: "right" }}>{f0(r.ceOI)}</td><td style={{ textAlign: "right" }}>{f0(r.ceChgOI)}</td><td style={{ textAlign: "right" }}>{f0(r.ceVol)}</td><td style={{ textAlign: "right" }}>{f2(r.ceIV)}</td><td style={{ textAlign: "right" }}>{f2(r.ceLTP)}</td>
                       <td><strong className={r.strike === strike ? "sec" : ""}>{r.strike.toLocaleString("en-IN")}</strong></td>
                       <td style={{ textAlign: "right" }}>{f2(r.peLTP)}</td><td style={{ textAlign: "right" }}>{f2(r.peIV)}</td><td style={{ textAlign: "right" }}>{f0(r.peVol)}</td><td style={{ textAlign: "right" }}>{f0(r.peChgOI)}</td><td style={{ textAlign: "right" }}>{f0(r.peOI)}</td>
@@ -575,8 +575,8 @@ export default function OChainPage() {
                   <span className="muted" style={{ fontSize: 12 }}>CALL {edgePick.callPts} PTS · PUT {edgePick.putPts} PTS · NEEDS ±3 MARGIN</span>
                 </div>
                 <HBars rows={[
-                  { label: "CALL", value: edgePick.callPts, display: `${edgePick.callPts} PTS`, color: "#00d664" },
-                  { label: "PUT", value: edgePick.putPts, display: `${edgePick.putPts} PTS`, color: "#ff453a" },
+                  { label: "CALL", value: edgePick.callPts, display: `${edgePick.callPts} PTS`, color: "var(--green)" },
+                  { label: "PUT", value: edgePick.putPts, display: `${edgePick.putPts} PTS`, color: "var(--red)" },
                 ]} />
                 {edgePick.side !== "NONE" && (
                   <div className="cells" style={{ marginTop: 10 }}>
@@ -640,7 +640,7 @@ export default function OChainPage() {
             {stradPay && (
               <div style={{ marginTop: 10 }}>
                 <p className="p-head">Straddle — LONG CE+PE @ {f2(stradPay.cost)} · BE {f0(dossier.beDn)} / {f0(dossier.beUp)}</p>
-                <LineChart series={[{ label: "STRADDLE PNL", color: "#ffa028", values: stradPay.pnls }]} height={130} yFmt={(v) => v.toFixed(0)} xLabels={[stradPay.xs[0].toFixed(0), stradPay.xs[30].toFixed(0), stradPay.xs[59].toFixed(0)]} />
+                <LineChart series={[{ label: "STRADDLE PNL", color: "var(--amber)", values: stradPay.pnls }]} height={130} yFmt={(v) => v.toFixed(0)} xLabels={[stradPay.xs[0].toFixed(0), stradPay.xs[30].toFixed(0), stradPay.xs[59].toFixed(0)]} />
               </div>
             )}
             <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>READ: <strong style={{ color: "var(--amber)" }}>{dossier.verdict}</strong></p>
@@ -656,7 +656,7 @@ export default function OChainPage() {
                 <thead><tr><th>STRIKE</th><th style={{ textAlign: "right" }}>CE Δ</th><th style={{ textAlign: "right" }}>CE Γ</th><th style={{ textAlign: "right" }}>CE Θ</th><th style={{ textAlign: "right" }}>CE V</th><th style={{ textAlign: "right" }}>PE Δ</th><th style={{ textAlign: "right" }}>PE Γ</th><th style={{ textAlign: "right" }}>PE Θ</th><th style={{ textAlign: "right" }}>PE V</th></tr></thead>
                 <tbody>
                   {fullGreeks.map((g) => (
-                    <tr key={g.strike} onClick={() => pickStrike(g.strike)} title={`OPEN ${g.strike} DOSSIER`} style={{ cursor: "pointer", ...(g.strike === strike ? { background: "rgba(255,160,40,0.10)" } : {}) }}>
+                    <tr key={g.strike} onClick={() => pickStrike(g.strike)} title={`OPEN ${g.strike} DOSSIER`} style={{ cursor: "pointer", ...(g.strike === strike ? { background: "color-mix(in srgb, var(--amber) 10%, transparent)" } : {}) }}>
                       <td><strong>{g.strike.toLocaleString("en-IN")}</strong></td>
                       <td style={{ textAlign: "right" }}>{g.ceD?.toFixed(3) ?? "—"}</td>
                       <td style={{ textAlign: "right" }}>{g.ceG?.toFixed(5) ?? "—"}</td>
@@ -678,17 +678,17 @@ export default function OChainPage() {
           <div className="grid grid-2">
             <div className="panel">
               <p className="p-head">PCR trend — {hist.length} fetches</p>
-              <LineChart series={[{ label: "PCR", color: "#ffa028", values: hist.map((h) => h.pcr) }]} height={110} yFmt={(v) => v.toFixed(2)} dates={hist.map((h) => h.time)} xLabels={[hist[0].time, hist[Math.floor(hist.length / 2)].time, hist[hist.length - 1].time]} />
+              <LineChart series={[{ label: "PCR", color: "var(--amber)", values: hist.map((h) => h.pcr) }]} height={110} yFmt={(v) => v.toFixed(2)} dates={hist.map((h) => h.time)} xLabels={[hist[0].time, hist[Math.floor(hist.length / 2)].time, hist[hist.length - 1].time]} />
             </div>
             <div className="panel">
               <p className="p-head">Max-pain trail</p>
-              <LineChart series={[{ label: "MAX PAIN", color: "#8f7bff", values: hist.map((h) => h.maxPain) }]} height={110} yFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })} dates={hist.map((h) => h.time)} xLabels={[hist[0].time, hist[Math.floor(hist.length / 2)].time, hist[hist.length - 1].time]} />
+              <LineChart series={[{ label: "MAX PAIN", color: "var(--violet)", values: hist.map((h) => h.maxPain) }]} height={110} yFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })} dates={hist.map((h) => h.time)} xLabels={[hist[0].time, hist[Math.floor(hist.length / 2)].time, hist[hist.length - 1].time]} />
             </div>
             <div className="panel">
               <p className="p-head">Signal accuracy — {Math.round(acc.hitRate * 1000) / 10}% over {acc.n} calls</p>
               <HBars rows={[
-                { label: "HIT RATE", value: Math.round(acc.hitRate * 1000) / 10, display: `${Math.round(acc.hitRate * 1000) / 10}%`, color: "#00d664" },
-                { label: "SCORED", value: acc.n, display: String(acc.n), color: "#8a8a93" },
+                { label: "HIT RATE", value: Math.round(acc.hitRate * 1000) / 10, display: `${Math.round(acc.hitRate * 1000) / 10}%`, color: "var(--green)" },
+                { label: "SCORED", value: acc.n, display: String(acc.n), color: "var(--faint)" },
               ]} />
               <table className="plain" style={{ marginTop: 8 }}>
                 <thead><tr><th>TIME</th><th style={{ textAlign: "right" }}>SCORE</th><th>PRED</th><th>ACT</th><th style={{ textAlign: "right" }}>HIT?</th></tr></thead>

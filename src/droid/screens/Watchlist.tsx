@@ -172,15 +172,15 @@ export default function Watchlist() {
               onTap={() => open(sym)}
               onLongPress={() => setMenuFor(sym)}
               actions={[
-                { key: "chart", label: "CHART", color: "#ffa028", onClick: () => open(sym) },
+                { key: "chart", label: "CHART", color: "var(--amber)", onClick: () => open(sym) },
                 {
                   key: "news",
                   label: "NEWS",
-                  color: "#26262b",
+                  color: "var(--grid)",
                   onClick: () => router.push(`/s/${encodeURIComponent(sym)}?tab=news`),
                 },
-                { key: "alert", label: "ALERT", color: "#b26a00", onClick: () => setAlertFor(sym) },
-                { key: "remove", label: "REMOVE", color: "#ff453a", onClick: () => removeSymbol(sym) },
+                { key: "alert", label: "ALERT", color: "var(--amber-deep)", onClick: () => setAlertFor(sym) },
+                { key: "remove", label: "REMOVE", color: "var(--red)", onClick: () => removeSymbol(sym) },
               ]}
             >
               <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>

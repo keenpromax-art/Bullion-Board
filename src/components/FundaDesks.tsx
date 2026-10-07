@@ -557,8 +557,8 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
                 const h = v !== null ? Math.max(3, (v / mx) * 96) : 0;
                 return (
                   <g key={i}>
-                    <rect x={8 + i * 49} y={108 - h} width={36} height={h} fill={i === vals.length - 1 ? "#ffa028" : "#3a3a42"} rx={2} />
-                    <text x={26 + i * 49} y={119} fontSize={8.5} fill="#8a8a93" textAnchor="middle">{pers[i] ?? ""}</text>
+                    <rect x={8 + i * 49} y={108 - h} width={36} height={h} fill={i === vals.length - 1 ? "var(--amber)" : "var(--grid)"} rx={2} />
+                    <text x={26 + i * 49} y={119} fontSize={8.5} fill="var(--faint)" textAnchor="middle">{pers[i] ?? ""}</text>
                   </g>
                 );
               })}
@@ -608,7 +608,7 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
               const sv = s.values[i], nv = n.values[i];
               return sv && nv !== null && sv !== 0 ? (nv / sv) * 100 : null;
             });
-            return <LineChart series={[{ label: "NPM %", color: "#00d664", values: vals }]} height={110} yFmt={(v) => `${v.toFixed(0)}%`} dates={pers} xLabels={[pers[0] ?? "", pers[Math.floor(pers.length / 2)] ?? "", pers[pers.length - 1] ?? ""]} />;
+            return <LineChart series={[{ label: "NPM %", color: "var(--green)", values: vals }]} height={110} yFmt={(v) => `${v.toFixed(0)}%`} dates={pers} xLabels={[pers[0] ?? "", pers[Math.floor(pers.length / 2)] ?? "", pers[pers.length - 1] ?? ""]} />;
           })()}
         </div>
         <div className="panel">
@@ -616,11 +616,11 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
           {(() => {
             const get = (c: string[]) => last(findRow(data.sh, c)?.values);
             const parts = [
-              { label: "PROMOTER", value: get(["promoters"]) ?? 0, color: "#ffa028" },
-              { label: "FII", value: get(["fiis", "fii"]) ?? 0, color: "#00d664" },
-              { label: "DII", value: get(["diis", "dii"]) ?? 0, color: "#8f7bff" },
-              { label: "PUBLIC", value: get(["public"]) ?? 0, color: "#8a8a93" },
-              { label: "GOVT", value: get(["government"]) ?? 0, color: "#00c8ff" },
+              { label: "PROMOTER", value: get(["promoters"]) ?? 0, color: "var(--amber)" },
+              { label: "FII", value: get(["fiis", "fii"]) ?? 0, color: "var(--green)" },
+              { label: "DII", value: get(["diis", "dii"]) ?? 0, color: "var(--violet)" },
+              { label: "PUBLIC", value: get(["public"]) ?? 0, color: "var(--faint)" },
+              { label: "GOVT", value: get(["government"]) ?? 0, color: "var(--cyan)" },
             ];
             if (parts.some((p) => p.value > 0)) return <Donut slices={parts} />;
             // Yahoo-only fallback: no promoter/FII/DII split — use holders %.
@@ -630,9 +630,9 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
             const instit = typeof h.instit === "number" ? h.instit * 100 : 0;
             const other = Math.max(0, 100 - insider - instit);
             const yp = [
-              { label: "INSIDER", value: Math.round(insider * 100) / 100, color: "#ffa028" },
-              { label: "INSTIT", value: Math.round(instit * 100) / 100, color: "#00d664" },
-              { label: "PUBLIC+", value: Math.round(other * 100) / 100, color: "#8a8a93" },
+              { label: "INSIDER", value: Math.round(insider * 100) / 100, color: "var(--amber)" },
+              { label: "INSTIT", value: Math.round(instit * 100) / 100, color: "var(--green)" },
+              { label: "PUBLIC+", value: Math.round(other * 100) / 100, color: "var(--faint)" },
             ];
             if (!yp.some((p) => p.value > 0)) return <p className="muted">NO HOLDING SPLIT.</p>;
             return (
@@ -727,8 +727,8 @@ function ComparePanel({ symbol, periods, rev, gp, opI, net, assets, debt, equity
             periods={["REVENUE", "GROSS", "OP INC", "NET"]}
             fmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             series={[
-              { label: yA, color: "#8a8a93", values: [at(rev, iA), at(gp, iA), at(opI, iA), at(net, iA)] },
-              { label: yB, color: "#ffa028", values: [at(rev, iB), at(gp, iB), at(opI, iB), at(net, iB)] },
+              { label: yA, color: "var(--faint)", values: [at(rev, iA), at(gp, iA), at(opI, iA), at(net, iA)] },
+              { label: yB, color: "var(--amber)", values: [at(rev, iB), at(gp, iB), at(opI, iB), at(net, iB)] },
             ]}
           />
         </div>
@@ -738,8 +738,8 @@ function ComparePanel({ symbol, periods, rev, gp, opI, net, assets, debt, equity
             periods={["ASSETS", "DEBT", "EQUITY", "OCF"]}
             fmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             series={[
-              { label: yA, color: "#8a8a93", values: [at(assets, iA), at(debt, iA), at(equity, iA), at(ocf, iA)] },
-              { label: yB, color: "#00d664", values: [at(assets, iB), at(debt, iB), at(equity, iB), at(ocf, iB)] },
+              { label: yA, color: "var(--faint)", values: [at(assets, iA), at(debt, iA), at(equity, iA), at(ocf, iA)] },
+              { label: yB, color: "var(--green)", values: [at(assets, iB), at(debt, iB), at(equity, iB), at(ocf, iB)] },
             ]}
           />
         </div>
@@ -1005,7 +1005,7 @@ export function DupontDesk({ symbol }: { symbol: string }) {
   ];
   const hb = factors.map((x, i) => ({
     label: x.k, value: x.cur ?? NaN, display: x.fmt(x.cur),
-    color: ["#00d664", "#00c8ff", "#ffa028", "#8f7bff", "#ff453a"][i],
+    color: ["var(--green)", "var(--cyan)", "var(--amber)", "var(--violet)", "var(--red)"][i],
   })).filter((r) => isFinite(r.value));
 
   const roeS = st.rat?.rows.find((r) => r.label === "ROE %")?.values ?? [];
@@ -1070,9 +1070,9 @@ export function DupontDesk({ symbol }: { symbol: string }) {
           dates={P}
           yFmt={(v) => `${v.toFixed(1)}%`}
           series={[
-            { label: `ROE ${cur?.roe === null || cur?.roe === undefined ? "—" : cur.roe.toFixed(1)}%`, color: "#ffa028", values: roeS },
-            { label: "ROA", color: "#00d664", values: roaS },
-            { label: "ROCE", color: "#00c8ff", values: roceS },
+            { label: `ROE ${cur?.roe === null || cur?.roe === undefined ? "—" : cur.roe.toFixed(1)}%`, color: "var(--amber)", values: roeS },
+            { label: "ROA", color: "var(--green)", values: roaS },
+            { label: "ROCE", color: "var(--cyan)", values: roceS },
           ]}
         />
       </div>
@@ -1082,10 +1082,10 @@ export function DupontDesk({ symbol }: { symbol: string }) {
           dates={P}
           yFmt={(v) => v.toFixed(2)}
           series={[
-            { label: "TAX B", color: "#00d664", values: sTaxB },
-            { label: "INT B", color: "#00c8ff", values: sIntB },
-            { label: "AT", color: "#8f7bff", values: sAT },
-            { label: "EM", color: "#ff453a", values: sEM },
+            { label: "TAX B", color: "var(--green)", values: sTaxB },
+            { label: "INT B", color: "var(--cyan)", values: sIntB },
+            { label: "AT", color: "var(--violet)", values: sAT },
+            { label: "EM", color: "var(--red)", values: sEM },
           ]}
         />
       </div>
@@ -1358,11 +1358,11 @@ export function AnalyzerDesk({ symbol }: { symbol: string }) {
         <p className="faint" style={{ fontSize: 11, marginBottom: 0 }}>WEIGHTS 30·20·20·15·15 — SINGLE-YEAR SNAPSHOT, TRENDS BELOW MATTER MORE.</p>
         <div style={{ marginTop: 10 }}>
           <HBars rows={[
-            { label: "PROFITABILITY", value: profit, display: `${profit}/30`, color: "#00d664" },
-            { label: "GROWTH", value: growth, display: `${growth}/20`, color: "#00c8ff" },
-            { label: "LEVERAGE", value: lev, display: `${lev}/20`, color: "#ffa028" },
-            { label: "LIQUIDITY", value: liq, display: `${liq}/15`, color: "#8f7bff" },
-            { label: "QUALITY", value: qual, display: `${qual}/15`, color: "#ff453a" },
+            { label: "PROFITABILITY", value: profit, display: `${profit}/30`, color: "var(--green)" },
+            { label: "GROWTH", value: growth, display: `${growth}/20`, color: "var(--cyan)" },
+            { label: "LEVERAGE", value: lev, display: `${lev}/20`, color: "var(--amber)" },
+            { label: "LIQUIDITY", value: liq, display: `${liq}/15`, color: "var(--violet)" },
+            { label: "QUALITY", value: qual, display: `${qual}/15`, color: "var(--red)" },
           ]} />
         </div>
       </div>
@@ -1420,9 +1420,9 @@ export function AnalyzerDesk({ symbol }: { symbol: string }) {
           periods={P}
           fmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
           series={[
-            { label: "OCF", color: "#00d664", values: ocfS },
-            { label: "FCF", color: "#ffa028", values: C(st.cf, ["free cash flow"]) },
-            { label: "CAPEX", color: "#ff453a", values: C(st.cf, ["capital expenditure", "capital expenditure reported"]) },
+            { label: "OCF", color: "var(--green)", values: ocfS },
+            { label: "FCF", color: "var(--amber)", values: C(st.cf, ["free cash flow"]) },
+            { label: "CAPEX", color: "var(--red)", values: C(st.cf, ["capital expenditure", "capital expenditure reported"]) },
           ]}
         />
         <p className="faint" style={{ fontSize: 11, marginBottom: 0 }}>HEALTHY: OCF COVERS PROFIT AND CAPEX THROUGH THE CYCLE — FCF SHOULD STAY POSITIVE.</p>
@@ -1430,10 +1430,10 @@ export function AnalyzerDesk({ symbol }: { symbol: string }) {
 
       <div className="grid grid-2">
         {[
-          { t: "ROE % — spark", s: [{ label: "ROE", color: "#ffa028", values: roeS }], f: (v: number) => `${v.toFixed(1)}%` },
-          { t: "Net margin % — spark", s: [{ label: "NPM", color: "#00d664", values: netM }], f: (v: number) => `${v.toFixed(1)}%` },
-          { t: "Debt to equity x — spark", s: [{ label: "D/E", color: "#ff453a", values: deS }], f: (v: number) => `${v.toFixed(2)}x` },
-          { t: "OCF margin % — spark", s: [{ label: "OCFM", color: "#00c8ff", values: ocfM }], f: (v: number) => `${v.toFixed(1)}%` },
+          { t: "ROE % — spark", s: [{ label: "ROE", color: "var(--amber)", values: roeS }], f: (v: number) => `${v.toFixed(1)}%` },
+          { t: "Net margin % — spark", s: [{ label: "NPM", color: "var(--green)", values: netM }], f: (v: number) => `${v.toFixed(1)}%` },
+          { t: "Debt to equity x — spark", s: [{ label: "D/E", color: "var(--red)", values: deS }], f: (v: number) => `${v.toFixed(2)}x` },
+          { t: "OCF margin % — spark", s: [{ label: "OCFM", color: "var(--cyan)", values: ocfM }], f: (v: number) => `${v.toFixed(1)}%` },
         ].map((c) => (
           <div className="panel" key={c.t}>
             <p className="p-head">{c.t}</p>
@@ -1654,9 +1654,9 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
             periods={P}
             fmt={(v) => `${v.toFixed(1)}%`}
             series={[
-              { label: "REV", color: "#00d664", values: revG },
-              { label: "NET", color: "#ffa028", values: netG },
-              { label: "OCF", color: "#00c8ff", values: RR("OCF Growth %") },
+              { label: "REV", color: "var(--green)", values: revG },
+              { label: "NET", color: "var(--amber)", values: netG },
+              { label: "OCF", color: "var(--cyan)", values: RR("OCF Growth %") },
             ]}
           />
         </div>
@@ -1665,9 +1665,9 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
           <LineChart
             dates={P} xLabels={x3} yFmt={(v) => `${v.toFixed(1)}%`}
             series={[
-              { label: "NPM", color: "#00d664", values: npmS },
-              { label: "ROE", color: "#ffa028", values: roeS },
-              { label: "ROCE", color: "#00c8ff", values: RR("ROCE %") },
+              { label: "NPM", color: "var(--green)", values: npmS },
+              { label: "ROE", color: "var(--amber)", values: roeS },
+              { label: "ROCE", color: "var(--cyan)", values: RR("ROCE %") },
             ]}
           />
         </div>
@@ -1677,17 +1677,17 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
         <div className="panel">
           <p className="p-head">Balance evolution — ₹ Cr</p>
           <GroupedBars periods={P} fmt={crF} series={[
-            { label: "ASSETS", color: "#00d664", values: assets },
-            { label: "DEBT", color: "#ff453a", values: debt },
-            { label: "EQUITY", color: "#8f7bff", values: equity },
+            { label: "ASSETS", color: "var(--green)", values: assets },
+            { label: "DEBT", color: "var(--red)", values: debt },
+            { label: "EQUITY", color: "var(--violet)", values: equity },
           ]} />
         </div>
         <div className="panel">
           <p className="p-head">Cash journey — ₹ Cr</p>
           <GroupedBars periods={P} fmt={crF} series={[
-            { label: "OCF", color: "#00d664", values: ocfS },
-            { label: "FCF", color: "#ffa028", values: fcfS },
-            { label: "CAPEX", color: "#ff453a", values: capexS },
+            { label: "OCF", color: "var(--green)", values: ocfS },
+            { label: "FCF", color: "var(--amber)", values: fcfS },
+            { label: "CAPEX", color: "var(--red)", values: capexS },
           ]} />
         </div>
       </div>
@@ -1695,11 +1695,11 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
       <div className="panel">
         <p className="p-head">Capital allocation — where 4 years of cash went (₹ Cr totals)</p>
         <HBars rows={[
-          { label: "OCF GENERATED", value: ocfTot, display: inr(ocfTot), color: "#00d664" },
-          { label: "CAPEX SPENT", value: capexTot, display: inr(capexTot), color: "#ff453a" },
-          { label: "DIVIDENDS PAID", value: divTot, display: inr(divTot), color: "#ffa028" },
-          { label: "NET DEBT CHANGE", value: debtChg ?? 0, display: debtChg === null ? "—" : `${debtChg >= 0 ? "+" : ""}${inr(Math.abs(debtChg))}${debtChg >= 0 ? " borrowed" : " repaid"}`, color: "#8f7bff" },
-          { label: "EQUITY BUILT", value: eqChg ?? 0, display: eqChg === null ? "—" : `${eqChg >= 0 ? "+" : ""}${inr(Math.abs(eqChg))}`, color: "#00c8ff" },
+          { label: "OCF GENERATED", value: ocfTot, display: inr(ocfTot), color: "var(--green)" },
+          { label: "CAPEX SPENT", value: capexTot, display: inr(capexTot), color: "var(--red)" },
+          { label: "DIVIDENDS PAID", value: divTot, display: inr(divTot), color: "var(--amber)" },
+          { label: "NET DEBT CHANGE", value: debtChg ?? 0, display: debtChg === null ? "—" : `${debtChg >= 0 ? "+" : ""}${inr(Math.abs(debtChg))}${debtChg >= 0 ? " borrowed" : " repaid"}`, color: "var(--violet)" },
+          { label: "EQUITY BUILT", value: eqChg ?? 0, display: eqChg === null ? "—" : `${eqChg >= 0 ? "+" : ""}${inr(Math.abs(eqChg))}`, color: "var(--cyan)" },
         ]} />
         <div className="kv" style={{ marginTop: 8 }}><span className="muted">FCF CONVERSION (4Y FCF/OCF)</span><strong className={fcfConv !== null && fcfConv >= 50 ? "pos" : fcfConv !== null && fcfConv < 0 ? "neg" : ""}>{fcfConv === null ? "—" : `${fcfConv.toFixed(0)}%`}</strong></div>
         <div className="kv"><span className="muted">PAYOUT (4Y DIV/PROFIT)</span><strong>{payout === null || !isFinite(payout) ? "—" : `${payout.toFixed(0)}%`}</strong></div>
@@ -1943,10 +1943,10 @@ export function ForensicDesk({ symbol }: { symbol: string }) {
         </div>
         <div className="panel">
           <p className="p-head">Beneish M — trend (flag −1.78)</p>
-          <LineChart dates={P} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[{ label: "M", color: "#ff453a", values: mSeries }]} />
+          <LineChart dates={P} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[{ label: "M", color: "var(--red)", values: mSeries }]} />
           <div style={{ marginTop: 8 }}>
             <p className="p-head">Altman Z — trend</p>
-            <LineChart dates={P} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[{ label: "Z", color: "#00d664", values: zSeries.map((v) => (v === null ? null : Math.round(v * 100) / 100)) }]} />
+            <LineChart dates={P} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[{ label: "Z", color: "var(--green)", values: zSeries.map((v) => (v === null ? null : Math.round(v * 100) / 100)) }]} />
           </div>
         </div>
       </div>
@@ -1974,11 +1974,11 @@ export function ForensicDesk({ symbol }: { symbol: string }) {
         <div className="grid" style={{ gap: 10 }}>
           <div className="panel">
             <p className="p-head">Piotroski score — trend /9</p>
-            <LineChart dates={P} xLabels={x3} yFmt={(v) => v.toFixed(0)} series={[{ label: "F", color: "#ffa028", values: pTrend }]} />
+            <LineChart dates={P} xLabels={x3} yFmt={(v) => v.toFixed(0)} series={[{ label: "F", color: "var(--amber)", values: pTrend }]} />
           </div>
           <div className="panel">
             <p className="p-head">Sloan accruals % — (NI−OCF)/TA</p>
-            <BarChart values={accruals.map((v) => (v === null ? null : Math.round(v * 100) / 100))} labels={P} posColor="#ff453a" negColor="#00d664" />
+            <BarChart values={accruals.map((v) => (v === null ? null : Math.round(v * 100) / 100))} labels={P} posColor="var(--red)" negColor="var(--green)" />
             <p className="faint" style={{ fontSize: 11 }}>|ACCRUALS| &gt; 10% = RED · OCF SHOULD COVER EARNINGS</p>
           </div>
         </div>
@@ -1991,9 +1991,9 @@ export function ForensicDesk({ symbol }: { symbol: string }) {
             periods={P}
             fmt={(v) => `${v.toFixed(1)}%`}
             series={[
-              { label: "REV G", color: "#00d664", values: revG.map((v) => (v === null ? null : Math.round(v * 100) / 100)) },
-              { label: "RECV G", color: "#ff453a", values: recvG.map((v) => (v === null ? null : Math.round(v * 100) / 100)) },
-              { label: "INV G", color: "#ffa028", values: invG.map((v) => (v === null ? null : Math.round(v * 100) / 100)) },
+              { label: "REV G", color: "var(--green)", values: revG.map((v) => (v === null ? null : Math.round(v * 100) / 100)) },
+              { label: "RECV G", color: "var(--red)", values: recvG.map((v) => (v === null ? null : Math.round(v * 100) / 100)) },
+              { label: "INV G", color: "var(--amber)", values: invG.map((v) => (v === null ? null : Math.round(v * 100) / 100)) },
             ]}
           />
         </div>
@@ -2004,8 +2004,8 @@ export function ForensicDesk({ symbol }: { symbol: string }) {
             xLabels={x3}
             yFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             series={[
-              { label: "OCF", color: "#00d664", values: ocfA },
-              { label: "NET", color: "#ffa028", values: ni },
+              { label: "OCF", color: "var(--green)", values: ocfA },
+              { label: "NET", color: "var(--amber)", values: ni },
             ]}
           />
         </div>
@@ -2103,10 +2103,10 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
         <GroupedBars
           periods={P}
           series={[
-            { label: "REVENUE", color: "#ffa028", values: rev },
-            { label: "GROSS", color: "#00d664", values: gp },
-            { label: "OP INC", color: "#00c8ff", values: opI },
-            { label: "NET", color: "#8f7bff", values: net },
+            { label: "REVENUE", color: "var(--amber)", values: rev },
+            { label: "GROSS", color: "var(--green)", values: gp },
+            { label: "OP INC", color: "var(--cyan)", values: opI },
+            { label: "NET", color: "var(--violet)", values: net },
           ]}
           fmt={crFmt}
         />
@@ -2120,9 +2120,9 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             xLabels={x3}
             yFmt={pct1}
             series={[
-              { label: "GROSS", color: "#00d664", values: R("Gross Margin %") },
-              { label: "OP", color: "#00c8ff", values: R("Operating Margin %") },
-              { label: "NET", color: "#ffa028", values: R("Net Margin %") },
+              { label: "GROSS", color: "var(--green)", values: R("Gross Margin %") },
+              { label: "OP", color: "var(--cyan)", values: R("Operating Margin %") },
+              { label: "NET", color: "var(--amber)", values: R("Net Margin %") },
             ]}
           />
         </div>
@@ -2132,9 +2132,9 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             periods={P}
             fmt={pct1}
             series={[
-              { label: "REVENUE", color: "#00d664", values: R("Revenue Growth %") },
-              { label: "NET INC", color: "#ffa028", values: R("Net Income Growth %") },
-              { label: "OCF", color: "#00c8ff", values: R("OCF Growth %") },
+              { label: "REVENUE", color: "var(--green)", values: R("Revenue Growth %") },
+              { label: "NET INC", color: "var(--amber)", values: R("Net Income Growth %") },
+              { label: "OCF", color: "var(--cyan)", values: R("OCF Growth %") },
             ]}
           />
         </div>
@@ -2146,10 +2146,10 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
           periods={P}
           fmt={crFmt}
           series={[
-            { label: "ASSETS", color: "#00d664", values: assets },
-            { label: "DEBT", color: "#ff453a", values: debt },
-            { label: "EQUITY", color: "#8f7bff", values: equity },
-            { label: "CASH", color: "#00c8ff", values: cashB },
+            { label: "ASSETS", color: "var(--green)", values: assets },
+            { label: "DEBT", color: "var(--red)", values: debt },
+            { label: "EQUITY", color: "var(--violet)", values: equity },
+            { label: "CASH", color: "var(--cyan)", values: cashB },
           ]}
         />
       </div>
@@ -2162,9 +2162,9 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             xLabels={x3}
             yFmt={(v) => `${v.toFixed(2)}x`}
             series={[
-              { label: "D/E", color: "#ff453a", values: R("Debt to Equity x") },
-              { label: "A/E", color: "#ffa028", values: R("Assets to Equity x") },
-              { label: "INT COV", color: "#00d664", values: R("Interest Coverage x") },
+              { label: "D/E", color: "var(--red)", values: R("Debt to Equity x") },
+              { label: "A/E", color: "var(--amber)", values: R("Assets to Equity x") },
+              { label: "INT COV", color: "var(--green)", values: R("Interest Coverage x") },
             ]}
           />
         </div>
@@ -2175,9 +2175,9 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             xLabels={x3}
             yFmt={(v) => `${v.toFixed(2)}x`}
             series={[
-              { label: "CURRENT", color: "#00d664", values: R("Current Ratio x") },
-              { label: "QUICK", color: "#00c8ff", values: R("Quick Ratio x") },
-              { label: "CASH", color: "#ffa028", values: R("Cash Ratio x") },
+              { label: "CURRENT", color: "var(--green)", values: R("Current Ratio x") },
+              { label: "QUICK", color: "var(--cyan)", values: R("Quick Ratio x") },
+              { label: "CASH", color: "var(--amber)", values: R("Cash Ratio x") },
             ]}
           />
         </div>
@@ -2189,9 +2189,9 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
           periods={P}
           fmt={crFmt}
           series={[
-            { label: "OCF", color: "#00d664", values: ocf },
-            { label: "ICF", color: "#8f7bff", values: icf },
-            { label: "FCF", color: "#ffa028", values: fcf },
+            { label: "OCF", color: "var(--green)", values: ocf },
+            { label: "ICF", color: "var(--violet)", values: icf },
+            { label: "FCF", color: "var(--amber)", values: fcf },
           ]}
         />
       </div>
@@ -2204,8 +2204,8 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             xLabels={x3}
             yFmt={crFmt}
             series={[
-              { label: "OCF", color: "#00d664", values: ocf },
-              { label: "NET", color: "#ffa028", values: net },
+              { label: "OCF", color: "var(--green)", values: ocf },
+              { label: "NET", color: "var(--amber)", values: net },
             ]}
           />
         </div>
@@ -2215,9 +2215,9 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             periods={P}
             fmt={crFmt}
             series={[
-              { label: "OCF", color: "#00d664", values: ocf },
-              { label: "CAPEX", color: "#ff453a", values: capex },
-              { label: "DIVS", color: "#8f7bff", values: divs },
+              { label: "OCF", color: "var(--green)", values: ocf },
+              { label: "CAPEX", color: "var(--red)", values: capex },
+              { label: "DIVS", color: "var(--violet)", values: divs },
             ]}
           />
         </div>
@@ -2231,9 +2231,9 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             xLabels={x3}
             yFmt={pct1}
             series={[
-              { label: "ROE", color: "#ffa028", values: R("ROE %") },
-              { label: "ROA", color: "#00d664", values: R("ROA %") },
-              { label: "ROCE", color: "#00c8ff", values: R("ROCE %") },
+              { label: "ROE", color: "var(--amber)", values: R("ROE %") },
+              { label: "ROA", color: "var(--green)", values: R("ROA %") },
+              { label: "ROCE", color: "var(--cyan)", values: R("ROCE %") },
             ]}
           />
         </div>
@@ -2244,9 +2244,9 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             xLabels={x3}
             yFmt={(v) => `${v.toFixed(2)}x`}
             series={[
-              { label: "ASSET T/O", color: "#00d664", values: R("Asset Turnover x") },
-              { label: "INV T/O", color: "#00c8ff", values: R("Inventory Turnover x") },
-              { label: "REC T/O", color: "#ffa028", values: R("Receivables Turnover x") },
+              { label: "ASSET T/O", color: "var(--green)", values: R("Asset Turnover x") },
+              { label: "INV T/O", color: "var(--cyan)", values: R("Inventory Turnover x") },
+              { label: "REC T/O", color: "var(--amber)", values: R("Receivables Turnover x") },
             ]}
           />
         </div>
@@ -2256,9 +2256,9 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             periods={P}
             fmt={(v) => `${v.toFixed(1)}d`}
             series={[
-              { label: "DSO", color: "#ffa028", values: R("Days Sales Outstanding days") },
-              { label: "DIO", color: "#00c8ff", values: R("Days Inventory Outstanding days") },
-              { label: "CCC", color: "#ff453a", values: R("Cash Conversion Cycle days") },
+              { label: "DSO", color: "var(--amber)", values: R("Days Sales Outstanding days") },
+              { label: "DIO", color: "var(--cyan)", values: R("Days Inventory Outstanding days") },
+              { label: "CCC", color: "var(--red)", values: R("Cash Conversion Cycle days") },
             ]}
           />
         </div>
@@ -2271,8 +2271,8 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             periods={QP}
             fmt={crFmt}
             series={[
-              { label: "Q REV", color: "#ffa028", values: qrev },
-              { label: "Q NET", color: "#00d664", values: qnet },
+              { label: "Q REV", color: "var(--amber)", values: qrev },
+              { label: "Q NET", color: "var(--green)", values: qnet },
             ]}
           />
         </div>
@@ -2285,8 +2285,8 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
             periods={P}
             fmt={(v) => `₹${v.toFixed(1)}`}
             series={[
-              { label: "DIL EPS", color: "#00d664", values: R("Diluted EPS Rs") },
-              { label: "DPS", color: "#ffa028", values: R("Dividend Per Share Rs") },
+              { label: "DIL EPS", color: "var(--green)", values: R("Diluted EPS Rs") },
+              { label: "DPS", color: "var(--amber)", values: R("Dividend Per Share Rs") },
             ]}
           />
         </div>
@@ -2303,11 +2303,11 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
           {(() => {
             const get = (c: string[]) => last(findRow(data.sh, c)?.values);
             const parts = [
-              { label: "PROMOTER", value: get(["promoters"]) ?? 0, color: "#ffa028" },
-              { label: "FII", value: get(["fiis", "fii"]) ?? 0, color: "#00d664" },
-              { label: "DII", value: get(["diis", "dii"]) ?? 0, color: "#8f7bff" },
-              { label: "PUBLIC", value: get(["public"]) ?? 0, color: "#8a8a93" },
-              { label: "GOVT", value: get(["government"]) ?? 0, color: "#00c8ff" },
+              { label: "PROMOTER", value: get(["promoters"]) ?? 0, color: "var(--amber)" },
+              { label: "FII", value: get(["fiis", "fii"]) ?? 0, color: "var(--green)" },
+              { label: "DII", value: get(["diis", "dii"]) ?? 0, color: "var(--violet)" },
+              { label: "PUBLIC", value: get(["public"]) ?? 0, color: "var(--faint)" },
+              { label: "GOVT", value: get(["government"]) ?? 0, color: "var(--cyan)" },
             ];
             if (!parts.some((p) => p.value > 0)) return <p className="muted">NO HOLDING SPLIT.</p>;
             return <Donut slices={parts} />;
@@ -2321,10 +2321,10 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
               xLabels={[hShort[0] ?? "", hShort[Math.floor(hShort.length / 2)] ?? "", hShort[hShort.length - 1] ?? ""]}
               yFmt={pct1}
               series={[
-                { label: "PROM", color: "#ffa028", values: hRow(["promoters"]) },
-                { label: "FII", color: "#00d664", values: hRow(["fiis", "fii"]) },
-                { label: "DII", color: "#8f7bff", values: hRow(["diis", "dii"]) },
-                { label: "PUB", color: "#8a8a93", values: hRow(["public"]) },
+                { label: "PROM", color: "var(--amber)", values: hRow(["promoters"]) },
+                { label: "FII", color: "var(--green)", values: hRow(["fiis", "fii"]) },
+                { label: "DII", color: "var(--violet)", values: hRow(["diis", "dii"]) },
+                { label: "PUB", color: "var(--faint)", values: hRow(["public"]) },
               ]}
             />
           ) : (
@@ -2618,8 +2618,8 @@ export function DCFDesk({ symbol }: { symbol: string }) {
                             {mm.sens[i].map((v, j) => (
                               <td key={j} style={{
                                 textAlign: "right",
-                                background: v === null ? "transparent" : v >= price ? "rgba(0,214,100,0.10)" : "rgba(255,69,58,0.10)",
-                                outline: i === 2 && j === 2 ? "1px solid #ffa028" : "none",
+                                background: v === null ? "transparent" : v >= price ? "color-mix(in srgb, var(--green) 10%, transparent)" : "color-mix(in srgb, var(--red) 10%, transparent)",
+                                outline: i === 2 && j === 2 ? "1px solid var(--amber)" : "none",
                               }}>
                                 {v === null || !isFinite(v) ? "—" : Math.round(v).toLocaleString("en-IN")}
                               </td>
@@ -2657,10 +2657,10 @@ export function DCFDesk({ symbol }: { symbol: string }) {
                 <div className="panel" style={{ marginTop: 10 }}>
                   <p className="p-head">Fair value vs price</p>
                   <HBars rows={[
-                    { label: "P10", value: mm.mc.p10, display: isFinite(mm.mc.p10) ? `₹${Math.round(mm.mc.p10).toLocaleString("en-IN")}` : "—", color: "#8a8a93" },
-                    { label: "P50 FAIR", value: mm.mc.p50, display: isFinite(mm.mc.p50) ? `₹${Math.round(mm.mc.p50).toLocaleString("en-IN")}` : "—", color: "#ffa028" },
-                    { label: "MODEL FAIR", value: mm.fv, display: `₹${Math.round(mm.fv).toLocaleString("en-IN")}`, color: "#00d664" },
-                    { label: "PRICE", value: price, display: `₹${Math.round(price).toLocaleString("en-IN")}`, color: "#00c8ff" },
+                    { label: "P10", value: mm.mc.p10, display: isFinite(mm.mc.p10) ? `₹${Math.round(mm.mc.p10).toLocaleString("en-IN")}` : "—", color: "var(--faint)" },
+                    { label: "P50 FAIR", value: mm.mc.p50, display: isFinite(mm.mc.p50) ? `₹${Math.round(mm.mc.p50).toLocaleString("en-IN")}` : "—", color: "var(--amber)" },
+                    { label: "MODEL FAIR", value: mm.fv, display: `₹${Math.round(mm.fv).toLocaleString("en-IN")}`, color: "var(--green)" },
+                    { label: "PRICE", value: price, display: `₹${Math.round(price).toLocaleString("en-IN")}`, color: "var(--cyan)" },
                   ]} />
                 </div>
               </>
@@ -2901,7 +2901,7 @@ export function LBODesk({ symbol }: { symbol: string }) {
                       {m.sens[i].map((v, j) => (
                         <td key={j} style={{
                           textAlign: "right",
-                          background: v === null || !isFinite(v) ? "transparent" : v >= 0.2 ? "rgba(0,214,100,0.10)" : "rgba(255,69,58,0.10)",
+                          background: v === null || !isFinite(v) ? "transparent" : v >= 0.2 ? "color-mix(in srgb, var(--green) 10%, transparent)" : "color-mix(in srgb, var(--red) 10%, transparent)",
                         }}>
                           {v === null || !isFinite(v) ? "—" : `${(v * 100).toFixed(1)}%`}
                         </td>
@@ -2963,21 +2963,21 @@ function Waterfall({ steps }: { steps: WFStep[] }) {
   const bw = PW / n;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }}>
-      <line x1={X0} x2={W - 8} y1={Y(0)} y2={Y(0)} stroke="#26262b" strokeWidth="1" />
+      <line x1={X0} x2={W - 8} y1={Y(0)} y2={Y(0)} stroke="var(--grid)" strokeWidth="1" />
       {steps.map((s, i) => {
         const c0 = s.kind === "flow" ? cum[i] : 0, c1 = cum[i + 1];
         const top = Y(Math.max(c0, c1)), h = Math.max(2, Math.abs(Y(c0) - Y(c1)));
         const x = X0 + i * bw + bw * 0.19, w = bw * 0.62;
-        const fill = s.kind !== "flow" ? "#ffa028" : s.delta >= 0 ? "#00d664" : "#ff453a";
+        const fill = s.kind !== "flow" ? "var(--amber)" : s.delta >= 0 ? "var(--green)" : "var(--red)";
         return (
           <g key={i}>
             <title>{s.label}: {fmtCr0(s.kind === "flow" ? s.delta : c1)} Cr</title>
             <rect x={x.toFixed(1)} y={top.toFixed(1)} width={w.toFixed(1)} height={h.toFixed(1)} fill={fill} opacity={s.kind === "flow" ? 0.85 : 0.95} rx={1} />
-            <text x={(x + w / 2).toFixed(1)} y={(top - 4).toFixed(1)} fontSize="9" fill="#f5f5f4" textAnchor="middle" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <text x={(x + w / 2).toFixed(1)} y={(top - 4).toFixed(1)} fontSize="9" fill="var(--text)" textAnchor="middle" style={{ fontVariantNumeric: "tabular-nums" }}>
               {s.kind === "flow" ? (s.delta >= 0 ? "+" : "") + fmtCr0(s.delta) : fmtCr0(c1)}
             </text>
-            <text x={(x + w / 2).toFixed(1)} y={(Y1 + 12).toFixed(1)} fontSize="9" fill="#a1a1aa" textAnchor="end" transform={`rotate(-38 ${(x + w / 2).toFixed(1)} ${(Y1 + 12).toFixed(1)})`}>{s.label}</text>
-            {i < n - 1 && <line x1={x + w} x2={X0 + (i + 1) * bw + bw * 0.19} y1={Y(cum[i + 1])} y2={Y(cum[i + 1])} stroke="#5b5b62" strokeWidth="1" strokeDasharray="3 3" />}
+            <text x={(x + w / 2).toFixed(1)} y={(Y1 + 12).toFixed(1)} fontSize="9" fill="var(--sub)" textAnchor="end" transform={`rotate(-38 ${(x + w / 2).toFixed(1)} ${(Y1 + 12).toFixed(1)})`}>{s.label}</text>
+            {i < n - 1 && <line x1={x + w} x2={X0 + (i + 1) * bw + bw * 0.19} y1={Y(cum[i + 1])} y2={Y(cum[i + 1])} stroke="var(--faint)" strokeWidth="1" strokeDasharray="3 3" />}
           </g>
         );
       })}
@@ -3180,19 +3180,19 @@ export function LinkerDesk({ symbol }: { symbol: string }) {
             <svg viewBox="0 0 400 120" style={{ width: "100%", display: "block" }}>
               {trend.map((t, i) => {
                 const gx = 12 + i * 78;
-                const bars: Array<[number, string]> = [[t.npat, "#ffa028"], [t.ocf, "#00d664"], [t.fcf, "#00c8ff"]];
+                const bars: Array<[number, string]> = [[t.npat, "var(--amber)"], [t.ocf, "var(--green)"], [t.fcf, "var(--cyan)"]];
                 return (
                   <g key={t.p}>
                     {bars.map(([v, c], j) => {
                       const h = Math.max(2, (Math.abs(v) / tMax) * 88);
                       return <rect key={j} x={gx + j * 22} y={104 - h} width={18} height={h} fill={c} opacity="0.9" rx={1}><title>{t.p} {fmtCr0(v)}</title></rect>;
                     })}
-                    <text x={gx + 31} y={116} fontSize="9" fill="#8a8a93" textAnchor="middle">{t.p}</text>
+                    <text x={gx + 31} y={116} fontSize="9" fill="var(--faint)" textAnchor="middle">{t.p}</text>
                   </g>
                 );
               })}
             </svg>
-            <div className="muted" style={{ fontSize: 11 }}><span style={{ color: "#ffa028" }}>■ NPAT</span>{"  "}<span style={{ color: "#00d664" }}>■ OCF</span>{"  "}<span style={{ color: "#00c8ff" }}>■ FCF</span></div>
+            <div className="muted" style={{ fontSize: 11 }}><span style={{ color: "var(--amber)" }}>■ NPAT</span>{"  "}<span style={{ color: "var(--green)" }}>■ OCF</span>{"  "}<span style={{ color: "var(--cyan)" }}>■ FCF</span></div>
           </div>
         </div>
       </div>

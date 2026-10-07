@@ -146,7 +146,7 @@ export default function EventsPage() {
                   const v = b.volume || 0;
                   return b.close >= prev ? v : -v;
                 })}
-                labels={hist.map((b) => b.date)} height={56} posColor="#00d664" negColor="#ff453a"
+                labels={hist.map((b) => b.date)} height={56} posColor="var(--green)" negColor="var(--red)"
               />
             </div>
             <table className="plain" style={{ marginTop: 8 }}>
@@ -158,7 +158,7 @@ export default function EventsPage() {
                   const dpct = prev ? ((b.close - prev) / prev) * 100 : 0;
                   const shock = Math.abs(dpct) >= 5;
                   return (
-                    <tr key={b.date} style={shock ? { background: upD ? "rgba(0,214,100,0.06)" : "rgba(255,69,58,0.06)" } : undefined}>
+                    <tr key={b.date} style={shock ? { background: upD ? "color-mix(in srgb, var(--green) 6%, transparent)" : "color-mix(in srgb, var(--red) 6%, transparent)" } : undefined}>
                       <td>{b.date}</td>
                       <td style={{ textAlign: "right" }}>{b.open?.toLocaleString("en-IN", { maximumFractionDigits: 1 })}</td>
                       <td style={{ textAlign: "right" }}>{b.high?.toLocaleString("en-IN", { maximumFractionDigits: 1 })}</td>
@@ -193,7 +193,7 @@ export default function EventsPage() {
             {divByYear.length > 1 && (
               <div className="panel">
                 <p className="p-head">Yearly totals — ₹ / share</p>
-                <BarChart values={divByYear.map(([, v]) => v)} labels={divByYear.map(([y]) => y)} height={110} posColor="#ffa028" negColor="#ffa028" />
+                <BarChart values={divByYear.map(([, v]) => v)} labels={divByYear.map(([y]) => y)} height={110} posColor="var(--amber)" negColor="var(--amber)" />
               </div>
             )}
           </div>

@@ -19,12 +19,17 @@
   --dx-faint: #8a8a93;
   --dx-amber: #ffa028;
   --dx-amber-deep: #b26a00;
-  --dx-amber-subtle: rgba(255, 160, 40, 0.12);
+  --dx-amber-subtle: color-mix(in srgb, var(--dx-amber) 12%, transparent);
   --dx-sec: #ffb000;
   --dx-green: #00d664;
   --dx-green-bg: rgba(0, 214, 100, 0.14);
   --dx-red: #ff453a;
   --dx-red-bg: rgba(255, 69, 58, 0.13);
+  /* Pure-black inset + the modal scrim. Scrim is a token because a 66% black
+     wash over a light terminal is the wrong weight — it crushes the sheet it is
+     meant to sit behind. */
+  --dx-track: #000000;
+  --dx-scrim: var(--dx-scrim);
   --dx-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
   --dx-top: 52px;
@@ -46,6 +51,35 @@
   overscroll-behavior-y: contain;
 }
 
+/* Droid light theme.
+   The phone surface has its own `--dx-*` scale rather than borrowing the
+   terminal's, because every value here is one touch-size larger; but the COLOUR
+   decisions are the terminal's, measured the same way. #ffa028 on a light panel
+   is 1.97:1 and #00d664 is 1.88:1, so amber, security-yellow and both
+   directional colours darken rather than being reused. The droid tokens hang off
+   the `.dx` shell, so this has to reach the shell THROUGH the document
+   attribute — `[data-theme="light"]` on its own would set nothing, because no
+   droid rule ever reads it. */
+[data-theme="light"] .dx {
+  --dx-bg: #e9e9e6;
+  --dx-panel: #fbfbfa;
+  --dx-panel-2: #f1f1ef;
+  --dx-grid: #cfcfcb;
+  --dx-track: #e4e4e1;
+  --dx-scrim: rgba(20, 20, 24, 0.34);
+  --dx-text: #101013;
+  --dx-sub: #4a4a52;
+  --dx-faint: #63636b;
+  --dx-amber: #9a5600;
+  --dx-amber-deep: #7a4400;
+  --dx-amber-subtle: rgba(154, 86, 0, 0.10);
+  --dx-sec: #8a5c00;
+  --dx-green: #0a733c;
+  --dx-green-bg: rgba(10, 115, 60, 0.11);
+  --dx-red: #c0261c;
+  --dx-red-bg: rgba(192, 38, 28, 0.10);
+}
+
 body:has(> #droid-root) { padding-bottom: 0; }
 
 /* ---------------- layout shell ---------------- */
@@ -62,8 +96,8 @@ body:has(> #droid-root) { padding-bottom: 0; }
   height: calc(var(--dx-top) + var(--dx-safe-t));
   display: flex; align-items: center; gap: 6px;
   padding-left: 8px; padding-right: 8px;
-  background: #000;
-  border-bottom: 1px solid rgba(255, 160, 40, 0.4);
+  background: var(--dx-track);
+  border-bottom: 1px solid color-mix(in srgb, var(--dx-amber) 40%, transparent);
 }
 .dx-topbar .dx-brand { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; letter-spacing: 0.06em; }
 .dx-mark { color: var(--dx-amber); }
@@ -79,7 +113,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
   font-family: var(--dx-mono); font-size: 16px; cursor: pointer; border-radius: var(--dx-radius);
   position: relative;
 }
-.dx-iconbtn:active { background: rgba(255, 160, 40, 0.12); }
+.dx-iconbtn:active { background: color-mix(in srgb, var(--dx-amber) 12%, transparent); }
 .dx-iconbtn .dx-dot {
   position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
   border-radius: 50%; background: var(--dx-amber); box-shadow: 0 0 6px var(--dx-amber);
@@ -91,7 +125,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 
 .dx-nav {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
-  display: flex; background: #000; border-top: 1px solid var(--dx-grid);
+  display: flex; background: var(--dx-track); border-top: 1px solid var(--dx-grid);
   padding-bottom: var(--dx-safe-b);
   height: calc(var(--dx-nav) + var(--dx-safe-b));
 }
@@ -129,7 +163,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
   color: var(--dx-amber); margin: 18px 0 8px;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-.dx-h::after { content: ""; flex: 1; height: 1px; background: rgba(255, 160, 40, 0.4); order: 1; }
+.dx-h::after { content: ""; flex: 1; height: 1px; background: color-mix(in srgb, var(--dx-amber) 40%, transparent); order: 1; }
 .dx-h > * { order: 2; }
 .dx-note { font-size: 10.5px; color: var(--dx-faint); letter-spacing: 0.04em; margin-top: 6px; }
 .dx-sub { color: var(--dx-sub); }
@@ -173,7 +207,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 .dx-btn:active { background: var(--dx-sec); }
 .dx-btn.dx-ghost { background: transparent; color: var(--dx-sub); border: 1px solid var(--dx-grid); }
 .dx-btn.dx-ghost:active, .dx-btn.dx-ghost.dx-on { color: var(--dx-amber); border-color: var(--dx-amber); }
-.dx-btn.dx-danger { background: transparent; color: var(--dx-red); border: 1px solid rgba(255, 69, 58, 0.5); }
+.dx-btn.dx-danger { background: transparent; color: var(--dx-red); border: 1px solid color-mix(in srgb, var(--dx-red) 50%, transparent); }
 .dx-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
 
 .dx-pills { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
@@ -194,7 +228,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 }
 .dx-badge.dx-up { background: var(--dx-green-bg); color: var(--dx-green); }
 .dx-badge.dx-down { background: var(--dx-red-bg); color: var(--dx-red); }
-.dx-badge.dx-fnc { background: transparent; color: var(--dx-amber); border: 1px solid rgba(255, 160, 40, 0.5); }
+.dx-badge.dx-fnc { background: transparent; color: var(--dx-amber); border: 1px solid color-mix(in srgb, var(--dx-amber) 50%, transparent); }
 .dx-badge.dx-mute { background: var(--dx-panel-2); color: var(--dx-sub); border: 1px solid var(--dx-grid); }
 
 /* rows / lists */
@@ -205,7 +239,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
   border-radius: var(--dx-radius); width: 100%; text-align: left;
   color: var(--dx-text); font-family: var(--dx-mono); cursor: pointer;
 }
-.dx-row:active { background: var(--dx-panel-2); border-color: rgba(255, 160, 40, 0.5); }
+.dx-row:active { background: var(--dx-panel-2); border-color: color-mix(in srgb, var(--dx-amber) 50%, transparent); }
 .dx-row .dx-sym { color: var(--dx-sec); font-weight: 700; font-size: 13px; }
 .dx-row .dx-name { color: var(--dx-sub); font-size: 10.5px; }
 .dx-row .dx-right { margin-left: auto; text-align: right; }
@@ -218,7 +252,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 .dx-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 480px; }
 .dx-table th {
   font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dx-amber);
-  text-align: right; padding: 8px; border-bottom: 1px solid rgba(255, 160, 40, 0.4); white-space: nowrap;
+  text-align: right; padding: 8px; border-bottom: 1px solid color-mix(in srgb, var(--dx-amber) 40%, transparent); white-space: nowrap;
 }
 .dx-table th:first-child, .dx-table td:first-child { text-align: left; }
 .dx-table td { padding: 8px; text-align: right; border-bottom: 1px solid var(--dx-grid); white-space: nowrap; }
@@ -232,7 +266,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 
 /* ---------------- sheet ---------------- */
 .dx-sheet-back {
-  position: fixed; inset: 0; z-index: 90; background: rgba(0, 0, 0, 0.66);
+  position: fixed; inset: 0; z-index: 90; background: var(--dx-scrim);
   display: flex; align-items: flex-end; justify-content: center;
   animation: dx-fade 0.14s ease-out;
 }
@@ -288,7 +322,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 .dx-chart svg { display: block; width: 100%; }
 .dx-chart-tip {
   position: absolute; top: 6px; left: 6px; right: 6px; pointer-events: none;
-  background: rgba(3, 3, 4, 0.9); border: 1px solid var(--dx-grid);
+  background: var(--dx-panel); border: 1px solid var(--dx-grid);
   border-radius: var(--dx-radius); padding: 6px 8px; font-size: 10.5px; line-height: 1.5;
   display: flex; gap: 12px; flex-wrap: wrap;
 }
@@ -312,7 +346,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 .dx-fab {
   width: 52px; height: 52px; border-radius: 50%; background: var(--dx-amber); color: #000;
   border: none; font-size: 24px; font-weight: 700; cursor: pointer;
-  box-shadow: 0 4px 18px rgba(255, 160, 40, 0.35);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--dx-amber) 35%, transparent);
   display: flex; align-items: center; justify-content: center;
 }
 .dx-fab-item {
@@ -361,13 +395,13 @@ body:has(> #droid-root) { padding-bottom: 0; }
 
 /* news card */
 .dx-news { display: flex; flex-direction: column; gap: 5px; padding: 11px 10px; background: var(--dx-panel); border: 1px solid var(--dx-grid); border-radius: var(--dx-radius); text-decoration: none; color: var(--dx-text); }
-.dx-news:active { border-color: rgba(255, 160, 40, 0.5); }
+.dx-news:active { border-color: color-mix(in srgb, var(--dx-amber) 50%, transparent); }
 .dx-news .dx-nt { font-size: 13px; line-height: 1.45; }
 .dx-news .dx-nm { font-size: 10px; color: var(--dx-faint); letter-spacing: 0.05em; text-transform: uppercase; display: flex; gap: 8px; align-items: center; }
 
 /* AI */
 .dx-ai-msg { padding: 10px 12px; border-radius: var(--dx-radius); font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-.dx-ai-msg.dx-me { background: var(--dx-amber-subtle); border: 1px solid rgba(255, 160, 40, 0.35); }
+.dx-ai-msg.dx-me { background: var(--dx-amber-subtle); border: 1px solid color-mix(in srgb, var(--dx-amber) 35%, transparent); }
 .dx-ai-msg.dx-bot { background: var(--dx-panel); border: 1px solid var(--dx-grid); }
 .dx-ai-who { font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--dx-faint); margin-bottom: 4px; }
 
@@ -386,8 +420,8 @@ body:has(> #droid-root) { padding-bottom: 0; }
 /* progress / verdict banner */
 .dx-verdict {
   display: flex; align-items: center; gap: 8px; padding: 10px 12px;
-  background: var(--dx-panel); border: 1px solid rgba(255, 160, 40, 0.55);
-  border-radius: var(--dx-radius); box-shadow: 0 0 24px rgba(255, 160, 40, 0.12);
+  background: var(--dx-panel); border: 1px solid color-mix(in srgb, var(--dx-amber) 55%, transparent);
+  border-radius: var(--dx-radius); box-shadow: 0 0 24px color-mix(in srgb, var(--dx-amber) 12%, transparent);
   font-size: 12.5px; line-height: 1.5;
 }
 
@@ -405,7 +439,7 @@ body:has(> #droid-root) { padding-bottom: 0; }
 .dx-bridge-bar {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
   padding-top: calc(var(--dx-safe-t) + 6px);
-  background: #000; border-bottom: 1px solid rgba(255, 160, 40, 0.4); min-height: calc(var(--dx-top) + var(--dx-safe-t));
+  background: var(--dx-track); border-bottom: 1px solid color-mix(in srgb, var(--dx-amber) 40%, transparent); min-height: calc(var(--dx-top) + var(--dx-safe-t));
 }
 .dx-bridge-body { flex: 1; min-height: 0; overflow: auto; padding: 10px; padding-bottom: calc(var(--dx-safe-b) + 20px); }
 .dx-bridge-body .panel { margin: 0; }

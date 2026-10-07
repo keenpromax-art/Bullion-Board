@@ -193,7 +193,7 @@ export function NotesDesk({ symbol }: { symbol?: string }) {
                     </tr>
                     {openId === n.id && (
                       <tr key={`${n.id}-open`}>
-                        <td colSpan={7} style={{ textAlign: "left", background: "rgba(255,160,40,0.04)" }}>
+                        <td colSpan={7} style={{ textAlign: "left", background: "color-mix(in srgb, var(--amber) 4%, transparent)" }}>
                           {editId === n.id ? (
                             <div>
                               <textarea className="box" value={editText} onChange={(e) => setEditText(e.target.value)} onKeyDown={(e) => e.stopPropagation()} rows={5} style={{ width: "100%" }} aria-label="Edit thesis" />

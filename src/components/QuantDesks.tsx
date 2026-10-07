@@ -25,7 +25,7 @@ function Spark({ data, h = 64 }: { data: number[]; h?: number }) {
   return (
     <svg viewBox={`0 0 ${W} ${h}`} style={{ width: "100%", height: h }} preserveAspectRatio="none">
       <title>{data.length ? `LAST ${data[data.length - 1].toLocaleString("en-IN", { maximumFractionDigits: 1 })}` : ""}</title>
-      <polyline points={pts} fill="none" stroke={up ? "#00d664" : "#ff453a"} strokeWidth="1.8" />
+      <polyline points={pts} fill="none" stroke={up ? "var(--green)" : "var(--red)"} strokeWidth="1.8" />
     </svg>
   );
 }
@@ -346,10 +346,10 @@ function ZChart({ z, cur }: { z: number[]; cur: number }) {
     <div className="panel">
       <p className="p-head">Z-score — 60D window · now <span className={Math.abs(cur) > 2 ? "neg" : ""}>{cur >= 0 ? "+" : ""}{cur}</span></p>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-        {band(2, "#ff453a")}{band(-2, "#ff453a")}{band(1, "#5b5b62")}{band(-1, "#5b5b62")}
-        <line x1="0" x2={W} y1={Y(0)} y2={Y(0)} stroke="#26262b" strokeWidth="1" />
-        <polyline points={z.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")} fill="none" stroke={Math.abs(cur) > 2 ? "#ff453a" : "#ffa028"} strokeWidth="1.6" />
-        <circle cx={X(z.length - 1)} cy={Y(cur)} r="3.5" fill={Math.abs(cur) > 2 ? "#ff453a" : "#ffa028"} />
+        {band(2, "var(--red)")}{band(-2, "var(--red)")}{band(1, "var(--faint)")}{band(-1, "var(--faint)")}
+        <line x1="0" x2={W} y1={Y(0)} y2={Y(0)} stroke="var(--grid)" strokeWidth="1" />
+        <polyline points={z.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")} fill="none" stroke={Math.abs(cur) > 2 ? "var(--red)" : "var(--amber)"} strokeWidth="1.6" />
+        <circle cx={X(z.length - 1)} cy={Y(cur)} r="3.5" fill={Math.abs(cur) > 2 ? "var(--red)" : "var(--amber)"} />
       </svg>
       <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>|Z|&gt;2 = SIGNAL BAND · FADE NEEDS TRADEABLE HALF-LIFE</p>
     </div>
@@ -365,8 +365,8 @@ function SpreadChart({ data }: { data: number[] }) {
   const up = data[data.length - 1] >= 0;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-      <line x1="0" x2={W} y1={Y(0)} y2={Y(0)} stroke="#26262b" strokeWidth="1" />
-      <polyline points={data.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")} fill="none" stroke={up ? "#00d664" : "#ff453a"} strokeWidth="1.6" />
+      <line x1="0" x2={W} y1={Y(0)} y2={Y(0)} stroke="var(--grid)" strokeWidth="1" />
+      <polyline points={data.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")} fill="none" stroke={up ? "var(--green)" : "var(--red)"} strokeWidth="1.6" />
     </svg>
   );
 }
@@ -382,10 +382,10 @@ function RebasedChart({ a, b, symA, symB }: { a: number[]; b: number[]; symA: st
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-        <polyline points={bb.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")} fill="none" stroke="#a1a1aa" strokeWidth="1.2" />
-        <polyline points={aa.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")} fill="none" stroke="#ffb000" strokeWidth="1.6" />
+        <polyline points={bb.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")} fill="none" stroke="var(--sub)" strokeWidth="1.2" />
+        <polyline points={aa.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")} fill="none" stroke="var(--sec)" strokeWidth="1.6" />
       </svg>
-      <div className="muted" style={{ fontSize: 11.5 }}><span style={{ color: "#ffb000" }}>— {symA}</span>{"  "}<span style={{ color: "#a1a1aa" }}>— {symB}</span></div>
+      <div className="muted" style={{ fontSize: 11.5 }}><span style={{ color: "var(--sec)" }}>— {symA}</span>{"  "}<span style={{ color: "var(--sub)" }}>— {symB}</span></div>
     </div>
   );
 }
@@ -463,8 +463,8 @@ export function FactorDesk({ symbol }: { symbol: string }) {
             return (
               <svg viewBox={`0 0 ${W2} ${H2}`} style={{ width: "100%", height: H2 }}>
                 {pts.map((p, i) => <circle key={i} cx={X(p.x)} cy={Y(p.y)} r="4" fill="transparent"><title>NIFTY {p.x.toFixed(2)}% · {symbol} {p.y.toFixed(2)}%</title></circle>)}
-                {pts.map((p, i) => <circle key={`d${i}`} cx={X(p.x)} cy={Y(p.y)} r="2" fill="#8f7bff" opacity="0.6" pointerEvents="none" />)}
-                <line x1={X(x0)} y1={Y(ad + b * x0)} x2={X(x1)} y2={Y(ad + b * x1)} stroke="#ffa028" strokeWidth="1.5" />
+                {pts.map((p, i) => <circle key={`d${i}`} cx={X(p.x)} cy={Y(p.y)} r="2" fill="var(--violet)" opacity="0.6" pointerEvents="none" />)}
+                <line x1={X(x0)} y1={Y(ad + b * x0)} x2={X(x1)} y2={Y(ad + b * x1)} stroke="var(--amber)" strokeWidth="1.5" />
               </svg>
             );
           })()}
@@ -721,12 +721,12 @@ export function MertonDesk({ symbol }: { symbol: string }) {
         <p className="p-head">Fan — Merton vs GBM · {horizon}D · amber paths = jumps · grey band = GBM P5–P95 · P50 {inr(model.mStats.p50)}</p>
         <svg viewBox={`0 0 ${W} ${Hh}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
           <polygon points={gPoly} fill="rgba(161,161,170,0.16)" />
-          <polyline points={line(model.gBand.p50, HISTN - 1)} fill="none" stroke="#a1a1aa" strokeWidth="1.2" strokeDasharray="5 3" />
+          <polyline points={line(model.gBand.p50, HISTN - 1)} fill="none" stroke="var(--sub)" strokeWidth="1.2" strokeDasharray="5 3" />
           {model.mjShow.map((p, i) => (
-            <polyline key={i} points={line(p.filter((_, d) => d % 3 === 0), HISTN - 1)} fill="none" stroke="#ffa028" strokeWidth="1" opacity="0.25" />
+            <polyline key={i} points={line(p.filter((_, d) => d % 3 === 0), HISTN - 1)} fill="none" stroke="var(--amber)" strokeWidth="1" opacity="0.25" />
           ))}
-          <polyline points={line(model.mMed, HISTN - 1)} fill="none" stroke="#ffa028" strokeWidth="1.8" />
-          <polyline points={line(hist, 0)} fill="none" stroke="#f5f5f4" strokeWidth="1.2" />
+          <polyline points={line(model.mMed, HISTN - 1)} fill="none" stroke="var(--amber)" strokeWidth="1.8" />
+          <polyline points={line(hist, 0)} fill="none" stroke="var(--text)" strokeWidth="1.2" />
         </svg>
         <div className="pills" style={{ marginTop: 8 }}>
           <span className="badge fnc">— MJ MEDIAN</span>
@@ -775,9 +775,9 @@ export function MertonDesk({ symbol }: { symbol: string }) {
       <div className="duo">
         <div className="panel">
           <p className="p-head">Terminal distribution — {horizon}D · shared scale</p>
-          <Histogram prebinned={{ counts: counts(model.eM), edges }} height={110} color="#ffa028" />
+          <Histogram prebinned={{ counts: counts(model.eM), edges }} height={110} color="var(--amber)" />
           <p className="muted" style={{ fontSize: 11.5 }}>MERTON ENDS · FAT LEFT TAIL VS GBM</p>
-          <Histogram prebinned={{ counts: counts(model.eG), edges }} height={70} color="#5b5b62" />
+          <Histogram prebinned={{ counts: counts(model.eG), edges }} height={70} color="var(--faint)" />
           <p className="muted" style={{ fontSize: 11.5 }}>GBM ENDS · SAME MEAN · SAME BINS</p>
         </div>
         <div className="grid" style={{ gap: 10 }}>
@@ -1054,12 +1054,12 @@ export function DayDesk({ symbol }: { symbol: string }) {
           <p className="p-head">Price + VWAP ±1σ + IB box</p>
           <LineChart
             series={[
-              { label: "CLOSE", color: "#ffb000", values: closes },
-              { label: "VWAP", color: "#ffa028", values: vwapS },
-              { label: "+1σ", color: "#8a8a93", values: up1, dashed: true },
-              { label: "−1σ", color: "#8a8a93", values: lo1, dashed: true },
-              { label: "IBH", color: "#00d664", values: closes.map(() => ibH), dashed: true },
-              { label: "IBL", color: "#ff453a", values: closes.map(() => ibL), dashed: true },
+              { label: "CLOSE", color: "var(--sec)", values: closes },
+              { label: "VWAP", color: "var(--amber)", values: vwapS },
+              { label: "+1σ", color: "var(--faint)", values: up1, dashed: true },
+              { label: "−1σ", color: "var(--faint)", values: lo1, dashed: true },
+              { label: "IBH", color: "var(--green)", values: closes.map(() => ibH), dashed: true },
+              { label: "IBL", color: "var(--red)", values: closes.map(() => ibL), dashed: true },
             ]}
             height={170} yFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             dates={times} xLabels={x3}
@@ -1070,7 +1070,7 @@ export function DayDesk({ symbol }: { symbol: string }) {
           <div>
             <p className="p-head">Cumulative Δ — tape pressure</p>
             <LineChart
-              series={[{ label: "CUM Δ", color: cumDLast >= 0 ? "#00d664" : "#ff453a", values: cumD }]}
+              series={[{ label: "CUM Δ", color: cumDLast >= 0 ? "var(--green)" : "var(--red)", values: cumD }]}
               height={110} yFmt={(v) => `${(v / 1e6).toFixed(2)}M`} dates={times} xLabels={x3}
             />
           </div>
@@ -1084,7 +1084,7 @@ export function DayDesk({ symbol }: { symbol: string }) {
                   label: f1(pxAt(k)),
                   value: v,
                   display: `${(v / 1e6).toFixed(2)}M ${net >= 0 ? "+" : ""}${(net / 1e3).toFixed(0)}k`,
-                  color: k === pocI ? "#ffa028" : tiny ? "#5b5b62" : net > 0 ? "#00d664" : "#ff453a",
+                  color: k === pocI ? "var(--amber)" : tiny ? "var(--faint)" : net > 0 ? "var(--green)" : "var(--red)",
                 };
               }).reverse()}
             />
@@ -1095,12 +1095,12 @@ export function DayDesk({ symbol }: { symbol: string }) {
         <div className="grid grid-2" style={{ marginTop: 10 }}>
           <div>
             <p className="p-head">Per-print Δ — sec-to-sec orderflow</p>
-            <BarChart values={delta} labels={times} height={110} posColor="#00d664" negColor="#ff453a" />
+            <BarChart values={delta} labels={times} height={110} posColor="var(--green)" negColor="var(--red)" />
           </div>
           <div>
             <p className="p-head">Δ velocity — flow acceleration print-to-print</p>
             <LineChart
-              series={[{ label: "Δ CHG", color: "#ffa028", values: dChg }]}
+              series={[{ label: "Δ CHG", color: "var(--amber)", values: dChg }]}
               height={110} yFmt={(v) => `${v >= 0 ? "+" : ""}${(v / 1e3).toFixed(0)}k`} dates={times} xLabels={x3}
             />
           </div>
@@ -1127,7 +1127,7 @@ export function DayDesk({ symbol }: { symbol: string }) {
 
         <div style={{ marginTop: 10 }}>
           <p className="p-head">Volume tape — gray bars, big prints flagged</p>
-          <BarChart values={vol} labels={times} height={70} posColor="#5b5b62" negColor="#5b5b62" />
+          <BarChart values={vol} labels={times} height={70} posColor="var(--faint)" negColor="var(--faint)" />
         </div>
       </div>
 
@@ -1141,7 +1141,7 @@ export function DayDesk({ symbol }: { symbol: string }) {
                 const tag = tagOf(i);
                 const hot = tag !== "";
                 return (
-                  <tr key={i} style={hot ? { background: tag === "ABS" ? "rgba(0,214,100,0.07)" : tag === "SWP" ? "rgba(255,69,58,0.07)" : "rgba(255,160,40,0.07)" } : undefined}>
+                  <tr key={i} style={hot ? { background: tag === "ABS" ? "color-mix(in srgb, var(--green) 7%, transparent)" : tag === "SWP" ? "color-mix(in srgb, var(--red) 7%, transparent)" : "color-mix(in srgb, var(--amber) 7%, transparent)" } : undefined}>
                     <td>{times[i]}{tag === "⚡" ? " ⚡" : ""}</td>
                     <td style={{ textAlign: "right" }}>{f1(b.open)}</td>
                     <td style={{ textAlign: "right" }}>{f1(b.high)}</td>
@@ -1464,16 +1464,16 @@ export function ForecastDesk({ symbol }: { symbol: string }) {
       <div>
         <p className="p-head">Fan — last {HIST}D + {H}D ahead · amber = median · blue = trend · purple = mean-rev</p>
         <svg viewBox={`0 0 ${W} ${Hh}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-          <polygon points={bandPoly(p90s, p10s)} fill="rgba(255,160,40,0.13)" />
-          <polygon points={bandPoly(p75s, p25s)} fill="rgba(255,160,40,0.22)" />
-          <polyline points={line(hist, 0)} fill="none" stroke="#f5f5f4" strokeWidth="1.4" />
-          <polyline points={line(p50s, HIST - 1)} fill="none" stroke="#ffa028" strokeWidth="1.8" />
-          <polyline points={line(trendS, HIST - 1)} fill="none" stroke="#00c8ff" strokeWidth="1.2" strokeDasharray="5 3" />
-          <polyline points={line(mrS, HIST - 1)} fill="none" stroke="#8f7bff" strokeWidth="1.2" strokeDasharray="5 3" />
-          <circle cx={X(HIST + H - 1)} cy={Y(ens.tgt)} r="3.5" fill="#00d664" />
-          <text x={Math.min(X(HIST + H - 1) - 4, W - 120)} y={Math.max(Y(ens.tgt) - 8, 12)} fontSize="11" fill="#00d664" fontWeight="700" textAnchor="end">{inr(ens.tgt)}</text>
-          <text x="4" y={Hh - 4} fontSize="9" fill="#8a8a93">{eng.dates[eng.dates.length - HIST] ?? ""}</text>
-          <text x={W - 4} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="end">T+{H}</text>
+          <polygon points={bandPoly(p90s, p10s)} fill="color-mix(in srgb, var(--amber) 13%, transparent)" />
+          <polygon points={bandPoly(p75s, p25s)} fill="color-mix(in srgb, var(--amber) 22%, transparent)" />
+          <polyline points={line(hist, 0)} fill="none" stroke="var(--text)" strokeWidth="1.4" />
+          <polyline points={line(p50s, HIST - 1)} fill="none" stroke="var(--amber)" strokeWidth="1.8" />
+          <polyline points={line(trendS, HIST - 1)} fill="none" stroke="var(--cyan)" strokeWidth="1.2" strokeDasharray="5 3" />
+          <polyline points={line(mrS, HIST - 1)} fill="none" stroke="var(--violet)" strokeWidth="1.2" strokeDasharray="5 3" />
+          <circle cx={X(HIST + H - 1)} cy={Y(ens.tgt)} r="3.5" fill="var(--green)" />
+          <text x={Math.min(X(HIST + H - 1) - 4, W - 120)} y={Math.max(Y(ens.tgt) - 8, 12)} fontSize="11" fill="var(--green)" fontWeight="700" textAnchor="end">{inr(ens.tgt)}</text>
+          <text x="4" y={Hh - 4} fontSize="9" fill="var(--faint)">{eng.dates[eng.dates.length - HIST] ?? ""}</text>
+          <text x={W - 4} y={Hh - 4} fontSize="9" fill="var(--faint)" textAnchor="end">T+{H}</text>
         </svg>
       </div>
       <div className="panel">
@@ -1883,16 +1883,16 @@ export function ArimaLstmDesk({ symbol }: { symbol: string }) {
       <div>
         <p className="p-head">Fan — last {HIST}D + {H}D ahead · amber = AR median · blue = SES · grey = drift</p>
         <svg viewBox={`0 0 ${W} ${Hh}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-          <polygon points={bandPoly(seq.map((d) => eng.bands[d - 1].p90), seq.map((d) => eng.bands[d - 1].p10))} fill="rgba(255,160,40,0.13)" />
-          <polygon points={bandPoly(seq.map((d) => eng.bands[d - 1].p75), seq.map((d) => eng.bands[d - 1].p25))} fill="rgba(255,160,40,0.22)" />
-          <polyline points={line(hist, 0)} fill="none" stroke="#f5f5f4" strokeWidth="1.2" />
-          <polyline points={line(arMed, HIST - 1)} fill="none" stroke="#ffa028" strokeWidth="1.8" />
-          <polyline points={line(sesLine, HIST - 1)} fill="none" stroke="#00c8ff" strokeWidth="1.2" strokeDasharray="5 3" />
-          <polyline points={line(driftLine, HIST - 1)} fill="none" stroke="#a1a1aa" strokeWidth="1.2" strokeDasharray="5 3" />
-          <circle cx={X(HIST + H - 1)} cy={Y(ens.tgt)} r="3.5" fill="#00d664" />
-          <text x={Math.min(X(HIST + H - 1) - 4, W - 120)} y={Math.max(Y(ens.tgt) - 8, 12)} fontSize="11" fill="#00d664" fontWeight="700" textAnchor="end">{inr(ens.tgt)}</text>
-          <text x="4" y={Hh - 4} fontSize="9" fill="#8a8a93">{eng.dates[eng.dates.length - HIST] ?? ""}</text>
-          <text x={W - 4} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="end">T+{H}</text>
+          <polygon points={bandPoly(seq.map((d) => eng.bands[d - 1].p90), seq.map((d) => eng.bands[d - 1].p10))} fill="color-mix(in srgb, var(--amber) 13%, transparent)" />
+          <polygon points={bandPoly(seq.map((d) => eng.bands[d - 1].p75), seq.map((d) => eng.bands[d - 1].p25))} fill="color-mix(in srgb, var(--amber) 22%, transparent)" />
+          <polyline points={line(hist, 0)} fill="none" stroke="var(--text)" strokeWidth="1.2" />
+          <polyline points={line(arMed, HIST - 1)} fill="none" stroke="var(--amber)" strokeWidth="1.8" />
+          <polyline points={line(sesLine, HIST - 1)} fill="none" stroke="var(--cyan)" strokeWidth="1.2" strokeDasharray="5 3" />
+          <polyline points={line(driftLine, HIST - 1)} fill="none" stroke="var(--sub)" strokeWidth="1.2" strokeDasharray="5 3" />
+          <circle cx={X(HIST + H - 1)} cy={Y(ens.tgt)} r="3.5" fill="var(--green)" />
+          <text x={Math.min(X(HIST + H - 1) - 4, W - 120)} y={Math.max(Y(ens.tgt) - 8, 12)} fontSize="11" fill="var(--green)" fontWeight="700" textAnchor="end">{inr(ens.tgt)}</text>
+          <text x="4" y={Hh - 4} fontSize="9" fill="var(--faint)">{eng.dates[eng.dates.length - HIST] ?? ""}</text>
+          <text x={W - 4} y={Hh - 4} fontSize="9" fill="var(--faint)" textAnchor="end">T+{H}</text>
         </svg>
       </div>
       <div className="panel">
@@ -2091,16 +2091,16 @@ export function VolFrameworkDesk({ symbol }: { symbol: string }) {
       <div className="panel">
         <p className="p-head">HV term structure — {eng.compressing ? "BACKWARDATION (SHORT HOT)" : "CONTANGO (CALM FRONT)"} · EWMA {eng.ewNow.toFixed(1)}%</p>
         <svg viewBox={`0 0 ${W} ${Hh}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-          <polyline points={eng.term.map((t, i) => `${TX(i).toFixed(1)},${TY(t.v).toFixed(1)}`).join(" ")} fill="none" stroke="#ffa028" strokeWidth="1.8" />
+          <polyline points={eng.term.map((t, i) => `${TX(i).toFixed(1)},${TY(t.v).toFixed(1)}`).join(" ")} fill="none" stroke="var(--amber)" strokeWidth="1.8" />
           {eng.term.map((t, i) => (
             <g key={t.w}>
-              <circle cx={TX(i)} cy={TY(t.v)} r="3" fill="#ffa028" />
-              <text x={TX(i)} y={TY(t.v) - 8} fontSize="10" fill="#f5f5f4" textAnchor="middle">{t.v.toFixed(1)}</text>
-              <text x={TX(i)} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="middle">{t.w}D</text>
+              <circle cx={TX(i)} cy={TY(t.v)} r="3" fill="var(--amber)" />
+              <text x={TX(i)} y={TY(t.v) - 8} fontSize="10" fill="var(--text)" textAnchor="middle">{t.v.toFixed(1)}</text>
+              <text x={TX(i)} y={Hh - 4} fontSize="9" fill="var(--faint)" textAnchor="middle">{t.w}D</text>
             </g>
           ))}
-          <line x1="0" x2={W} y1={TY(eng.ewNow)} y2={TY(eng.ewNow)} stroke="#00c8ff" strokeWidth="1" strokeDasharray="5 3" />
-          <text x={W - 4} y={TY(eng.ewNow) - 5} fontSize="10" fill="#00c8ff" textAnchor="end">EWMA {eng.ewNow.toFixed(1)}</text>
+          <line x1="0" x2={W} y1={TY(eng.ewNow)} y2={TY(eng.ewNow)} stroke="var(--cyan)" strokeWidth="1" strokeDasharray="5 3" />
+          <text x={W - 4} y={TY(eng.ewNow) - 5} fontSize="10" fill="var(--cyan)" textAnchor="end">EWMA {eng.ewNow.toFixed(1)}</text>
         </svg>
       </div>
       <div className="duo">
@@ -2348,25 +2348,25 @@ export function GarchDesk({ symbol }: { symbol: string }) {
       <div className="panel">
         <p className="p-head">Conditional vol — 1Y · GARCH(1,1) α {eng.alpha.toFixed(3)} β {eng.beta.toFixed(3)}</p>
         <svg viewBox={`0 0 ${W} ${Hh}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-          <line x1="0" x2={W} y1={CY(eng.uncond)} y2={CY(eng.uncond)} stroke="#5b5b62" strokeWidth="1" strokeDasharray="5 3" />
-          <polyline points={tail.map((vv, i) => `${CX(i).toFixed(1)},${CY(vv).toFixed(1)}`).join(" ")} fill="none" stroke="#ffa028" strokeWidth="1.6" />
-          <circle cx={W - 4} cy={CY(eng.condNow)} r="3" fill={eng.regime === "ELEVATED" ? "#ff453a" : eng.regime === "DEPRESSED" ? "#00d664" : "#ffa028"} />
-          <text x={W - 8} y={CY(eng.uncond) - 5} fontSize="10" fill="#8a8a93" textAnchor="end">UNCOND {eng.uncond.toFixed(1)}</text>
-          <text x="4" y={Hh - 4} fontSize="9" fill="#8a8a93">-1Y</text>
-          <text x={W - 4} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="end">NOW {eng.condNow.toFixed(1)}</text>
+          <line x1="0" x2={W} y1={CY(eng.uncond)} y2={CY(eng.uncond)} stroke="var(--faint)" strokeWidth="1" strokeDasharray="5 3" />
+          <polyline points={tail.map((vv, i) => `${CX(i).toFixed(1)},${CY(vv).toFixed(1)}`).join(" ")} fill="none" stroke="var(--amber)" strokeWidth="1.6" />
+          <circle cx={W - 4} cy={CY(eng.condNow)} r="3" fill={eng.regime === "ELEVATED" ? "var(--red)" : eng.regime === "DEPRESSED" ? "var(--green)" : "var(--amber)"} />
+          <text x={W - 8} y={CY(eng.uncond) - 5} fontSize="10" fill="var(--faint)" textAnchor="end">UNCOND {eng.uncond.toFixed(1)}</text>
+          <text x="4" y={Hh - 4} fontSize="9" fill="var(--faint)">-1Y</text>
+          <text x={W - 4} y={Hh - 4} fontSize="9" fill="var(--faint)" textAnchor="end">NOW {eng.condNow.toFixed(1)}</text>
         </svg>
       </div>
       <div className="duo">
         <div className="panel">
           <p className="p-head">Forward curve — expected vol by tenor</p>
           <svg viewBox={`0 0 ${W} ${Hh}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-            <line x1="0" x2={W} y1={FY(eng.uncond)} y2={FY(eng.uncond)} stroke="#5b5b62" strokeWidth="1" strokeDasharray="5 3" />
-            <polyline points={FW.map((f, i) => `${FX(i).toFixed(1)},${FY(f.v).toFixed(1)}`).join(" ")} fill="none" stroke="#00c8ff" strokeWidth="1.8" />
+            <line x1="0" x2={W} y1={FY(eng.uncond)} y2={FY(eng.uncond)} stroke="var(--faint)" strokeWidth="1" strokeDasharray="5 3" />
+            <polyline points={FW.map((f, i) => `${FX(i).toFixed(1)},${FY(f.v).toFixed(1)}`).join(" ")} fill="none" stroke="var(--cyan)" strokeWidth="1.8" />
             {FW.map((f, i) => (
               <g key={f.k}>
-                <circle cx={FX(i)} cy={FY(f.v)} r="3" fill="#00c8ff" />
-                <text x={FX(i)} y={FY(f.v) - 8} fontSize="10" fill="#f5f5f4" textAnchor="middle">{f.v.toFixed(1)}</text>
-                <text x={FX(i)} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="middle">{f.k}D</text>
+                <circle cx={FX(i)} cy={FY(f.v)} r="3" fill="var(--cyan)" />
+                <text x={FX(i)} y={FY(f.v) - 8} fontSize="10" fill="var(--text)" textAnchor="middle">{f.v.toFixed(1)}</text>
+                <text x={FX(i)} y={Hh - 4} fontSize="9" fill="var(--faint)" textAnchor="middle">{f.k}D</text>
               </g>
             ))}
           </svg>
@@ -2385,12 +2385,12 @@ export function GarchDesk({ symbol }: { symbol: string }) {
         <div className="panel">
           <p className="p-head">Fan — GARCH vol paths vs const-vol · 63D</p>
           <svg viewBox={`0 0 ${W} ${Hh}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-            <polygon points={gPoly} fill="rgba(255,160,40,0.16)" />
-            <polyline points={line(eng.bandB.map((bb) => bb.p50), HIST - 1)} fill="none" stroke="#a1a1aa" strokeWidth="1.2" strokeDasharray="5 3" />
+            <polygon points={gPoly} fill="color-mix(in srgb, var(--amber) 16%, transparent)" />
+            <polyline points={line(eng.bandB.map((bb) => bb.p50), HIST - 1)} fill="none" stroke="var(--sub)" strokeWidth="1.2" strokeDasharray="5 3" />
             {eng.garch.filter((_, i) => i % 13 === 0).slice(0, 60).map((p, i) => (
-              <polyline key={i} points={line(p.filter((_, d) => d % 3 === 0), HIST - 1)} fill="none" stroke="#ffa028" strokeWidth="1" opacity="0.25" />
+              <polyline key={i} points={line(p.filter((_, d) => d % 3 === 0), HIST - 1)} fill="none" stroke="var(--amber)" strokeWidth="1" opacity="0.25" />
             ))}
-            <polyline points={line(hist, 0)} fill="none" stroke="#f5f5f4" strokeWidth="1.2" />
+            <polyline points={line(hist, 0)} fill="none" stroke="var(--text)" strokeWidth="1.2" />
           </svg>
           <table className="plain" style={{ marginTop: 8 }}>
             <thead><tr><th></th><th style={{ textAlign: "right" }}>GARCH</th><th style={{ textAlign: "right" }}>CONST-σ</th></tr></thead>
@@ -2732,15 +2732,15 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
     return [s[0] ?? "", s[Math.floor(s.length / 2)] ?? "", s[s.length - 1] ?? ""];
   };
   const hvRows = [
-    { w: 10, c: "#00c8ff" }, { w: 30, c: "#ffa028" }, { w: 60, c: "#00d664" },
-    { w: 120, c: "#a1a1aa" }, { w: 252, c: "#5b5b62" },
+    { w: 10, c: "var(--cyan)" }, { w: 30, c: "var(--amber)" }, { w: 60, c: "var(--green)" },
+    { w: 120, c: "var(--sub)" }, { w: 252, c: "var(--faint)" },
   ].filter(({ w }) => isFinite(calc.hv(w))).map(({ w, c }) => ({
     label: `HV${w}`, value: calc.hv(w), display: `${calc.hv(w).toFixed(1)}%`, color: c,
   }));
   const capRows = [
-    { label: "UP CAPTURE", v: g.upCapture, c: "#00d664" },
-    { label: "DOWN CAPTURE", v: g.downCapture, c: "#ff453a" },
-    { label: "NIFTY PAR", v: 100, c: "#5b5b62" },
+    { label: "UP CAPTURE", v: g.upCapture, c: "var(--green)" },
+    { label: "DOWN CAPTURE", v: g.downCapture, c: "var(--red)" },
+    { label: "NIFTY PAR", v: 100, c: "var(--faint)" },
   ].filter((r) => isFinite(r.v)).map((r) => ({ label: r.label, value: r.v, display: `${r.v.toFixed(1)}%`, color: r.c }));
 
   return (
@@ -2784,9 +2784,9 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
         <LineChart
           dates={calc.d90} xLabels={short(calc.d90)} yFmt={(v) => `₹${v.toFixed(0)}`}
           series={[
-            { label: "CLOSE", color: "#ffb000", values: calc.c90 },
-            { label: "UPPER", color: "#8a8a93", values: calc.up90, dashed: true },
-            { label: "LOWER", color: "#8a8a93", values: calc.lo90, dashed: true },
+            { label: "CLOSE", color: "var(--sec)", values: calc.c90 },
+            { label: "UPPER", color: "var(--faint)", values: calc.up90, dashed: true },
+            { label: "LOWER", color: "var(--faint)", values: calc.lo90, dashed: true },
           ]}
         />
         <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>BANDS = SMA20 ± ATR14 · A CLOSE OUTSIDE A BAND IS A 1-DAY ±1SD EVENT.</p>
@@ -2799,9 +2799,9 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
             <LineChart
               dates={calc.rdates} xLabels={short(calc.rdates)} yFmt={(v) => v.toFixed(2)}
               series={[
-                { label: "BETA20", color: "#ffa028", values: calc.beta20 },
-                { label: "CORR20", color: "#00c8ff", values: calc.corr20 },
-                { label: "PAR 1.0", color: "#8a8a93", values: calc.oneLine, dashed: true },
+                { label: "BETA20", color: "var(--amber)", values: calc.beta20 },
+                { label: "CORR20", color: "var(--cyan)", values: calc.corr20 },
+                { label: "PAR 1.0", color: "var(--faint)", values: calc.oneLine, dashed: true },
               ]}
             />
           ) : <p className="muted">NIFTY TAPE UNAVAILABLE — BETA SERIES OFF.</p>}
@@ -3033,17 +3033,17 @@ export function RollingRiskDesk({ symbol }: { symbol: string }) {
         <div className="panel">
           <p className="p-head">Vol term-structure — ann % (21/63/126D)</p>
           <LineChart dates={rdates} xLabels={x3} yFmt={(v) => `${v.toFixed(1)}%`} series={[
-            { label: "HV21", color: "#00c8ff", values: vol21 },
-            { label: "HV63", color: "#ffa028", values: vol63 },
-            { label: "HV126", color: "#8a8a93", values: vol126 },
+            { label: "HV21", color: "var(--cyan)", values: vol21 },
+            { label: "HV63", color: "var(--amber)", values: vol63 },
+            { label: "HV126", color: "var(--faint)", values: vol126 },
           ]} />
         </div>
         <div className="panel">
           <p className="p-head">Risk-adjusted — rolling Sharpe/Sortino</p>
           <LineChart dates={rdates} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[
-            { label: "SH63", color: "#ffa028", values: sh63 },
-            { label: "SH126", color: "#8a8a93", values: sh126 },
-            { label: "SO63", color: "#00d664", values: so63 },
+            { label: "SH63", color: "var(--amber)", values: sh63 },
+            { label: "SH126", color: "var(--faint)", values: sh126 },
+            { label: "SO63", color: "var(--green)", values: so63 },
           ]} />
           <p className="faint" style={{ fontSize: 11 }}>GUIDES: +1 GOOD · 0 BREAK-EVEN · RF 6.5%.</p>
         </div>
@@ -3054,23 +3054,23 @@ export function RollingRiskDesk({ symbol }: { symbol: string }) {
           <p className="p-head">Beta & correlation vs Nifty — 63D</p>
           {hasBench ? (
             <LineChart dates={rdates} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[
-              { label: "BETA", color: "#ffa028", values: beta63 },
-              { label: "CORR", color: "#00c8ff", values: corr63 },
+              { label: "BETA", color: "var(--amber)", values: beta63 },
+              { label: "CORR", color: "var(--cyan)", values: corr63 },
             ]} />
           ) : <p className="muted">BENCHMARK LEG THROTTLED — RETRY.</p>}
         </div>
         <div className="panel">
           <p className="p-head">Tail — rolling VaR95 / CVaR95 % daily</p>
           <LineChart dates={rdates} xLabels={x3} yFmt={(v) => `${v.toFixed(2)}%`} series={[
-            { label: "VAR95", color: "#ff453a", values: var95 },
-            { label: "CVAR95", color: "#8f7bff", values: cvar95 },
+            { label: "VAR95", color: "var(--red)", values: var95 },
+            { label: "CVAR95", color: "var(--violet)", values: cvar95 },
           ]} />
         </div>
       </div>
 
       <div className="panel">
         <p className="p-head">Underwater — worst {worst.toFixed(1)}% · now {curDD.toFixed(1)}%</p>
-        <AreaChart values={ddSeries} height={110} color="#ff453a" fill="rgba(255,69,58,0.15)" fmt={(v) => `${v.toFixed(1)}%`} label="DD" dates={rdates} />
+        <AreaChart values={ddSeries} height={110} color="var(--red)" fill="color-mix(in srgb, var(--red) 15%, transparent)" fmt={(v) => `${v.toFixed(1)}%`} label="DD" dates={rdates} />
       </div>
 
       <div className="panel">

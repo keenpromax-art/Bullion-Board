@@ -9,7 +9,7 @@ import { store } from "@/lib/store";
 
 /* ---------------- analyst ratings desk (ANR) ---------------- */
 
-const REC_COLORS = ["#00d664", "#39d353", "#e3b341", "#ff853a", "#ff453a"];
+const REC_COLORS = ["var(--green)", "var(--green)", "var(--amber)", "var(--amber)", "var(--red)"];
 
 // Rupee prints: max 2 decimals (₹111.67, never ₹111.667).
 const rs = (v: unknown): string =>
@@ -217,7 +217,7 @@ export function ANRDesk({ symbol }: { symbol: string }) {
           </div>
           <div>
             <p className="p-head">Buy% by vintage · now {buySeries.length ? buySeries[buySeries.length - 1].toFixed(0) : "—"}% ({buyDelta >= 0 ? "+" : "−"}{Math.abs(buyDelta).toFixed(0)}pp)</p>
-            <BarChart values={buySeries} labels={chrono.map((r: any) => r.period)} height={140} posColor={trendUp ? "#00d664" : "#ff453a"} negColor="#ff453a" />
+            <BarChart values={buySeries} labels={chrono.map((r: any) => r.period)} height={140} posColor={trendUp ? "var(--green)" : "var(--red)"} negColor="var(--red)" />
           </div>
         </div>
         {pxVals.length > 20 && tg.mean ? (
@@ -227,8 +227,8 @@ export function ANRDesk({ symbol }: { symbol: string }) {
               dates={pxDates.filter((_, i) => i % 5 === 0)}
               yFmt={(v) => `₹${Math.round(v).toLocaleString("en-IN")}`}
               series={[
-                { label: "PRICE", color: "#ffb000", values: pxVals.filter((_, i) => i % 5 === 0) },
-                { label: "TARGET (NOW)", color: "#00d664", values: tgtLine.filter((_, i) => i % 5 === 0), dashed: true },
+                { label: "PRICE", color: "var(--sec)", values: pxVals.filter((_, i) => i % 5 === 0) },
+                { label: "TARGET (NOW)", color: "var(--green)", values: tgtLine.filter((_, i) => i % 5 === 0), dashed: true },
               ]}
             />
             <p className="faint" style={{ fontSize: 11, marginBottom: 0 }}>DASHED = CURRENT CONSENSUS SNAPSHOT ({rs(tg.mean)}), NOT A HISTORICAL SERIES. RATINGS COUNTS COVER ~4 MONTHS — 12M HISTORY NEEDS A RATINGS FEED.</p>
@@ -539,8 +539,8 @@ export function CastDesk({ symbol }: { symbol: string }) {
         </div>
         <div style={{ marginTop: 10 }}>
           <Donut slices={[
-            { label: "EQUITY", value: eqVal, color: "#00d664" },
-            { label: "DEBT", value: debt, color: "#ff453a" },
+            { label: "EQUITY", value: eqVal, color: "var(--green)" },
+            { label: "DEBT", value: debt, color: "var(--red)" },
           ]} />
           {eqVal <= 0 && <p className="neg" style={{ fontSize: 12 }}>NO EQUITY VALUE ON FEED (MCAP + PRICE×SHARES + LEDGER ALL MISSING).</p>}
         </div>
@@ -550,13 +550,13 @@ export function CastDesk({ symbol }: { symbol: string }) {
         <div className="panel">
           <p className="p-head">Leverage path — D/E + borrowings ₹ Cr</p>
           <LineChart
-            series={[{ label: "D/E", color: "#ffa028", values: deSeries.de }]}
+            series={[{ label: "D/E", color: "var(--amber)", values: deSeries.de }]}
             height={110} yFmt={(v) => `${v.toFixed(2)}×`} dates={deSeries.pers} xLabels={x3}
           />
           <div style={{ marginTop: 8 }}>
             <BarChart
               values={deSeries.debt.map((v) => v ?? 0)}
-              labels={deSeries.pers} height={90} posColor="#ff453a" negColor="#ff453a"
+              labels={deSeries.pers} height={90} posColor="var(--red)" negColor="var(--red)"
             />
           </div>
         </div>
@@ -575,7 +575,7 @@ export function CastDesk({ symbol }: { symbol: string }) {
               return {
                 label: String(r.label).toUpperCase().slice(0, 18),
                 value: arr.length ? arr[arr.length - 1] : 0,
-                color: ["#ffa028", "#00d664", "#8f7bff", "#00c8ff", "#ff453a", "#5b5b62"][i % 6],
+                color: ["var(--amber)", "var(--green)", "var(--violet)", "var(--cyan)", "var(--red)", "var(--faint)"][i % 6],
               };
             })} />
             <table className="plain" style={{ marginTop: 8 }}>

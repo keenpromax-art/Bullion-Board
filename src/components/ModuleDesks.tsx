@@ -87,7 +87,7 @@ function MiniSpark({ data, w = 120, h = 28 }: { data: number[]; w?: number; h?: 
   return (
     <svg width={w} height={h} style={{ display: "block" }}>
       <title>{`LAST ${data[data.length - 1].toLocaleString("en-IN", { maximumFractionDigits: 1 })}`}</title>
-      <polyline points={pts} fill="none" stroke={up ? "#00d664" : "#ff453a"} strokeWidth="1.5" />
+      <polyline points={pts} fill="none" stroke={up ? "var(--green)" : "var(--red)"} strokeWidth="1.5" />
     </svg>
   );
 }
@@ -656,8 +656,8 @@ export function MarketDesk() {
             <div key={r.sym} onClick={() => setSel((sl) => (sl === r.sym ? null : r.sym))} title={`${r.label} — full scope`} style={{
               padding: "8px 10px", borderRadius: 3, cursor: "pointer",
               border: sel === r.sym ? "1px solid var(--amber)" : "1px solid var(--grid)",
-              boxShadow: sel === r.sym ? "0 0 12px rgba(255,160,40,0.25)" : "none",
-              background: r.chgPct >= 0 ? `rgba(0,214,100,${Math.min(0.35, 0.06 + Math.abs(r.chgPct) / 12)})` : `rgba(255,69,58,${Math.min(0.35, 0.06 + Math.abs(r.chgPct) / 12)})`,
+              boxShadow: sel === r.sym ? "0 0 12px color-mix(in srgb, var(--amber) 25%, transparent)" : "none",
+              background: r.chgPct >= 0 ? `color-mix(in srgb, var(--green) ${Math.min(35, (0.06 + Math.abs(r.chgPct) / 12) * 100)}%, transparent)` : `color-mix(in srgb, var(--red) ${Math.min(35, (0.06 + Math.abs(r.chgPct) / 12) * 100)}%, transparent)`,
             }}>
               <div style={{ fontSize: 12, fontWeight: 700 }}>{sel === r.sym ? "◆ " : ""}{r.label}</div>
               <div style={{ fontSize: 14, fontWeight: 700 }} className={r.chgPct >= 0 ? "pos" : "neg"}>
@@ -670,7 +670,7 @@ export function MarketDesk() {
               </div>
               {isFinite(rng) && (
                 <div style={{ height: 3, background: "rgba(0,0,0,0.45)", borderRadius: 2, marginTop: 4, position: "relative" }} title={`1MO RANGE ${isFinite(rng) ? rng.toFixed(0) + "% UP" : ""}`}>
-                  <div style={{ position: "absolute", left: `calc(${rng.toFixed(1)}% - 1px)`, top: -1.5, width: 2, height: 6, background: "#f5f5f4", borderRadius: 1 }} />
+                  <div style={{ position: "absolute", left: `calc(${rng.toFixed(1)}% - 1px)`, top: -1.5, width: 2, height: 6, background: "var(--text)", borderRadius: 1 }} />
                 </div>
               )}
             </div>
@@ -686,7 +686,7 @@ export function MarketDesk() {
         <HBars rows={perf.map(({ r, m }) => ({
           label: r.label, value: Math.round(m * 100) / 100,
           display: `${m >= 0 ? "+" : ""}${m.toFixed(1)}% · D${r.chgPct >= 0 ? "+" : ""}${r.chgPct.toFixed(1)}%`,
-          color: m >= 0 ? "#00d664" : "#ff453a",
+          color: m >= 0 ? "var(--green)" : "var(--red)",
         }))} />
       </div>
 
@@ -702,7 +702,7 @@ export function MarketDesk() {
                 {list.map((r) => {
                   const rp = rng1mo(r.spark);
                   return (
-                  <tr key={r.sym} onClick={() => setSel((s) => (s === r.sym ? null : r.sym))} style={{ cursor: "pointer", background: sel === r.sym ? "rgba(255,160,40,0.07)" : undefined }} title={`${r.label} — full scope`}>
+                  <tr key={r.sym} onClick={() => setSel((s) => (s === r.sym ? null : r.sym))} style={{ cursor: "pointer", background: sel === r.sym ? "color-mix(in srgb, var(--amber) 7%, transparent)" : undefined }} title={`${r.label} — full scope`}>
                     <td><strong>{sel === r.sym ? "◆ " : ""}{r.label}</strong> <span className="faint" style={{ fontSize: 11 }}>{r.sym}</span></td>
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.price.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
                     <td style={{ textAlign: "right" }}><span className={r.chgPct >= 0 ? "pos" : "neg"}>{r.chgPct >= 0 ? "▲" : "▼"} {Math.abs(r.chgPct).toFixed(2)}%</span></td>
@@ -771,24 +771,24 @@ export function ScreenerDesk({ kind }: { kind: string }) {
     if (kind === "oversold") return [...rows].sort((a: any, b: any) => (a.rsi14 ?? 99) - (b.rsi14 ?? 99)).slice(0, 10).map((r: any) => ({
       label: short(r.symbol), value: 50 - (r.rsi14 ?? 50),
       display: `${(r.rsi14 ?? NaN).toFixed?.(1) ?? "—"} RSI`,
-      color: (r.rsi14 ?? 99) < 30 ? "#00d664" : "#ffa028",
+      color: (r.rsi14 ?? 99) < 30 ? "var(--green)" : "var(--amber)",
     }));
     if (kind === "swing") return [...rows].sort((a: any, b: any) => (b.score ?? b.chg20Pct ?? 0) - (a.score ?? a.chg20Pct ?? 0)).slice(0, 10).map((r: any) => ({
       label: short(r.symbol), value: r.score ?? r.chg20Pct ?? 0,
       display: `${(r.score ?? r.chg20Pct ?? 0).toFixed(2)}`,
-      color: "#00d664",
+      color: "var(--green)",
     }));
     return [...rows].sort((a: any, b: any) => Math.abs(b.chg20Pct ?? 0) - Math.abs(a.chg20Pct ?? 0)).slice(0, 10).map((r: any) => ({
       label: short(r.symbol), value: r.chg20Pct ?? 0,
       display: `${(r.chg20Pct ?? 0).toFixed(1)}%`,
-      color: (r.chg20Pct ?? 0) >= 0 ? "#00d664" : "#ff453a",
+      color: (r.chg20Pct ?? 0) >= 0 ? "var(--green)" : "var(--red)",
     }));
   }, [rows, kind]);
 
   function Bar({ pct, color }: { pct: number; color: string }) {
     const w = Math.max(4, Math.min(100, isFinite(pct) ? pct : 0));
     return (
-      <div style={{ height: 3, background: "#1a1a1e", borderRadius: 2, marginTop: 4 }}>
+      <div style={{ height: 3, background: "var(--track)", borderRadius: 2, marginTop: 4 }}>
         <div style={{ width: `${w}%`, height: "100%", background: color, borderRadius: 2, marginLeft: "auto" }} />
       </div>
     );
@@ -866,7 +866,7 @@ export function ScreenerDesk({ kind }: { kind: string }) {
                         <td style={{ textAlign: "right" }}>{r.price?.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
                         <td style={{ textAlign: "right" }}>
                           <span className={v >= 0 ? "pos" : "neg"}>{v >= 0 ? "▲" : "▼"} {v >= 0 ? "+" : ""}{v.toFixed(2)}%</span>
-                          <Bar pct={(Math.abs(v) / maxMom) * 100} color={v >= 0 ? "#00d664" : "#ff453a"} />
+                          <Bar pct={(Math.abs(v) / maxMom) * 100} color={v >= 0 ? "var(--green)" : "var(--red)"} />
                         </td>
                       </tr>
                     );
@@ -893,7 +893,7 @@ export function ScreenerDesk({ kind }: { kind: string }) {
                           <span className={os ? "pos" : soft ? "" : "muted"} style={soft ? { color: "var(--amber)" } : undefined}>
                             {typeof v === "number" ? v.toFixed(2) : "—"}{os ? " · OS" : ""}
                           </span>
-                          <Bar pct={typeof v === "number" ? ((50 - v) / 50) * 100 : 0} color={os ? "#00d664" : "#ffa028"} />
+                          <Bar pct={typeof v === "number" ? ((50 - v) / 50) * 100 : 0} color={os ? "var(--green)" : "var(--amber)"} />
                         </td>
                       </tr>
                     );
@@ -910,13 +910,13 @@ export function ScreenerDesk({ kind }: { kind: string }) {
                     const v = r.score ?? 0;
                     const hot = (boardOf.get(r.symbol) ?? []).length >= 2;
                     return (
-                      <tr key={r.symbol} style={i < 3 ? { background: "rgba(0,214,100,0.05)" } : undefined}>
+                      <tr key={r.symbol} style={i < 3 ? { background: "color-mix(in srgb, var(--green) 5%, transparent)" } : undefined}>
                         <td className="faint">{i + 1}</td>
                         <td><a href={`/module/1?symbol=${r.symbol}`} title={hot ? "ON 2+ BOARDS" : "OPEN DESK"}><span className="sec">{hot ? "◆ " : ""}{short(r.symbol)}</span></a></td>
                         <td style={{ textAlign: "right" }}>{r.price?.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
                         <td style={{ textAlign: "right" }}>
                           <span className={v > 1 ? "pos" : ""}>{typeof r.score === "number" ? r.score.toFixed(2) : "—"}</span>
-                          <Bar pct={(Math.abs(v) / maxSwing) * 100} color="#00d664" />
+                          <Bar pct={(Math.abs(v) / maxSwing) * 100} color="var(--green)" />
                         </td>
                       </tr>
                     );
@@ -1032,8 +1032,8 @@ export function PolyDesk() {
                 <span className="muted">{m.question || "YES"}</span>
                 <strong className={m.yesPct !== null && m.yesPct >= 50 ? "pos" : "neg"}>{m.yesPct !== null ? `${m.yesPct}%` : "—"}</strong>
               </div>
-              <div style={{ height: 6, background: "#1a1a1e", borderRadius: 2, marginTop: 4 }}>
-                <div style={{ width: `${m.yesPct ?? 0}%`, height: "100%", background: m.yesPct !== null && m.yesPct >= 50 ? "#00d664" : "#ff453a", borderRadius: 2 }} />
+              <div style={{ height: 6, background: "var(--track)", borderRadius: 2, marginTop: 4 }}>
+                <div style={{ width: `${m.yesPct ?? 0}%`, height: "100%", background: m.yesPct !== null && m.yesPct >= 50 ? "var(--green)" : "var(--red)", borderRadius: 2 }} />
               </div>
             </div>
           ))}
@@ -1076,19 +1076,19 @@ function CompanyChart({ symbol }: { symbol: string }) {
         <span className="faint" style={{ fontSize: 11.5 }}>HI ₹{fmtX(mx, 0)} · LO ₹{fmtX(mn, 0)} · MA50 ₹{fmtX(l50, 0)} · MA200 ₹{fmtX(l200, 0)}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-        <polygon points={`0,${PH} ${pts} ${W},${PH}`} fill="rgba(255,160,40,0.10)" />
-        <polyline points={seg(ma200)} fill="none" stroke="#5b5b62" strokeWidth="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
-        <polyline points={seg(ma50)} fill="none" stroke="#a1a1aa" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
-        <polyline points={pts} fill="none" stroke="#ffb000" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+        <polygon points={`0,${PH} ${pts} ${W},${PH}`} fill="color-mix(in srgb, var(--amber) 10%, transparent)" />
+        <polyline points={seg(ma200)} fill="none" stroke="var(--faint)" strokeWidth="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
+        <polyline points={seg(ma50)} fill="none" stroke="var(--sub)" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+        <polyline points={pts} fill="none" stroke="var(--sec)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
         {vols.map((v, i) => {
           const h = Math.max(1, (v / vmax) * VH);
-          return <rect key={i} x={(X(i) - bw / 2).toFixed(1)} y={(PH + 8 + VH - h).toFixed(1)} width={Math.max(0.6, bw * 0.7).toFixed(1)} height={h.toFixed(1)} fill={i === vols.length - 1 ? "#ffa028" : "#2a2a30"} />;
+          return <rect key={i} x={(X(i) - bw / 2).toFixed(1)} y={(PH + 8 + VH - h).toFixed(1)} width={Math.max(0.6, bw * 0.7).toFixed(1)} height={h.toFixed(1)} fill={i === vols.length - 1 ? "var(--amber)" : "var(--track)"} />;
         })}
       </svg>
       <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-        <span style={{ color: "#ffb000" }}>— PX</span>{"  "}
-        <span style={{ color: "#a1a1aa" }}>— MA50</span>{"  "}
-        <span style={{ color: "#8a8a93" }}>┄ MA200</span>{"  "}
+        <span style={{ color: "var(--sec)" }}>— PX</span>{"  "}
+        <span style={{ color: "var(--sub)" }}>— MA50</span>{"  "}
+        <span style={{ color: "var(--faint)" }}>┄ MA200</span>{"  "}
         <span className="faint">· {bars[0]?.date} → {bars[bars.length - 1]?.date}</span>
       </div>
     </div>
@@ -1106,8 +1106,8 @@ function PosBar({ v, lo, hi, loLbl, hiLbl }: { v: number | null | undefined; lo:
         <strong>{pct.toFixed(0)}% UP THE RANGE</strong>
         <span className="faint">{hiLbl}</span>
       </div>
-      <div style={{ height: 5, background: "#1a1a1e", borderRadius: 2, marginTop: 4, position: "relative" }}>
-        <div style={{ position: "absolute", left: `calc(${pct}% - 1px)`, top: -2, width: 2, height: 9, background: "#ffa028" }} />
+      <div style={{ height: 5, background: "var(--track)", borderRadius: 2, marginTop: 4, position: "relative" }}>
+        <div style={{ position: "absolute", left: `calc(${pct}% - 1px)`, top: -2, width: 2, height: 9, background: "var(--amber)" }} />
       </div>
     </div>
   );
@@ -1280,11 +1280,11 @@ export function CompanyDesk({ symbol }: { symbol: string }) {
               <ProfKV k="BOOK VALUE" v={vv.book ? `₹${fmtX(vv.book)}` : "—"} />
               <div style={{ marginTop: 10 }}>
                 <HBars rows={[
-                  { label: "TRAIL PE", value: vv.trailPE ?? 0, display: fmtX(vv.trailPE), color: "#ffa028" },
-                  { label: "FWD PE", value: vv.fwdPE ?? 0, display: fmtX(vv.fwdPE), color: "#ffa028" },
-                  { label: "P/B", value: vv.pb ?? 0, display: fmtX(vv.pb), color: "#ffa028" },
-                  { label: "P/S", value: vv.ps ?? 0, display: fmtX(vv.ps), color: "#ffa028" },
-                  { label: "EV/EBITDA", value: vv.evEbitda ?? 0, display: fmtX(vv.evEbitda), color: "#ffa028" },
+                  { label: "TRAIL PE", value: vv.trailPE ?? 0, display: fmtX(vv.trailPE), color: "var(--amber)" },
+                  { label: "FWD PE", value: vv.fwdPE ?? 0, display: fmtX(vv.fwdPE), color: "var(--amber)" },
+                  { label: "P/B", value: vv.pb ?? 0, display: fmtX(vv.pb), color: "var(--amber)" },
+                  { label: "P/S", value: vv.ps ?? 0, display: fmtX(vv.ps), color: "var(--amber)" },
+                  { label: "EV/EBITDA", value: vv.evEbitda ?? 0, display: fmtX(vv.evEbitda), color: "var(--amber)" },
                 ].filter((r) => r.value > 0)} />
               </div>
             </div>
@@ -1328,12 +1328,12 @@ export function CompanyDesk({ symbol }: { symbol: string }) {
             </div>
             <div style={{ marginTop: 10 }}>
               <HBars rows={[
-                { label: "REVENUE", value: ff.revenue ?? 0, display: fmtBig(ff.revenue, "₹"), color: "#ffa028" },
-                { label: "GROSS", value: ff.gross ?? 0, display: fmtBig(ff.gross, "₹"), color: "#ffa028" },
-                { label: "EBITDA", value: ff.ebitda ?? 0, display: fmtBig(ff.ebitda, "₹"), color: "#ffa028" },
-                { label: "NET", value: ff.net ?? 0, display: fmtBig(ff.net, "₹"), color: (ff.net ?? 0) >= 0 ? "#00d664" : "#ff453a" },
-                { label: "CASH", value: ff.cash ?? 0, display: fmtBig(ff.cash, "₹"), color: "#ffa028" },
-                { label: "DEBT", value: ff.debt ?? 0, display: fmtBig(ff.debt, "₹"), color: "#a1a1aa" },
+                { label: "REVENUE", value: ff.revenue ?? 0, display: fmtBig(ff.revenue, "₹"), color: "var(--amber)" },
+                { label: "GROSS", value: ff.gross ?? 0, display: fmtBig(ff.gross, "₹"), color: "var(--amber)" },
+                { label: "EBITDA", value: ff.ebitda ?? 0, display: fmtBig(ff.ebitda, "₹"), color: "var(--amber)" },
+                { label: "NET", value: ff.net ?? 0, display: fmtBig(ff.net, "₹"), color: (ff.net ?? 0) >= 0 ? "var(--green)" : "var(--red)" },
+                { label: "CASH", value: ff.cash ?? 0, display: fmtBig(ff.cash, "₹"), color: "var(--amber)" },
+                { label: "DEBT", value: ff.debt ?? 0, display: fmtBig(ff.debt, "₹"), color: "var(--sub)" },
               ].filter((r) => r.value > 0)} />
             </div>
           </div>
@@ -1344,9 +1344,9 @@ export function CompanyDesk({ symbol }: { symbol: string }) {
               {hh.insider !== null && hh.instit !== null && (
                 <div style={{ marginBottom: 10 }}>
                   <Donut slices={[
-                    { label: "PROMOTER", value: hh.insider * 100, color: "#ffa028" },
-                    { label: "INSTIT", value: hh.instit * 100, color: "#00d664" },
-                    { label: "PUBLIC/OTHER", value: Math.max(0, 100 - hh.insider * 100 - hh.instit * 100), color: "#8a8a93" },
+                    { label: "PROMOTER", value: hh.insider * 100, color: "var(--amber)" },
+                    { label: "INSTIT", value: hh.instit * 100, color: "var(--green)" },
+                    { label: "PUBLIC/OTHER", value: Math.max(0, 100 - hh.insider * 100 - hh.instit * 100), color: "var(--faint)" },
                   ]} />
                 </div>
               )}

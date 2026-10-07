@@ -403,14 +403,14 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
           <style>{`
             .p-head, .cell .lbl, table th {
               cursor: help !important;
-              border-bottom: 1px dotted #ffa028 !important;
+              border-bottom: 1px dotted var(--amber) !important;
             }
           `}</style>
           <div style={{
             position: "fixed", top: 0, left: 0, right: 0, zIndex: 10000,
-            background: "rgba(255,160,40,0.12)", borderBottom: "2px solid #ffa028",
+            background: "color-mix(in srgb, var(--amber) 12%, transparent)", borderBottom: "2px solid var(--amber)",
             padding: "4px 12px", fontFamily: "var(--mono)", fontSize: 11,
-            color: "#ffa028", textAlign: "center", pointerEvents: "none",
+            color: "var(--amber)", textAlign: "center", pointerEvents: "none",
           }}>
             EXPLAIN MODE ● ON — CLICK ANY DOTTLED LABEL TO EXPLAIN · ALT+E OR ESC TO EXIT
           </div>
@@ -428,13 +428,13 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             top: selChip.y,
             transform: "translate(-50%, -100%)",
             zIndex: 10001,
-            background: "#1a1a1e",
-            border: "1px solid #ffa028",
+            background: "var(--track)",
+            border: "1px solid var(--amber)",
             borderRadius: 3,
             padding: "3px 8px",
             fontFamily: "var(--mono)",
             fontSize: 10,
-            color: "#ffa028",
+            color: "var(--amber)",
             cursor: "pointer",
             whiteSpace: "nowrap",
             boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
@@ -467,21 +467,21 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             top: state.anchor.top,
             zIndex: 9998,
             maxWidth: 350, minWidth: 250,
-            background: "#0a0a0c", border: "1px solid #ffa028",
+            background: "var(--panel-2)", border: "1px solid var(--amber)",
             borderRadius: 3, padding: "8px 10px",
             fontFamily: "var(--mono)", fontSize: 11.5, lineHeight: 1.55,
-            color: "#c9c9cf", pointerEvents: "none",
+            color: "var(--sub)", pointerEvents: "none",
             boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
           }}
         >
           {tip1Sections.map((s, i) => (
             <div key={i} style={{ marginBottom: i < tip1Sections.length - 1 ? 4 : 0 }}>
-              <span style={{ color: "#ffa028", fontSize: 10, fontWeight: 700 }}>{s.header}: </span>
+              <span style={{ color: "var(--amber)", fontSize: 10, fontWeight: 700 }}>{s.header}: </span>
               <span>{s.body}</span>
             </div>
           ))}
           {!store.getExplainAI() && (
-            <div style={{ marginTop: 4, fontSize: 10, color: "#8a8a93" }}>
+            <div style={{ marginTop: 4, fontSize: 10, color: "var(--faint)" }}>
               AI OFF — GLOSSARY ONLY
             </div>
           )}
@@ -499,12 +499,12 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             maxWidth: isMobile ? "100%" : 420,
             maxHeight: isMobile ? "70vh" : "min(60vh, 520px)",
             overflowY: "auto",
-            background: "#121214",
-            border: "1px solid #ffa028",
+            background: "var(--panel-2)",
+            border: "1px solid var(--amber)",
             borderRadius: 3,
             fontFamily: "var(--mono)",
             boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-            ...(isMobile ? { borderTop: "2px solid #ffa028" } : {}),
+            ...(isMobile ? { borderTop: "2px solid var(--amber)" } : {}),
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -515,25 +515,25 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             }}>
               <div style={{
                 width: 36, height: 4, borderRadius: 2,
-                background: "#3a3a40",
+                background: "var(--panel-2)",
               }} />
             </div>
           )}
           {/* Header */}
           <div style={{
             display: "flex", alignItems: "center", gap: 8,
-            padding: "10px 12px", borderBottom: "1px solid #26262b",
+            padding: "10px 12px", borderBottom: "1px solid var(--grid)",
           }}>
-            <span style={{ color: "#ffa028", fontWeight: 700, fontSize: 13, flex: 1, letterSpacing: "0.05em" }}>
+            <span style={{ color: "var(--amber)", fontWeight: 700, fontSize: 13, flex: 1, letterSpacing: "0.05em" }}>
               ▮ {state.label.toUpperCase()}
             </span>
-            <span style={{ color: "#8a8a93", fontSize: 10 }}>
+            <span style={{ color: "var(--faint)", fontSize: 10 }}>
               {state.source}
             </span>
             <button
               onClick={close}
               style={{
-                background: "none", border: "none", color: "#8a8a93",
+                background: "none", border: "none", color: "var(--faint)",
                 cursor: "pointer", fontSize: 16, padding: "0 4px", lineHeight: 1,
               }}
               aria-label="Close"
@@ -548,14 +548,14 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             {!state.tier2 && tip1Sections.map((s, i) => (
               <div key={i} style={{ marginBottom: 10 }}>
                 <div style={{
-                  fontSize: 10.5, fontWeight: 700, color: "#ffa028",
+                  fontSize: 10.5, fontWeight: 700, color: "var(--amber)",
                   textTransform: "uppercase", letterSpacing: "0.08em",
-                  marginBottom: 3, borderBottom: "1px solid rgba(255,160,40,0.2)",
+                  marginBottom: 3, borderBottom: "1px solid color-mix(in srgb, var(--amber) 20%, transparent)",
                   paddingBottom: 2,
                 }}>
                   {s.header}
                 </div>
-                <div style={{ fontSize: 12, lineHeight: 1.55, color: "#f5f5f4", textTransform: "none" }}>
+                <div style={{ fontSize: 12, lineHeight: 1.55, color: "var(--text)", textTransform: "none" }}>
                   {s.body}
                 </div>
               </div>
@@ -566,9 +566,9 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
               <div key={i} style={{ marginBottom: 10 }}>
                 {s.header && (
                   <div style={{
-                    fontSize: 10.5, fontWeight: 700, color: "#ffa028",
+                    fontSize: 10.5, fontWeight: 700, color: "var(--amber)",
                     textTransform: "uppercase", letterSpacing: "0.08em",
-                    marginBottom: 3, borderBottom: "1px solid rgba(255,160,40,0.2)",
+                    marginBottom: 3, borderBottom: "1px solid color-mix(in srgb, var(--amber) 20%, transparent)",
                     paddingBottom: 2,
                     display: "flex", alignItems: "center", gap: 6,
                   }}>
@@ -576,13 +576,13 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
                     {s.header === "READ HERE" && state.tier2Loading && (
                       <span style={{
                         width: 6, height: 6, borderRadius: "50%",
-                        background: "#ffa028", display: "inline-block",
+                        background: "var(--amber)", display: "inline-block",
                       }} />
                     )}
                   </div>
                 )}
                 <div style={{
-                  fontSize: 12, lineHeight: 1.55, color: "#f5f5f4",
+                  fontSize: 12, lineHeight: 1.55, color: "var(--text)",
                   textTransform: "none", whiteSpace: "pre-wrap",
                 }}>
                   {s.body}
@@ -592,14 +592,14 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
 
             {/* Loading state */}
             {state.tier2Loading && !state.tier2 && (
-              <div style={{ fontSize: 12, color: "#8a8a93" }}>
+              <div style={{ fontSize: 12, color: "var(--faint)" }}>
                 LOADING…
               </div>
             )}
 
             {/* No glossary + no AI */}
             {!state.tier1 && !state.tier2 && !state.tier2Loading && (
-              <div style={{ fontSize: 12, color: "#8a8a93" }}>
+              <div style={{ fontSize: 12, color: "var(--faint)" }}>
                 NO GLOSSARY ENTRY — {store.getExplainAI() ? "CLICK FOR AI READ" : "ENABLE AI IN SETTINGS"}
               </div>
             )}
@@ -608,7 +608,7 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
           {/* Footer */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "6px 12px", borderTop: "1px solid #26262b", fontSize: 10, color: "#8a8a93",
+            padding: "6px 12px", borderTop: "1px solid var(--grid)", fontSize: 10, color: "var(--faint)",
           }}>
             <span>SOURCE: {state.source}</span>
             <span>{state.model?.split("/").pop() ?? "NEMOTRON"}</span>
@@ -636,7 +636,7 @@ export function Explainable({
   const localRef = useRef<any>(null);
 
   const style: React.CSSProperties = mode
-    ? { borderBottom: "1px dotted #ffa028", cursor: "help" }
+    ? { borderBottom: "1px dotted var(--amber)", cursor: "help" }
     : {};
 
   const TagName = as ?? "span";

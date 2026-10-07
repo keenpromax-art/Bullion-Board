@@ -8,7 +8,7 @@ import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import { LineChart } from "@/components/charts";
 
-const PALETTE = ["#ffa028", "#00d664", "#ff453a", "#8f7bff", "#00c8ff", "#ff5da2"];
+const PALETTE = ["var(--amber)", "var(--green)", "var(--red)", "var(--violet)", "var(--cyan)", "var(--pink)"];
 const RANGES = ["1mo", "3mo", "6mo", "1y", "2y"];
 
 interface Series { sym: string; dates: string[]; norm: number[]; ret: number; vol: number; sharpe: number; maxDD: number }

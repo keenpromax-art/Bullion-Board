@@ -30,7 +30,7 @@ function Grid({ H, lines = [0.25, 0.5, 0.75] }: { H: number; lines?: number[] })
   return (
     <>
       {lines.map((f) => (
-        <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} stroke="#26262b" strokeWidth="1" />
+        <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} stroke="var(--grid)" strokeWidth="1" />
       ))}
     </>
   );
@@ -43,7 +43,7 @@ function Tag({ v, fmt }: { v: number | null; fmt: (n: number) => string }) {
 
 function XHair({ i, n, H }: { i: number; n: number; H: number }) {
   const x = (i / Math.max(n - 1, 1)) * W;
-  return <line x1={x} x2={x} y1="0" y2={H} stroke="#ffa028" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />;
+  return <line x1={x} x2={x} y1="0" y2={H} stroke="var(--amber)" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />;
 }
 
 function Dot({ i, n, v, mn, mx, H, color, pad = 6 }: {
@@ -95,17 +95,17 @@ export function ChartPanels({ bars, series }: { bars: Bars[]; series: Series }) 
         <div className="chart-wrap">
           <svg viewBox={`0 0 ${W} ${H1}`} style={{ width: "100%", height: H1 }} preserveAspectRatio="none" {...hP.bind}>
             <Grid H={H1} />
-            {pathFor(series.bbU, pMn, pMx, H1).map((d, i) => <polyline key={`u${i}`} points={d} fill="none" stroke="#5b5b62" strokeWidth="1" strokeDasharray="4 3" />)}
-            {pathFor(series.bbL, pMn, pMx, H1).map((d, i) => <polyline key={`l${i}`} points={d} fill="none" stroke="#5b5b62" strokeWidth="1" strokeDasharray="4 3" />)}
-            {pathFor(series.bbM, pMn, pMx, H1).map((d, i) => <polyline key={`m${i}`} points={d} fill="none" stroke="#ffa028" strokeWidth="1" strokeDasharray="6 3" />)}
-            {pathFor(series.sma50, pMn, pMx, H1).map((d, i) => <polyline key={`s${i}`} points={d} fill="none" stroke="#8f7bff" strokeWidth="1.4" />)}
-            {pathFor(closes, pMn, pMx, H1).map((d, i) => <polyline key={`p${i}`} points={d} fill="none" stroke="#ffb000" strokeWidth="1.8" />)}
+            {pathFor(series.bbU, pMn, pMx, H1).map((d, i) => <polyline key={`u${i}`} points={d} fill="none" stroke="var(--faint)" strokeWidth="1" strokeDasharray="4 3" />)}
+            {pathFor(series.bbL, pMn, pMx, H1).map((d, i) => <polyline key={`l${i}`} points={d} fill="none" stroke="var(--faint)" strokeWidth="1" strokeDasharray="4 3" />)}
+            {pathFor(series.bbM, pMn, pMx, H1).map((d, i) => <polyline key={`m${i}`} points={d} fill="none" stroke="var(--amber)" strokeWidth="1" strokeDasharray="6 3" />)}
+            {pathFor(series.sma50, pMn, pMx, H1).map((d, i) => <polyline key={`s${i}`} points={d} fill="none" stroke="var(--violet)" strokeWidth="1.4" />)}
+            {pathFor(closes, pMn, pMx, H1).map((d, i) => <polyline key={`p${i}`} points={d} fill="none" stroke="var(--sec)" strokeWidth="1.8" />)}
             {hP.hover !== null && (
               <g>
                 <XHair i={hP.hover} n={n} H={H1} />
-                <Dot i={hP.hover} n={n} v={closes[hP.hover]} mn={pMn} mx={pMx} H={H1} color="#ffb000" />
-                <Dot i={hP.hover} n={n} v={valAt(series.bbM, hP.hover)} mn={pMn} mx={pMx} H={H1} color="#ffa028" />
-                <Dot i={hP.hover} n={n} v={valAt(series.sma50, hP.hover)} mn={pMn} mx={pMx} H={H1} color="#8f7bff" />
+                <Dot i={hP.hover} n={n} v={closes[hP.hover]} mn={pMn} mx={pMx} H={H1} color="var(--sec)" />
+                <Dot i={hP.hover} n={n} v={valAt(series.bbM, hP.hover)} mn={pMn} mx={pMx} H={H1} color="var(--amber)" />
+                <Dot i={hP.hover} n={n} v={valAt(series.sma50, hP.hover)} mn={pMn} mx={pMx} H={H1} color="var(--violet)" />
               </g>
             )}
           </svg>
@@ -116,12 +116,12 @@ export function ChartPanels({ bars, series }: { bars: Bars[]; series: Series }) 
               <HoverTip
                 idx={hP.hover} count={n} date={b.date}
                 rows={[
-                  { label: "OPEN", color: "#a1a1aa", text: fPx(b.open) },
-                  { label: "HIGH", color: "#00d664", text: fPx(b.high) },
-                  { label: "LOW", color: "#ff453a", text: fPx(b.low) },
-                  { label: "CLOSE", color: "#ffb000", text: fPx(b.close) },
-                  { label: "BB MID", color: "#ffa028", text: valAt(series.bbM, hP.hover) === null ? "—" : fPx(valAt(series.bbM, hP.hover)) },
-                  { label: "SMA50", color: "#8f7bff", text: valAt(series.sma50, hP.hover) === null ? "—" : fPx(valAt(series.sma50, hP.hover)) },
+                  { label: "OPEN", color: "var(--sub)", text: fPx(b.open) },
+                  { label: "HIGH", color: "var(--green)", text: fPx(b.high) },
+                  { label: "LOW", color: "var(--red)", text: fPx(b.low) },
+                  { label: "CLOSE", color: "var(--sec)", text: fPx(b.close) },
+                  { label: "BB MID", color: "var(--amber)", text: valAt(series.bbM, hP.hover) === null ? "—" : fPx(valAt(series.bbM, hP.hover)) },
+                  { label: "SMA50", color: "var(--violet)", text: valAt(series.sma50, hP.hover) === null ? "—" : fPx(valAt(series.sma50, hP.hover)) },
                 ]}
               />
             );
@@ -138,7 +138,7 @@ export function ChartPanels({ bars, series }: { bars: Bars[]; series: Series }) 
           <svg viewBox={`0 0 ${W} 70`} style={{ width: "100%", height: 70 }} preserveAspectRatio="none" {...hV.bind}>
             {bars.map((b, i) => {
               const h = Math.max(1, (vols[i] / maxV) * 64);
-              return <rect key={i} x={(i / bars.length) * W} y={68 - h} width={Math.max(1, W / bars.length - 0.5)} height={h} fill={b.close >= b.open ? "#00d664" : "#ff453a"} opacity={hV.hover === null || hV.hover === i ? 0.75 : 0.3} />;
+              return <rect key={i} x={(i / bars.length) * W} y={68 - h} width={Math.max(1, W / bars.length - 0.5)} height={h} fill={b.close >= b.open ? "var(--green)" : "var(--red)"} opacity={hV.hover === null || hV.hover === i ? 0.75 : 0.3} />;
             })}
             {hV.hover !== null && <XHair i={hV.hover} n={n} H={70} />}
           </svg>
@@ -149,8 +149,8 @@ export function ChartPanels({ bars, series }: { bars: Bars[]; series: Series }) 
               <HoverTip
                 idx={hV.hover} count={n} date={b.date}
                 rows={[
-                  { label: "CLOSE", color: "#ffb000", text: fPx(b.close) },
-                  { label: "VOLUME", color: "#a1a1aa", text: `${(b.volume / 1e6).toFixed(2)}M` },
+                  { label: "CLOSE", color: "var(--sec)", text: fPx(b.close) },
+                  { label: "VOLUME", color: "var(--sub)", text: `${(b.volume / 1e6).toFixed(2)}M` },
                 ]}
               />
             );
@@ -163,13 +163,13 @@ export function ChartPanels({ bars, series }: { bars: Bars[]; series: Series }) 
           <p className="p-head">RSI 14 — <Tag v={rsi[rsi.length - 1]} fmt={(n) => n.toFixed(1)} /> <span className="faint">· 0–100 · &gt;70 HOT · &lt;30 COLD</span></p>
           <div className="chart-wrap">
             <svg viewBox="0 0 640 90" style={{ width: "100%", height: 90 }} preserveAspectRatio="none" {...hR.bind}>
-              <line x1="0" x2={W} y1={90 - 6 - 0.7 * 78} y2={90 - 6 - 0.7 * 78} stroke="#ff453a" strokeDasharray="4 3" strokeWidth="1" />
-              <line x1="0" x2={W} y1={90 - 6 - 0.3 * 78} y2={90 - 6 - 0.3 * 78} stroke="#00d664" strokeDasharray="4 3" strokeWidth="1" />
-              {pathFor(series.rsi, 0, 100, 90).map((d, i) => <polyline key={i} points={d} fill="none" stroke="#8f7bff" strokeWidth="1.6" />)}
+              <line x1="0" x2={W} y1={90 - 6 - 0.7 * 78} y2={90 - 6 - 0.7 * 78} stroke="var(--red)" strokeDasharray="4 3" strokeWidth="1" />
+              <line x1="0" x2={W} y1={90 - 6 - 0.3 * 78} y2={90 - 6 - 0.3 * 78} stroke="var(--green)" strokeDasharray="4 3" strokeWidth="1" />
+              {pathFor(series.rsi, 0, 100, 90).map((d, i) => <polyline key={i} points={d} fill="none" stroke="var(--violet)" strokeWidth="1.6" />)}
               {hR.hover !== null && (
                 <g>
                   <XHair i={hR.hover} n={n} H={90} />
-                  <Dot i={hR.hover} n={n} v={valAt(series.rsi, hR.hover)} mn={0} mx={100} H={90} color="#8f7bff" />
+                  <Dot i={hR.hover} n={n} v={valAt(series.rsi, hR.hover)} mn={0} mx={100} H={90} color="var(--violet)" />
                 </g>
               )}
             </svg>
@@ -179,7 +179,7 @@ export function ChartPanels({ bars, series }: { bars: Bars[]; series: Series }) 
               return (
                 <HoverTip
                   idx={hR.hover} count={n} date={barAt(hR.hover)?.date}
-                  rows={[{ label: "RSI", color: "#8f7bff", text: v === null ? "—" : `${v.toFixed(1)} · ${zone}` }]}
+                  rows={[{ label: "RSI", color: "var(--violet)", text: v === null ? "—" : `${v.toFixed(1)} · ${zone}` }]}
                 />
               );
             })()}
@@ -215,19 +215,19 @@ function MacdPanel({ series, dates }: { series: Series; dates?: string[] }) {
     <div>
     <div className="chart-wrap">
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H }} preserveAspectRatio="none" {...hov.bind}>
-      <line x1="0" x2={W} y1={zeroY} y2={zeroY} stroke="#5b5b62" strokeWidth="1" />
+      <line x1="0" x2={W} y1={zeroY} y2={zeroY} stroke="var(--faint)" strokeWidth="1" />
       {series.macdHist.map((v, i) => {
         if (v === null || !isFinite(v)) return null;
         const y = H - 6 - ((v - mn) / (mx - mn || 1)) * (H - 12);
-        return <rect key={i} x={(i / Math.max(series.macdHist.length - 1, 1)) * W - 1} y={Math.min(y, zeroY)} width={2} height={Math.max(1, Math.abs(y - zeroY))} fill={v >= 0 ? "#00d664" : "#ff453a"} opacity={hov.hover === null || hov.hover === i ? 0.8 : 0.3} />;
+        return <rect key={i} x={(i / Math.max(series.macdHist.length - 1, 1)) * W - 1} y={Math.min(y, zeroY)} width={2} height={Math.max(1, Math.abs(y - zeroY))} fill={v >= 0 ? "var(--green)" : "var(--red)"} opacity={hov.hover === null || hov.hover === i ? 0.8 : 0.3} />;
       })}
-      {pathFor(series.macdLine, mn, mx, H).map((d, i) => <polyline key={`l${i}`} points={d} fill="none" stroke="#ffa028" strokeWidth="1.5" />)}
-      {pathFor(series.macdSig, mn, mx, H).map((d, i) => <polyline key={`s${i}`} points={d} fill="none" stroke="#a1a1aa" strokeWidth="1.2" />)}
+      {pathFor(series.macdLine, mn, mx, H).map((d, i) => <polyline key={`l${i}`} points={d} fill="none" stroke="var(--amber)" strokeWidth="1.5" />)}
+      {pathFor(series.macdSig, mn, mx, H).map((d, i) => <polyline key={`s${i}`} points={d} fill="none" stroke="var(--sub)" strokeWidth="1.2" />)}
       {hov.hover !== null && (
         <g>
           <XHair i={hov.hover} n={n} H={H} />
-          <Dot i={hov.hover} n={n} v={at(series.macdLine, hov.hover)} mn={mn} mx={mx} H={H} color="#ffa028" />
-          <Dot i={hov.hover} n={n} v={at(series.macdSig, hov.hover)} mn={mn} mx={mx} H={H} color="#a1a1aa" />
+          <Dot i={hov.hover} n={n} v={at(series.macdLine, hov.hover)} mn={mn} mx={mx} H={H} color="var(--amber)" />
+          <Dot i={hov.hover} n={n} v={at(series.macdSig, hov.hover)} mn={mn} mx={mx} H={H} color="var(--sub)" />
         </g>
       )}
     </svg>
@@ -235,16 +235,16 @@ function MacdPanel({ series, dates }: { series: Series; dates?: string[] }) {
       <HoverTip
         idx={hov.hover} count={n} date={dates?.[hov.hover]}
         rows={[
-          { label: "LINE", color: "#ffa028", text: f2(at(series.macdLine, hov.hover)) },
-          { label: "SIGNAL", color: "#a1a1aa", text: f2(at(series.macdSig, hov.hover)) },
-          { label: "HIST", color: "#00d664", text: f2(at(series.macdHist, hov.hover)) },
+          { label: "LINE", color: "var(--amber)", text: f2(at(series.macdLine, hov.hover)) },
+          { label: "SIGNAL", color: "var(--sub)", text: f2(at(series.macdSig, hov.hover)) },
+          { label: "HIST", color: "var(--green)", text: f2(at(series.macdHist, hov.hover)) },
         ]}
       />
     )}
     </div>
     <div style={{ display: "flex", gap: 10, fontSize: 11 }} className="faint">
-      <span><span style={{ color: "#ffa028" }}>■</span> LINE {f2(lL)}</span>
-      <span><span style={{ color: "#a1a1aa" }}>■</span> SIGNAL {f2(lS)}</span>
+      <span><span style={{ color: "var(--amber)" }}>■</span> LINE {f2(lL)}</span>
+      <span><span style={{ color: "var(--sub)" }}>■</span> SIGNAL {f2(lS)}</span>
       <span>HIST {f2(lH)}</span>
     </div>
     </div>
@@ -294,10 +294,10 @@ function CandlePanel({ bars, dates, x3 }: { bars: Bars[]; dates: string[]; x3: [
       <p className="p-head">Candles OHLC <span className="faint">— green up · red down</span></p>
       <div className="chart-wrap">
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H }} preserveAspectRatio="none" {...bind}>
-          {[0.25, 0.5, 0.75].map((f) => <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} stroke="#26262b" strokeWidth="1" />)}
+          {[0.25, 0.5, 0.75].map((f) => <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} stroke="var(--grid)" strokeWidth="1" />)}
           {bars.map((b, i) => {
             const up = b.close >= b.open;
-            const col = up ? "#00d664" : "#ff453a";
+            const col = up ? "var(--green)" : "var(--red)";
             const x = (i / Math.max(n - 1, 1)) * W;
             const dim = hover === null || hover === i;
             return (
@@ -317,11 +317,11 @@ function CandlePanel({ bars, dates, x3 }: { bars: Bars[]; dates: string[]; x3: [
           <HoverTip
             idx={hover} count={n} date={dates[hover]}
             rows={[
-              { label: "OPEN", color: "#a1a1aa", text: f1(bars[hover].open) },
-              { label: "HIGH", color: "#00d664", text: f1(bars[hover].high) },
-              { label: "LOW", color: "#ff453a", text: f1(bars[hover].low) },
-              { label: "CLOSE", color: "#ffb000", text: f1(bars[hover].close) },
-              { label: "CHG %", color: "#8f7bff", text: `${(((bars[hover].close - bars[hover].open) / bars[hover].open) * 100).toFixed(2)}%` },
+              { label: "OPEN", color: "var(--sub)", text: f1(bars[hover].open) },
+              { label: "HIGH", color: "var(--green)", text: f1(bars[hover].high) },
+              { label: "LOW", color: "var(--red)", text: f1(bars[hover].low) },
+              { label: "CLOSE", color: "var(--sec)", text: f1(bars[hover].close) },
+              { label: "CHG %", color: "var(--violet)", text: `${(((bars[hover].close - bars[hover].open) / bars[hover].open) * 100).toFixed(2)}%` },
             ]}
           />
         )}
@@ -417,33 +417,33 @@ export function ExtraPanels({ bars }: { bars: Bars[] }) {
     if (id === "candles") return <CandlePanel key={id} bars={bars} dates={dates} x3={x3} />;
     switch (id) {
       case "stoch":
-        return <div className="panel" key={id}>{head("STOCHASTIC 14·3")}<LineChart series={[{ label: "%K", color: "#00d664", values: D.stoch.pctK }, { label: "%D", color: "#ff453a", values: D.stoch.pctD }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("STOCHASTIC 14·3")}<LineChart series={[{ label: "%K", color: "var(--green)", values: D.stoch.pctK }, { label: "%D", color: "var(--red)", values: D.stoch.pctD }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
       case "mfi":
-        return <div className="panel" key={id}>{head("MFI 14 — 0·100 · >80 HOT · <20 COLD")}<LineChart series={[{ label: "MFI", color: "#8f7bff", values: D.mfi }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("MFI 14 — 0·100 · >80 HOT · <20 COLD")}<LineChart series={[{ label: "MFI", color: "var(--violet)", values: D.mfi }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
       case "willr":
-        return <div className="panel" key={id}>{head("WILLIAMS %R 14 — −100·0")}<LineChart series={[{ label: "%R", color: "#ff453a", values: D.willr }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("WILLIAMS %R 14 — −100·0")}<LineChart series={[{ label: "%R", color: "var(--red)", values: D.willr }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
       case "roc":
-        return <div className="panel" key={id}>{head("ROC 12 %")}<LineChart series={[{ label: "ROC", color: "#00c8ff", values: D.roc }]} height={110} yFmt={fPct} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("ROC 12 %")}<LineChart series={[{ label: "ROC", color: "var(--cyan)", values: D.roc }]} height={110} yFmt={fPct} dates={dates} xLabels={x3} /></div>;
       case "srsi":
-        return <div className="panel" key={id}>{head("STOCH RSI 14")}<LineChart series={[{ label: "STOCHRSI", color: "#8f7bff", values: D.srsi }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("STOCH RSI 14")}<LineChart series={[{ label: "STOCHRSI", color: "var(--violet)", values: D.srsi }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
       case "bbpb":
-        return <div className="panel" key={id}>{head("BB %B POSITION — 0·100")}<LineChart series={[{ label: "%B", color: "#a1a1aa", values: D.bb.pctB }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("BB %B POSITION — 0·100")}<LineChart series={[{ label: "%B", color: "var(--sub)", values: D.bb.pctB }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
       case "cci":
-        return <div className="panel" key={id}>{head("CCI 20 — >+100 HOT · <−100 COLD")}<LineChart series={[{ label: "CCI", color: "#00c8ff", values: D.cci }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("CCI 20 — >+100 HOT · <−100 COLD")}<LineChart series={[{ label: "CCI", color: "var(--cyan)", values: D.cci }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
       case "cmf":
-        return <div className="panel" key={id}>{head("CMF 20 — −1·+1 FLOW")}<LineChart series={[{ label: "CMF", color: "#e3b341", values: D.cmf }]} height={110} yFmt={(v) => v.toFixed(2)} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("CMF 20 — −1·+1 FLOW")}<LineChart series={[{ label: "CMF", color: "var(--amber)", values: D.cmf }]} height={110} yFmt={(v) => v.toFixed(2)} dates={dates} xLabels={x3} /></div>;
       case "atr":
-        return <div className="panel" key={id}>{head("ATR 14 — ₹ RANGE")}<LineChart series={[{ label: "ATR", color: "#ffa028", values: D.atr }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("ATR 14 — ₹ RANGE")}<LineChart series={[{ label: "ATR", color: "var(--amber)", values: D.atr }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
       case "obv":
-        return <div className="panel" key={id}>{head("OBV FLOW")}<LineChart series={[{ label: "OBV", color: "#00d664", values: D.obv }]} height={110} yFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("OBV FLOW")}<LineChart series={[{ label: "OBV", color: "var(--green)", values: D.obv }]} height={110} yFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })} dates={dates} xLabels={x3} /></div>;
       case "adx":
-        return <div className="panel" key={id}>{head("ADX 14 + DI — >25 TREND")}<LineChart series={[{ label: "ADX", color: "#ffa028", values: D.adx.adx }, { label: "+DI", color: "#00d664", values: D.adx.pdi }, { label: "−DI", color: "#ff453a", values: D.adx.mdi }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("ADX 14 + DI — >25 TREND")}<LineChart series={[{ label: "ADX", color: "var(--amber)", values: D.adx.adx }, { label: "+DI", color: "var(--green)", values: D.adx.pdi }, { label: "−DI", color: "var(--red)", values: D.adx.mdi }]} height={110} yFmt={f0} dates={dates} xLabels={x3} /></div>;
       case "ema":
-        return <div className="panel" key={id}>{head("EMA 9·21 TREND")}<LineChart series={[{ label: "CLOSE", color: "#ffb000", values: closes }, { label: "EMA9", color: "#00d664", values: D.ema9 }, { label: "EMA21", color: "#8f7bff", values: D.ema21 }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("EMA 9·21 TREND")}<LineChart series={[{ label: "CLOSE", color: "var(--sec)", values: closes }, { label: "EMA9", color: "var(--green)", values: D.ema9 }, { label: "EMA21", color: "var(--violet)", values: D.ema21 }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
       case "donch":
-        return <div className="panel" key={id}>{head("DONCHIAN 20 CHANNEL")}<LineChart series={[{ label: "CLOSE", color: "#ffb000", values: closes }, { label: "UPPER", color: "#8a8a93", values: D.donch.upper, dashed: true }, { label: "LOWER", color: "#8a8a93", values: D.donch.lower, dashed: true }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("DONCHIAN 20 CHANNEL")}<LineChart series={[{ label: "CLOSE", color: "var(--sec)", values: closes }, { label: "UPPER", color: "var(--faint)", values: D.donch.upper, dashed: true }, { label: "LOWER", color: "var(--faint)", values: D.donch.lower, dashed: true }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
       case "vwap":
-        return <div className="panel" key={id}>{head("VWAP ANCHORED")}<LineChart series={[{ label: "CLOSE", color: "#ffb000", values: closes }, { label: "VWAP", color: "#ffa028", values: D.vwap, dashed: true }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("VWAP ANCHORED")}<LineChart series={[{ label: "CLOSE", color: "var(--sec)", values: closes }, { label: "VWAP", color: "var(--amber)", values: D.vwap, dashed: true }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
       default:
         return null;
     }
@@ -477,11 +477,11 @@ export function ExtraPanels({ bars }: { bars: Bars[] }) {
 
 export function CmpOverlay({ series, dates }: { series: Series; dates?: string[] }) {
   const legs: Array<{ name: string; vals: (number | null)[]; color: string }> = [
-    { name: "RSI", vals: series.rsi, color: "#ffa028" },
-    { name: "STOCH K", vals: series.stochK, color: "#00d664" },
-    { name: "STOCH D", vals: series.stochD, color: "#ff453a" },
-    { name: "MFI", vals: series.mfi, color: "#8f7bff" },
-    { name: "%B", vals: series.bbPctB, color: "#a1a1aa" },
+    { name: "RSI", vals: series.rsi, color: "var(--amber)" },
+    { name: "STOCH K", vals: series.stochK, color: "var(--green)" },
+    { name: "STOCH D", vals: series.stochD, color: "var(--red)" },
+    { name: "MFI", vals: series.mfi, color: "var(--violet)" },
+    { name: "%B", vals: series.bbPctB, color: "var(--sub)" },
   ];
   const H = 150;
   const SLICE = 120;
@@ -575,8 +575,8 @@ export function Scorecard({ ind, price, sma50 }: { ind: Record<string, number | 
   return (
     <div className="panel panel-glow">
       <p className="p-head">Master score — {score}/100 <span className={`badge ${verdict === "BULLISH" ? "ok" : verdict === "BEARISH" ? "bad" : "fnc"}`}>{verdict}</span></p>
-      <div style={{ height: 10, background: "#1a1a1e", borderRadius: 2, marginBottom: 10 }}>
-        <div style={{ width: `${score}%`, height: "100%", background: score >= 65 ? "#00d664" : score <= 35 ? "#ff453a" : "#ffa028", borderRadius: 2 }} />
+      <div style={{ height: 10, background: "var(--track)", borderRadius: 2, marginBottom: 10 }}>
+        <div style={{ width: `${score}%`, height: "100%", background: score >= 65 ? "var(--green)" : score <= 35 ? "var(--red)" : "var(--amber)", borderRadius: 2 }} />
       </div>
       <table className="plain">
         <thead><tr><th>LEG</th><th>READ</th><th style={{ textAlign: "right" }}>VOTE</th></tr></thead>
@@ -811,7 +811,7 @@ export function ReturnsDesk({ symbol }: { symbol: string }) {
             <tr>
               <td><strong>AVG %</strong></td>
               {mStats.map((s) => (
-                <td key={s.m} style={{ textAlign: "right", background: s.n ? (s.avg >= 0 ? `rgba(0,214,100,${Math.min(0.45, Math.abs(s.avg) / 12)})` : `rgba(255,69,58,${Math.min(0.45, Math.abs(s.avg) / 12)})`) : undefined }}>
+                <td key={s.m} style={{ textAlign: "right", background: s.n ? (s.avg >= 0 ? `color-mix(in srgb, var(--green) ${Math.min(45, (Math.abs(s.avg) / 12) * 100)}%, transparent)` : `color-mix(in srgb, var(--red) ${Math.min(45, (Math.abs(s.avg) / 12) * 100)}%, transparent)`) : undefined }}>
                   {s.n ? `${s.avg >= 0 ? "+" : ""}${s.avg.toFixed(1)}` : "—"}
                 </td>
               ))}
@@ -995,12 +995,12 @@ export function FrontierPanel({ symbols, title }: { symbols: string[]; title: st
         <p className="p-head">{title} — {pts.length} portfolios · LONG-ONLY · RF {RF}%{corr !== null ? ` · CORR ${corr.toFixed(2)}` : ""}</p>
         <svg viewBox={`0 0 ${X} ${H}`} style={{ width: "100%", height: H }} preserveAspectRatio="none">
           {env.length > 1 && (
-            <polyline points={env.map((e) => `${px(e.vol).toFixed(1)},${py(e.ret).toFixed(1)}`).join(" ")} fill="none" stroke="#ffa028" strokeWidth="1.6" opacity="0.85" />
+            <polyline points={env.map((e) => `${px(e.vol).toFixed(1)},${py(e.ret).toFixed(1)}`).join(" ")} fill="none" stroke="var(--amber)" strokeWidth="1.6" opacity="0.85" />
           )}
-          {pts.map((p, i) => <circle key={i} cx={px(p.vol)} cy={py(p.ret)} r="3.5" fill="#8a8a93" opacity="0.6"><title>VOL {p.vol.toFixed(1)}% · RET {p.ret.toFixed(1)}%</title></circle>)}
-          {assets.map((a) => <g key={a.s}><circle cx={px(a.vol)} cy={py(a.ret)} r="4" fill={isBench(a.s) ? "#a1a1aa" : "#ffb000"}><title>{a.s} · VOL {a.vol.toFixed(1)}% · RET {a.ret.toFixed(1)}%</title></circle><text x={px(a.vol) + lblDx(a.vol)} y={py(a.ret) + 4} fontSize="10" fill={isBench(a.s) ? "#a1a1aa" : "#ffb000"} textAnchor={lblX(a.vol)}>{a.s.replace(".NS", "")}</text></g>)}
-          <circle cx={px(minV.vol)} cy={py(minV.ret)} r="5" fill="none" stroke="#00d664" strokeWidth="2"><title>MIN VOL · VOL {minV.vol.toFixed(1)}% · RET {minV.ret.toFixed(1)}%</title></circle>
-          <circle cx={px(best.vol)} cy={py(best.ret)} r="5" fill="#ffa028"><title>MAX SHARPE {best.sh.toFixed(2)} · VOL {best.vol.toFixed(1)}% · RET {best.ret.toFixed(1)}%</title></circle>
+          {pts.map((p, i) => <circle key={i} cx={px(p.vol)} cy={py(p.ret)} r="3.5" fill="var(--faint)" opacity="0.6"><title>VOL {p.vol.toFixed(1)}% · RET {p.ret.toFixed(1)}%</title></circle>)}
+          {assets.map((a) => <g key={a.s}><circle cx={px(a.vol)} cy={py(a.ret)} r="4" fill={isBench(a.s) ? "var(--sub)" : "var(--sec)"}><title>{a.s} · VOL {a.vol.toFixed(1)}% · RET {a.ret.toFixed(1)}%</title></circle><text x={px(a.vol) + lblDx(a.vol)} y={py(a.ret) + 4} fontSize="10" fill={isBench(a.s) ? "var(--sub)" : "var(--sec)"} textAnchor={lblX(a.vol)}>{a.s.replace(".NS", "")}</text></g>)}
+          <circle cx={px(minV.vol)} cy={py(minV.ret)} r="5" fill="none" stroke="var(--green)" strokeWidth="2"><title>MIN VOL · VOL {minV.vol.toFixed(1)}% · RET {minV.ret.toFixed(1)}%</title></circle>
+          <circle cx={px(best.vol)} cy={py(best.ret)} r="5" fill="var(--amber)"><title>MAX SHARPE {best.sh.toFixed(2)} · VOL {best.vol.toFixed(1)}% · RET {best.ret.toFixed(1)}%</title></circle>
         </svg>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5 }} className="faint">
           <span>← VOL {vMn.toFixed(0)}% … {vMx.toFixed(0)}% →</span>
@@ -1008,7 +1008,7 @@ export function FrontierPanel({ symbols, title }: { symbols: string[]; title: st
         </div>
         <div className="toolbar" style={{ marginTop: 8 }}>
           <div className="pills">
-            <span className="badge" style={{ color: "#ffa028" }}>● MAX SHARPE {best.sh.toFixed(2)}</span>
+            <span className="badge" style={{ color: "var(--amber)" }}>● MAX SHARPE {best.sh.toFixed(2)}</span>
             <span className="badge ok">○ MIN VOL</span>
             <span className="badge">● GRID</span>
             <span className="badge">— ENVELOPE</span>
@@ -1018,7 +1018,7 @@ export function FrontierPanel({ symbols, title }: { symbols: string[]; title: st
           <span className="faint" style={{ fontSize: 11 }}>BLEND MIN-VOL ↔ MAX-SHARPE</span>
           <input
             type="range" min={0} max={100} value={blend} onChange={(e) => setBlend(Number(e.target.value))}
-            aria-label="Blend min-vol to max-sharpe" style={{ flex: 1, accentColor: "#ffa028" }}
+            aria-label="Blend min-vol to max-sharpe" style={{ flex: 1, accentColor: "var(--amber)" }}
           />
           <span className="sec" style={{ fontSize: 12 }}>{blend}% SHARPE · R{blendRet.toFixed(1)}% · {wline(blendW)}</span>
         </div>
@@ -1106,15 +1106,15 @@ export function NetPanel({ symbol }: { symbol: string }) {
           {edges.map((e, k) => (
             <line
               key={k} x1={pos[e.i].x} y1={pos[e.i].y} x2={pos[e.j].x} y2={pos[e.j].y}
-              stroke={e.v >= 0 ? "#00d664" : "#ff453a"} strokeWidth={1 + Math.abs(e.v) * 4} opacity="0.65"
+              stroke={e.v >= 0 ? "var(--green)" : "var(--red)"} strokeWidth={1 + Math.abs(e.v) * 4} opacity="0.65"
             />
           ))}
           {pos.map((p, i) => (
             <g key={i}>
-              <circle cx={p.x} cy={p.y} r={i === 0 ? 13 : 10} fill={i === 0 ? "#ffa028" : "#121214"} stroke="#ffa028" strokeWidth="1.5">
+              <circle cx={p.x} cy={p.y} r={i === 0 ? 13 : 10} fill={i === 0 ? "var(--amber)" : "var(--panel-2)"} stroke="var(--amber)" strokeWidth="1.5">
                 <title>{data.labels[i]}{i > 0 && data.matrix[0][i] !== null ? ` · ρ ${Number(data.matrix[0][i]).toFixed(2)} vs ${data.labels[0]}` : " · CENTER"}</title>
               </circle>
-              <text x={p.x} y={p.y + 24} fontSize="9" fill="#a1a1aa" textAnchor="middle">{data.labels[i].replace(".NS", "")}</text>
+              <text x={p.x} y={p.y + 24} fontSize="9" fill="var(--sub)" textAnchor="middle">{data.labels[i].replace(".NS", "")}</text>
             </g>
           ))}
         </svg>
@@ -1158,7 +1158,7 @@ export function MCFan({ paths }: { paths: number[][] }) {
           <polyline
             key={i}
             points={p.map((v, k) => `${((k / Math.max(p.length - 1, 1)) * W2).toFixed(1)},${(H - 6 - ((v - mn) / (mx - mn || 1)) * (H - 12)).toFixed(1)}`).join(" ")}
-            fill="none" stroke="#ffa028" strokeWidth="1" opacity="0.22"
+            fill="none" stroke="var(--amber)" strokeWidth="1" opacity="0.22"
           />
         ))}
       </svg>

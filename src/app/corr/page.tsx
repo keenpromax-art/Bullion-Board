@@ -96,11 +96,16 @@ export default function CorrPage() {
     stats?.min && ((stats.min.a === a && stats.min.b === b) || (stats.min.a === b && stats.min.b === a));
 
   function cellStyle(v: number | null, i: number, j: number, a: string, b: string): React.CSSProperties {
-    if (v === null) return { background: "transparent", color: "#8a8a93" };
-    if (i === j) return { background: "rgba(161,161,170,0.08)", color: "#8a8a93" };
+    if (v === null) return { background: "transparent", color: "var(--faint)" };
+    if (i === j) return { background: "rgba(161,161,170,0.08)", color: "var(--faint)" };
     const alpha = Math.min(0.55, 0.08 + Math.abs(v) * 0.45);
-    const bg = v >= 0 ? `rgba(0,214,100,${alpha})` : `rgba(255,69,58,${alpha})`;
-    const style: React.CSSProperties = { background: bg, color: "#f5f5f4" };
+    // The tint is intensity-proportional, so it has to stay a runtime value — but
+  // it reads the DIRECTIONAL TOKENS rather than the dark-mode literals, so the
+  // heat map redraws itself against whichever canvas is in force.
+  const bg = v >= 0
+    ? `color-mix(in srgb, var(--green) ${alpha * 100}%, transparent)`
+    : `color-mix(in srgb, var(--red) ${alpha * 100}%, transparent)`;
+    const style: React.CSSProperties = { background: bg, color: "var(--text)" };
     if (Math.abs(v) >= 0.5) style.fontWeight = 700;
     if (hotKey(a, b) || coldKey(a, b)) style.outline = "1px solid var(--amber)";
     return style;
@@ -228,7 +233,7 @@ export default function CorrPage() {
                 label: short(x.sym),
                 value: isFinite(x.avg) ? x.avg : 0,
                 display: isFinite(x.avg) ? x.avg.toFixed(2) : "—",
-                color: x.avg >= 0.5 ? "#00d664" : x.avg <= 0.2 ? "#ffa028" : "#a1a1aa",
+                color: x.avg >= 0.5 ? "var(--green)" : x.avg <= 0.2 ? "var(--amber)" : "var(--sub)",
               }))} />
             </div>
           </div>

@@ -142,8 +142,8 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
       </label>
 
       {/* EXPLAIN MODE SETTINGS */}
-      <div style={{ borderTop: "1px solid #26262b", paddingTop: 8 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#ffa028", letterSpacing: "0.08em", marginBottom: 6 }}>
+      <div style={{ borderTop: "1px solid var(--grid)", paddingTop: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", letterSpacing: "0.08em", marginBottom: 6 }}>
           EXPLAIN MODE
         </div>
         <div style={{ display: "grid", gap: 6 }}>
@@ -163,7 +163,7 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
             <input
               type="checkbox" checked={explAI}
               onChange={(e) => setExplAI(e.target.checked)}
-              style={{ accentColor: "#ffa028" }}
+              style={{ accentColor: "var(--amber)" }}
             />
             AI EXPLANATIONS (TIER 2) — USES {store.getExplainerModel().split("/").pop()?.toUpperCase() ?? "NEMOTRON"}
           </label>

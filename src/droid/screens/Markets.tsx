@@ -179,7 +179,7 @@ export default function Markets() {
               label: s.name.split(" ")[0].toUpperCase(),
               value: s.avg,
               display: `${s.avg > 0 ? "+" : ""}${s.avg.toFixed(2)}%`,
-              color: s.avg >= 0 ? "#00d664" : "#ff453a",
+              color: s.avg >= 0 ? "var(--green)" : "var(--red)",
             }))}
           />
           <Note>MEAN 1-DAY MOVE OF THE {sectorHeat.reduce((a, s) => a + s.n, 0)} PROXY NAMES THAT MAP TO A SECTOR.</Note>

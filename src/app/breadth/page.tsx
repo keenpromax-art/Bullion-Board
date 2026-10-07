@@ -94,9 +94,9 @@ export default function BreadthPage() {
             <Histogram values={data.dist} bins={18} height={100} />
             <div style={{ marginTop: 8 }}>
               <HBars rows={[
-                { label: "ADVANCES", value: data.adv, display: String(data.adv), color: "#00d664" },
-                { label: "DECLINES", value: data.dec, display: String(data.dec), color: "#ff453a" },
-                { label: "ABOVE 20D %", value: data.pctAbove20, display: `${data.pctAbove20}%`, color: "#ffa028" },
+                { label: "ADVANCES", value: data.adv, display: String(data.adv), color: "var(--green)" },
+                { label: "DECLINES", value: data.dec, display: String(data.dec), color: "var(--red)" },
+                { label: "ABOVE 20D %", value: data.pctAbove20, display: `${data.pctAbove20}%`, color: "var(--amber)" },
               ]} />
             </div>
           </div>

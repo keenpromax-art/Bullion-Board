@@ -58,8 +58,8 @@ function AreaSpark({ data }: { data: number[] }) {
   const up = data[data.length - 1] >= data[0];
   return (
     <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-      <polygon points={`0,${H} ${pts.join(" ")} ${W},${H}`} fill="rgba(255,160,40,0.10)" />
-      <polyline points={pts.join(" ")} fill="none" stroke={up ? "#00d664" : "#ff453a"} strokeWidth="2" />
+      <polygon points={`0,${H} ${pts.join(" ")} ${W},${H}`} fill="color-mix(in srgb, var(--amber) 10%, transparent)" />
+      <polyline points={pts.join(" ")} fill="none" stroke={up ? "var(--green)" : "var(--red)"} strokeWidth="2" />
     </svg>
   );
 }

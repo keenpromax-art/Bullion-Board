@@ -170,7 +170,7 @@ function OChainMini({ symbol }: { symbol: string }) {
             <thead><tr><th style={{ textAlign: "right" }}>CE LTP</th><th style={{ textAlign: "right" }}>CE OI</th><th>STRIKE</th><th style={{ textAlign: "right" }}>PE LTP</th><th style={{ textAlign: "right" }}>PE OI</th></tr></thead>
             <tbody>
               {rows.slice(Math.max(0, rows.findIndex((r) => r.strike === m?.atm) - 8), rows.findIndex((r) => r.strike === m?.atm) + 9).map((r) => (
-                <tr key={r.strike} style={r.strike === m?.atm ? { background: "rgba(255,160,40,0.10)" } : undefined}>
+                <tr key={r.strike} style={r.strike === m?.atm ? { background: "color-mix(in srgb, var(--amber) 10%, transparent)" } : undefined}>
                   <td style={{ textAlign: "right" }}>{Number(r.ceLTP).toFixed(1)}</td>
                   <td style={{ textAlign: "right" }}>{Number(r.ceOI).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
                   <td><strong className={r.strike === m?.atm ? "sec" : ""}>{r.strike.toLocaleString("en-IN")}</strong></td>
@@ -193,7 +193,7 @@ function MacroSpark({ data }: { data: number[] }) {
   const pts = data.map((v, i) => `${((i / (data.length - 1)) * 96).toFixed(1)},${(24 - 2 - ((v - mn) / (mx - mn || 1)) * 20).toFixed(1)}`).join(" ");
   return (
     <svg width={96} height={24} style={{ display: "block" }} aria-hidden>
-      <polyline points={pts} fill="none" stroke={up ? "#00d664" : "#ff453a"} strokeWidth="1.5" />
+      <polyline points={pts} fill="none" stroke={up ? "var(--green)" : "var(--red)"} strokeWidth="1.5" />
     </svg>
   );
 }

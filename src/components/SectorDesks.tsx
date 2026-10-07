@@ -62,14 +62,14 @@ function Curve({ sec, nif, dates }: { sec: number[]; nif: number[]; dates?: stri
   return (
     <div className="chart-wrap">
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none" {...bind}>
-        <line x1="0" x2={W} y1={Y(0)} y2={Y(0)} stroke="#26262b" strokeWidth="1" />
-        <polyline points={pts(b)} fill="none" stroke="#a1a1aa" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
-        <polyline points={pts(s)} fill="none" stroke="#ffa028" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+        <line x1="0" x2={W} y1={Y(0)} y2={Y(0)} stroke="var(--grid)" strokeWidth="1" />
+        <polyline points={pts(b)} fill="none" stroke="var(--sub)" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+        <polyline points={pts(s)} fill="none" stroke="var(--amber)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
         {hover !== null && (
           <g>
-            <line x1={X(hover)} x2={X(hover)} y1="0" y2={H} stroke="#ffa028" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-            {sv !== null && <circle cx={X(hover)} cy={Y(sv)} r="3.5" fill="#ffa028" />}
-            {bv !== null && <circle cx={X(hover)} cy={Y(bv)} r="3.5" fill="#a1a1aa" />}
+            <line x1={X(hover)} x2={X(hover)} y1="0" y2={H} stroke="var(--amber)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+            {sv !== null && <circle cx={X(hover)} cy={Y(sv)} r="3.5" fill="var(--amber)" />}
+            {bv !== null && <circle cx={X(hover)} cy={Y(bv)} r="3.5" fill="var(--sub)" />}
           </g>
         )}
       </svg>
@@ -77,9 +77,9 @@ function Curve({ sec, nif, dates }: { sec: number[]; nif: number[]; dates?: stri
         <HoverTip
           idx={hover} count={n} date={dates?.[hi2 ?? 0] ?? `BAR ${(hi2 ?? 0) + 1}/${sec.length}`}
           rows={[
-            { label: "SECTOR", color: "#ffa028", text: `${sv >= 0 ? "+" : ""}${sv.toFixed(2)}%` },
-            { label: "NIFTY", color: "#a1a1aa", text: `${bv >= 0 ? "+" : ""}${bv.toFixed(2)}%` },
-            { label: "EXCESS", color: ex >= 0 ? "#00d664" : "#ff453a", text: `${ex >= 0 ? "+" : ""}${ex.toFixed(2)}pp` },
+            { label: "SECTOR", color: "var(--amber)", text: `${sv >= 0 ? "+" : ""}${sv.toFixed(2)}%` },
+            { label: "NIFTY", color: "var(--sub)", text: `${bv >= 0 ? "+" : ""}${bv.toFixed(2)}%` },
+            { label: "EXCESS", color: ex >= 0 ? "var(--green)" : "var(--red)", text: `${ex >= 0 ? "+" : ""}${ex.toFixed(2)}pp` },
           ]}
         />
       )}
@@ -98,12 +98,12 @@ function Quad({ rows, hot }: { rows: SectorRow[]; hot: string }) {
   const X = (v: number) => ((v - loX) / (hiX - loX || 1)) * (W - 16) + 8;
   const Y = (v: number) => H - 14 - ((v - loY) / (hiY - loY || 1)) * (H - 28);
   const q = (x: number, y: number, t: string) => (
-    <text x={x} y={y} fontSize="10" fill="#8a8a93" textAnchor="middle" fontWeight="700">{t}</text>
+    <text x={x} y={y} fontSize="10" fill="var(--faint)" textAnchor="middle" fontWeight="700">{t}</text>
   );
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }}>
-      <line x1={X(100)} x2={X(100)} y1="6" y2={H - 14} stroke="#26262b" />
-      <line x1="8" x2={W - 8} y1={Y(100)} y2={Y(100)} stroke="#26262b" />
+      <line x1={X(100)} x2={X(100)} y1="6" y2={H - 14} stroke="var(--grid)" />
+      <line x1="8" x2={W - 8} y1={Y(100)} y2={Y(100)} stroke="var(--grid)" />
       {q((X(100) + W - 8) / 2, 20, "LEADING")}
       {q((8 + X(100)) / 2, 20, "WEAKENING")}
       {q((8 + X(100)) / 2, H - 20, "LAGGING")}
@@ -113,8 +113,8 @@ function Quad({ rows, hot }: { rows: SectorRow[]; hot: string }) {
         return (
           <g key={p.sym}>
             <title>{short(p.sym)} · RS {p.rsr.toFixed(1)} / {p.rsm.toFixed(1)}</title>
-            <circle cx={X(p.rsr)} cy={Y(p.rsm)} r={isHot ? 6 : 4} fill={isHot ? "#ffa028" : p.rsr >= 100 && p.rsm >= 100 ? "#00d664" : p.rsr < 100 && p.rsm < 100 ? "#ff453a" : "#a1a1aa"} opacity="0.9" />
-            <text x={X(p.rsr) + 7} y={Y(p.rsm) + 3} fontSize="9" fill={isHot ? "#ffa028" : "#a1a1aa"} fontWeight={isHot ? 700 : 400}>{short(p.sym)}</text>
+            <circle cx={X(p.rsr)} cy={Y(p.rsm)} r={isHot ? 6 : 4} fill={isHot ? "var(--amber)" : p.rsr >= 100 && p.rsm >= 100 ? "var(--green)" : p.rsr < 100 && p.rsm < 100 ? "var(--red)" : "var(--sub)"} opacity="0.9" />
+            <text x={X(p.rsr) + 7} y={Y(p.rsm) + 3} fontSize="9" fill={isHot ? "var(--amber)" : "var(--sub)"} fontWeight={isHot ? 700 : 400}>{short(p.sym)}</text>
           </g>
         );
       })}
@@ -194,7 +194,7 @@ export function SectorDesk({ symbol, onOpen }: { symbol: string; onOpen?: (funcI
             <div className="panel">
               <p className="p-head">Sector vs Nifty — {data.period} cumulative %</p>
               <Curve sec={data.curve.sector} nif={data.curve.nifty} dates={data.curve.dates} />
-              <div className="muted" style={{ fontSize: 11.5 }}><span style={{ color: "#ffa028" }}>— {data.sectorName.toUpperCase()} EQ-WT</span>{"  "}<span style={{ color: "#a1a1aa" }}>— NIFTY 50</span></div>
+              <div className="muted" style={{ fontSize: 11.5 }}><span style={{ color: "var(--amber)" }}>— {data.sectorName.toUpperCase()} EQ-WT</span>{"  "}<span style={{ color: "var(--sub)" }}>— NIFTY 50</span></div>
             </div>
             <div className="panel">
               <p className="p-head">Rotation quadrant — RS ratio × momentum</p>
@@ -211,7 +211,7 @@ export function SectorDesk({ symbol, onOpen }: { symbol: string; onOpen?: (funcI
                 label: `${r.sym === symbol ? "◆ " : ""}${short(r.sym)}`,
                 value: v ?? 0,
                 display: v !== null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—",
-                color: r.sym === symbol ? "#ffa028" : (v ?? 0) >= 0 ? "#00d664" : "#ff453a",
+                color: r.sym === symbol ? "var(--amber)" : (v ?? 0) >= 0 ? "var(--green)" : "var(--red)",
               };
             })} />
           </div>
@@ -224,7 +224,7 @@ export function SectorDesk({ symbol, onOpen }: { symbol: string; onOpen?: (funcI
                 {ranked.map((r, i) => (
                   <tr
                     key={r.sym}
-                    style={{ cursor: "pointer", ...(r.sym === symbol ? { background: "rgba(255,160,40,0.07)" } : undefined) }}
+                    style={{ cursor: "pointer", ...(r.sym === symbol ? { background: "color-mix(in srgb, var(--amber) 7%, transparent)" } : undefined) }}
                     onClick={() => openPeer(r.sym)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPeer(r.sym); } }}
                     tabIndex={0}

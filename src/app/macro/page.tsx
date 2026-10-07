@@ -47,7 +47,7 @@ function Spark({ data }: { data: number[] }) {  if (!data || data.length < 2) re
   const pts = data.map((v, i) => `${((i / (data.length - 1)) * 120).toFixed(1)},${(28 - 2 - ((v - mn) / (mx - mn || 1)) * 24).toFixed(1)}`).join(" ");
   return (
     <svg width={120} height={28} style={{ display: "block" }}>
-      <polyline points={pts} fill="none" stroke={up ? "#00d664" : "#ff453a"} strokeWidth="1.5" />
+      <polyline points={pts} fill="none" stroke={up ? "var(--green)" : "var(--red)"} strokeWidth="1.5" />
     </svg>
   );
 }
@@ -86,12 +86,12 @@ function IndicatorTooltip({ series, event, anchor }: { series: string; event: st
   return (
     <div style={{
       position: "fixed", left: anchor.x + 12, top: anchor.y - 8, zIndex: 9999,
-      maxWidth: 380, minWidth: 280, background: "#0a0a0c", border: "1px solid #ffa028",
+      maxWidth: 380, minWidth: 280, background: "var(--panel-2)", border: "1px solid var(--amber)",
       borderRadius: 3, padding: "10px 12px", fontFamily: "var(--mono)", fontSize: 12,
-      lineHeight: 1.55, color: "#c9c9cf", pointerEvents: "none",
-      boxShadow: "0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,160,40,0.15)",
+      lineHeight: 1.55, color: "var(--sub)", pointerEvents: "none",
+      boxShadow: "0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px color-mix(in srgb, var(--amber) 15%, transparent)",
     }}>
-      <div style={{ color: "#ffa028", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{title}</div>
+      <div style={{ color: "var(--amber)", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{title}</div>
       <div style={{ marginBottom: 5 }}><span style={{ color: "#666" }}>WHAT: </span>{what}</div>
       <div style={{ marginBottom: 5 }}><span style={{ color: "#666" }}>WHY IT MATTERS: </span>{why}</div>
       {freq && <div style={{ marginBottom: 3 }}><span style={{ color: "#666" }}>CADENCE: </span>{freq}</div>}
@@ -260,7 +260,7 @@ function EcoCalendar() {
       <p className="muted" style={{ fontSize: 11.5, marginBottom: 0 }}>
         SURV(M) OMITTED — NO FREE CONSENSUS FEED EXISTS ON FRED. TIMES = TYPICAL ET RELEASE TIMES (STATIC). PERIOD = REPORTED MONTH DERIVED FROM RELEASE DATE.
       </p>
-      <div style={{ borderTop: "1px solid #26262b", marginTop: 10, paddingTop: 10 }}>
+      <div style={{ borderTop: "1px solid var(--grid)", marginTop: 10, paddingTop: 10 }}>
         <p className="p-head">AI analyst — ECO</p>
         <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading}>{aiLoading ? "RUNNING…" : "RUN AI ON CALENDAR"}</button></div>
         {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
@@ -472,7 +472,7 @@ function EcfcForecasts() {
               {rows.map((r, i) => {
                 const hasFwd = fx.some((y) => r.fwd[y] !== undefined);
                 return (
-                  <tr key={r.label} onClick={() => { setActive(i); setHover(null); }} style={{ cursor: "pointer", background: i === active ? "rgba(255,160,40,0.07)" : undefined }}>
+                  <tr key={r.label} onClick={() => { setActive(i); setHover(null); }} style={{ cursor: "pointer", background: i === active ? "color-mix(in srgb, var(--amber) 7%, transparent)" : undefined }}>
                     <td><strong className={i === active ? "sec" : ""}>{i + 1}) {r.label}</strong> <span className="faint" style={{ fontSize: 10.5 }}>{r.unit}{hasFwd ? " · FWD" : ""}</span></td>
                     {showHist.map((y) => (
                       <td key={y} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
@@ -503,21 +503,21 @@ function EcfcForecasts() {
             }}
             onMouseLeave={() => setHover(null)}
           >
-            <polyline points={histPts} fill="none" stroke="#ffa028" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
-            {fx.length > 0 && <polyline points={fwdPts} fill="none" stroke="#00c8ff" strokeWidth="1.6" strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />}
+            <polyline points={histPts} fill="none" stroke="var(--amber)" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+            {fx.length > 0 && <polyline points={fwdPts} fill="none" stroke="var(--cyan)" strokeWidth="1.6" strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />}
             {allX.map((y, i) => (
-              <circle key={y} cx={X(i)} cy={Y(allV[i])} r={hover === i ? 4 : 2} fill={i > splitAt ? "#00c8ff" : "#ffa028"} />
+              <circle key={y} cx={X(i)} cy={Y(allV[i])} r={hover === i ? 4 : 2} fill={i > splitAt ? "var(--cyan)" : "var(--amber)"} />
             ))}
             {hover !== null && (
               <g>
-                <line x1={X(hover)} x2={X(hover)} y1="0" y2={H} stroke="#ffa028" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-                <text x={Math.min(X(hover) + 8, W - 118)} y="14" fontSize="11" fill="#f5f5f4" fontWeight="700">
+                <line x1={X(hover)} x2={X(hover)} y1="0" y2={H} stroke="var(--amber)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+                <text x={Math.min(X(hover) + 8, W - 118)} y="14" fontSize="11" fill="var(--text)" fontWeight="700">
                   {allX[hover]}{hover > splitAt ? "F" : ""} · {f(allV[hover], row.unit)}
                 </text>
               </g>
             )}
-            <text x="4" y={H - 4} fontSize="9" fill="#8a8a93">{allX[0]}</text>
-            <text x={W - 4} y={H - 4} fontSize="9" fill="#8a8a93" textAnchor="end">{allX[allX.length - 1]}F</text>
+            <text x="4" y={H - 4} fontSize="9" fill="var(--faint)">{allX[0]}</text>
+            <text x={W - 4} y={H - 4} fontSize="9" fill="var(--faint)" textAnchor="end">{allX[allX.length - 1]}F</text>
           </svg>
         </div>
       )}

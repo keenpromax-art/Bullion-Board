@@ -287,7 +287,7 @@ export default function TouchChart({
                   y={height - h}
                   width={bw}
                   height={h}
-                  fill={b.close >= b.open ? "rgba(0,214,100,0.28)" : "rgba(255,69,58,0.28)"}
+                  fill={b.close >= b.open ? "color-mix(in srgb, var(--green) 28%, transparent)" : "color-mix(in srgb, var(--red) 28%, transparent)"}
                 />
               );
             })}

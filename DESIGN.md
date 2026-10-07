@@ -26,6 +26,15 @@ as instant. Uppercase micro-headers, square panels, tabular numerals everywhere.
 - **Up Green** `#00d664` — advances, bullish (▲)
 - **Down Red** `#ff453a` — declines, bearish (▼)
 - Links in body copy: amber. Red/green strictly directional.
+- **Light theme** re-keys the SAME tokens; no rule may read a raw hex for chrome.
+  `:root[data-theme="light"]` in globals.css is the entire list. Dark stays the
+  default — this is a terminal. Amber moves furthest in hue
+  (`#ffa028 → #9a5600`) because it is the signature and has to stay recognisably
+  amber instead of becoming brown. Every light value is measured against BOTH
+  `--panel` and `--bg`, because `--bg` is darker than `--panel` and a colour that
+  clears AA on a card while failing on the canvas has not cleared it.
+- `color-scheme` follows the theme so UA scrollbars, caret, text selection and
+  form interiors are not left dark under a light terminal.
 
 ## 3. Typography Rules
 

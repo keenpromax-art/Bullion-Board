@@ -100,7 +100,7 @@ function LTable({ periods, rows, moneyFmt, heat, sub }: {
             }
             const y = li >= 0 && pi >= 0 ? yoyPct(r.values, li) : null;
             const bg = heat && y !== null
-              ? y >= 0 ? `rgba(0,214,100,${Math.min(0.22, Math.abs(y) / 100)})` : `rgba(255,69,58,${Math.min(0.22, Math.abs(y) / 100)})`
+              ? y >= 0 ? `color-mix(in srgb, var(--green) ${Math.min(22, (Math.abs(y) / 100) * 100)}%, transparent)` : `color-mix(in srgb, var(--red) ${Math.min(22, (Math.abs(y) / 100) * 100)}%, transparent)`
               : undefined;
             return (
               <tr key={r.label}>
@@ -413,24 +413,24 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
         </div>
         {aiSummary ? (
           <div style={{
-            marginTop: 8, fontSize: 12, lineHeight: 1.6, color: "#f5f5f4",
+            marginTop: 8, fontSize: 12, lineHeight: 1.6, color: "var(--text)",
             textTransform: "none", whiteSpace: "pre-wrap", maxHeight: 520, overflowY: "auto",
           }}>
             {aiSummary.split("\n").map((line, i) => {
               const isHeader = /^[A-Z][A-Z &/—:-]{4,}/.test(line) && line.length < 80;
               return isHeader ? (
                 <div key={i} style={{
-                  fontSize: 10.5, fontWeight: 700, color: "#ffa028",
+                  fontSize: 10.5, fontWeight: 700, color: "var(--amber)",
                   textTransform: "uppercase", letterSpacing: "0.08em",
                   marginTop: i > 0 ? 8 : 0, marginBottom: 2,
-                  borderBottom: "1px solid rgba(255,160,40,0.2)", paddingBottom: 2,
+                  borderBottom: "1px solid color-mix(in srgb, var(--amber) 20%, transparent)", paddingBottom: 2,
                 }}>{line}</div>
               ) : (
                 <div key={i}>{line}</div>
               );
             })}
             {aiSummaryLoading && (
-              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#ffa028", marginLeft: 2, verticalAlign: "middle" }} />
+              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "var(--amber)", marginLeft: 2, verticalAlign: "middle" }} />
             )}
           </div>
         ) : !aiSummaryLoading ? (
@@ -560,15 +560,15 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
               <div className="grid grid-2" style={{ marginTop: 10 }}>
                 <div><p className="p-head">P/E · P/B · EV/EBITDA</p>
                   <LineChart dates={valPeriods} yFmt={(v) => `${v.toFixed(1)}x`} series={[
-                    { label: "P/E", color: "#ffa028", values: valRows.find((r) => r.label === "P/E x")?.values ?? [] },
-                    { label: "P/B", color: "#00d664", values: valRows.find((r) => r.label === "P/B x")?.values ?? [] },
-                    { label: "EV/EBITDA", color: "#00c8ff", values: valRows.find((r) => r.label === "EV/EBITDA x")?.values ?? [] },
+                    { label: "P/E", color: "var(--amber)", values: valRows.find((r) => r.label === "P/E x")?.values ?? [] },
+                    { label: "P/B", color: "var(--green)", values: valRows.find((r) => r.label === "P/B x")?.values ?? [] },
+                    { label: "EV/EBITDA", color: "var(--cyan)", values: valRows.find((r) => r.label === "EV/EBITDA x")?.values ?? [] },
                   ]} />
                 </div>
                 <div><p className="p-head">Market cap vs EV — ₹ Cr</p>
                   <LineChart dates={valPeriods} yFmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })} series={[
-                    { label: "MCAP", color: "#ffa028", values: valRows.find((r) => r.label === "Market Cap ₹ Cr")?.values ?? [] },
-                    { label: "EV", color: "#8f7bff", values: valRows.find((r) => r.label === "Enterprise Value ₹ Cr")?.values ?? [] },
+                    { label: "MCAP", color: "var(--amber)", values: valRows.find((r) => r.label === "Market Cap ₹ Cr")?.values ?? [] },
+                    { label: "EV", color: "var(--violet)", values: valRows.find((r) => r.label === "Enterprise Value ₹ Cr")?.values ?? [] },
                   ]} />
                 </div>
               </div>
@@ -614,8 +614,8 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
                 dates={hist.map((b: any) => b.date)}
                 yFmt={(v) => v.toFixed(0)}
                 series={[
-                  { label: symbol, color: "#ffa028", values: rebase(hist).filter((_, i) => i % 3 === 0) },
-                  { label: "NIFTY", color: "#00c8ff", values: rebase(bench).filter((_, i) => i % 3 === 0) },
+                  { label: symbol, color: "var(--amber)", values: rebase(hist).filter((_, i) => i % 3 === 0) },
+                  { label: "NIFTY", color: "var(--cyan)", values: rebase(bench).filter((_, i) => i % 3 === 0) },
                 ]}
               />
             </div>
@@ -634,7 +634,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
                 dates={st.rat?.periods ?? []}
                 yFmt={(v) => v.toFixed(1)}
                 series={[
-                  { label: "OCF/NI x", color: "#00d664", values: (st.pl?.periods ?? []).map((_, i) => {
+                  { label: "OCF/NI x", color: "var(--green)", values: (st.pl?.periods ?? []).map((_, i) => {
                     const n = at(findVals(st.pl, ["net income"]), i), o = at(findVals(st.cf, ["cash flow from continuing operating activities", "operating cash flow"]), i);
                     return n && o !== null ? o / n : null;
                   }) },
@@ -646,8 +646,8 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
                 periods={st.rat?.periods ?? []}
                 fmt={(v) => `${v.toFixed(1)}%`}
                 series={[
-                  { label: "REV G", color: "#00d664", values: st.rat?.rows.find((r) => r.label === "Revenue Growth %")?.values ?? [] },
-                  { label: "WC ₹ G", color: "#ff453a", values: (st.pl?.periods ?? []).map((_, i) => {
+                  { label: "REV G", color: "var(--green)", values: st.rat?.rows.find((r) => r.label === "Revenue Growth %")?.values ?? [] },
+                  { label: "WC ₹ G", color: "var(--red)", values: (st.pl?.periods ?? []).map((_, i) => {
                     const w = st.bs ? at(findVals(st.bs, ["working capital"]), i) : null;
                     const p = st.bs ? at(findVals(st.bs, ["working capital"]), i - 1) : null;
                     return w !== null && p ? ((w - p) / Math.abs(p)) * 100 : null;
@@ -674,7 +674,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
             <LineChart
               dates={st.rat?.periods ?? []}
               yFmt={(v) => `${v.toFixed(1)}%`}
-              series={[{ label: "EFF TAX", color: "#ffa028", values: st.rat?.rows.find((r) => r.label === "Effective Tax Rate %")?.values ?? [] }]}
+              series={[{ label: "EFF TAX", color: "var(--amber)", values: st.rat?.rows.find((r) => r.label === "Effective Tax Rate %")?.values ?? [] }]}
             />
           </div>
           <div style={{ marginTop: 10 }}>
@@ -693,7 +693,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
               <LineChart
                 dates={st.pl?.periods ?? []}
                 yFmt={(v) => `${v.toFixed(1)}%`}
-                series={[{ label: "WC/REV", color: "#00c8ff", values: (st.pl?.periods ?? []).map((_, i) => {
+                series={[{ label: "WC/REV", color: "var(--cyan)", values: (st.pl?.periods ?? []).map((_, i) => {
                   const w = st.bs ? at(findVals(st.bs, ["working capital"]), i) : null;
                   const r = at(findVals(st.pl, ["total revenue", "operating revenue"]), i);
                   return w !== null && r ? (w / r) * 100 : null;
@@ -705,9 +705,9 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
                 dates={st.rat?.periods ?? []}
                 yFmt={(v) => `${v.toFixed(0)}d`}
                 series={[
-                  { label: "DSO", color: "#ffa028", values: st.rat?.rows.find((r) => r.label === "Days Sales Outstanding days")?.values ?? [] },
-                  { label: "DIO", color: "#00c8ff", values: st.rat?.rows.find((r) => r.label === "Days Inventory Outstanding days")?.values ?? [] },
-                  { label: "CCC", color: "#ff453a", values: st.rat?.rows.find((r) => r.label === "Cash Conversion Cycle days")?.values ?? [] },
+                  { label: "DSO", color: "var(--amber)", values: st.rat?.rows.find((r) => r.label === "Days Sales Outstanding days")?.values ?? [] },
+                  { label: "DIO", color: "var(--cyan)", values: st.rat?.rows.find((r) => r.label === "Days Inventory Outstanding days")?.values ?? [] },
+                  { label: "CCC", color: "var(--red)", values: st.rat?.rows.find((r) => r.label === "Cash Conversion Cycle days")?.values ?? [] },
                 ]}
               />
             </div>
@@ -777,11 +777,11 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
                 <div style={{ marginTop: 10 }}>
                   <p className="p-head">Street recommendation</p>
                   <HBars rows={[
-                    { label: "STRONG BUY", value: est.recommendation.strongBuy ?? 0, display: String(est.recommendation.strongBuy ?? "—"), color: "#00d664" },
-                    { label: "BUY", value: est.recommendation.buy ?? 0, display: String(est.recommendation.buy ?? "—"), color: "#00c8ff" },
-                    { label: "HOLD", value: est.recommendation.hold ?? 0, display: String(est.recommendation.hold ?? "—"), color: "#ffa028" },
-                    { label: "SELL", value: est.recommendation.sell ?? 0, display: String(est.recommendation.sell ?? "—"), color: "#ff453a" },
-                    { label: "STRONG SELL", value: est.recommendation.strongSell ?? 0, display: String(est.recommendation.strongSell ?? "—"), color: "#8f7bff" },
+                    { label: "STRONG BUY", value: est.recommendation.strongBuy ?? 0, display: String(est.recommendation.strongBuy ?? "—"), color: "var(--green)" },
+                    { label: "BUY", value: est.recommendation.buy ?? 0, display: String(est.recommendation.buy ?? "—"), color: "var(--cyan)" },
+                    { label: "HOLD", value: est.recommendation.hold ?? 0, display: String(est.recommendation.hold ?? "—"), color: "var(--amber)" },
+                    { label: "SELL", value: est.recommendation.sell ?? 0, display: String(est.recommendation.sell ?? "—"), color: "var(--red)" },
+                    { label: "STRONG SELL", value: est.recommendation.strongSell ?? 0, display: String(est.recommendation.strongSell ?? "—"), color: "var(--violet)" },
                   ]} />
                   {est.nextEarnings && <p className="faint" style={{ fontSize: 11 }}>NEXT EARNINGS ≈ {est.nextEarnings}</p>}
                 </div>
@@ -816,10 +816,10 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
                   dates={st.sh.periods}
                   yFmt={(v) => `${v.toFixed(1)}%`}
                   series={[
-                    { label: "PROM", color: "#ffa028", values: findVals(st.sh, ["promoters"]) ?? [] },
-                    { label: "FII", color: "#00d664", values: findVals(st.sh, ["fiis", "fii"]) ?? [] },
-                    { label: "DII", color: "#8f7bff", values: findVals(st.sh, ["diis", "dii"]) ?? [] },
-                    { label: "PUB", color: "#8a8a93", values: findVals(st.sh, ["public"]) ?? [] },
+                    { label: "PROM", color: "var(--amber)", values: findVals(st.sh, ["promoters"]) ?? [] },
+                    { label: "FII", color: "var(--green)", values: findVals(st.sh, ["fiis", "fii"]) ?? [] },
+                    { label: "DII", color: "var(--violet)", values: findVals(st.sh, ["diis", "dii"]) ?? [] },
+                    { label: "PUB", color: "var(--faint)", values: findVals(st.sh, ["public"]) ?? [] },
                   ]}
                 />
               ) : <p className="muted">NO HOLDING SERIES.</p>}
@@ -830,7 +830,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
               <LineChart
                 dates={st.pl?.periods ?? []}
                 yFmt={(v) => `${(v / 1e9).toFixed(2)}B`}
-                series={[{ label: "SH", color: "#00c8ff", values: findVals(st.pl, ["basic average shares", "diluted average shares", "share issued"]) ?? [] }]}
+                series={[{ label: "SH", color: "var(--cyan)", values: findVals(st.pl, ["basic average shares", "diluted average shares", "share issued"]) ?? [] }]}
               />
               <p className="faint" style={{ fontSize: 11 }}>DIPS = SPLITS/BONUS — SEE TIMELINE BELOW.</p>
             </div>
@@ -893,7 +893,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
           <LineChart
             dates={st.pl?.periods ?? []}
             yFmt={(v) => `${v.toFixed(1)}%`}
-            series={[{ label: "TREAS/PBT", color: "#ffa028", values: (st.pl?.periods ?? []).map((_, i) => {
+            series={[{ label: "TREAS/PBT", color: "var(--amber)", values: (st.pl?.periods ?? []).map((_, i) => {
               const ii = at(findVals(st.pl, ["interest income", "interest income non operating", "gain on sale of security"]), i);
               const pbt = at(findVals(st.pl, ["pretax income"]), i);
               return ii !== null && pbt ? (ii / pbt) * 100 : null;

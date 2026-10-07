@@ -660,9 +660,9 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
         <div style={{ marginTop: 10 }}>
           <p className="p-head">Rolling beta vs Nifty — 30/90/252D</p>
           <LineChart dates={rdates} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[
-            { label: "B30", color: "#00c8ff", values: b30 },
-            { label: "B90", color: "#ffa028", values: b90 },
-            { label: "B252", color: "#8a8a93", values: b252 },
+            { label: "B30", color: "var(--cyan)", values: b30 },
+            { label: "B90", color: "var(--amber)", values: b90 },
+            { label: "B252", color: "var(--faint)", values: b252 },
           ]} />
         </div>
         <div style={{ marginTop: 10 }}>
@@ -703,18 +703,18 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
         <div className="grid grid-2" style={{ marginTop: 10 }}>
           <div><p className="p-head">HV term 10/30/90D + EWMA</p>
             <LineChart dates={rdates} xLabels={x3} yFmt={(v) => `${v.toFixed(1)}%`} series={[
-              { label: "HV10", color: "#00c8ff", values: rets.map((_, i) => (i + 1 < 10 ? null : std(rets.slice(i - 9, i + 1)) * Math.sqrt(252) * 100)) },
-              { label: "HV30", color: "#ffa028", values: rets.map((_, i) => (i + 1 < 30 ? null : std(rets.slice(i - 29, i + 1)) * Math.sqrt(252) * 100)) },
-              { label: "EWMA", color: "#00d664", values: ewPath },
+              { label: "HV10", color: "var(--cyan)", values: rets.map((_, i) => (i + 1 < 10 ? null : std(rets.slice(i - 9, i + 1)) * Math.sqrt(252) * 100)) },
+              { label: "HV30", color: "var(--amber)", values: rets.map((_, i) => (i + 1 < 30 ? null : std(rets.slice(i - 29, i + 1)) * Math.sqrt(252) * 100)) },
+              { label: "EWMA", color: "var(--green)", values: ewPath },
             ]} />
           </div>
           <div><p className="p-head">Realized vs implied term</p>
             <HBars rows={[
-              { label: "HV10", value: hvNow.h10, display: `${hvNow.h10.toFixed(1)}%`, color: "#8a8a93" },
-              { label: "HV30", value: hvNow.h30, display: `${hvNow.h30.toFixed(1)}%`, color: "#00c8ff" },
-              { label: "HV90", value: hvNow.h90, display: `${hvNow.h90.toFixed(1)}%`, color: "#00d664" },
-              ...(chain ? [{ label: `IV ${chain.expiry}`, value: (() => { const a = chain.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain.underlying) < Math.abs(x.strike - chain.underlying) ? y : x), chain.rows[0]); return (a.ceIV || a.peIV || 0) as number; })(), display: `${(() => { const a = chain.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain.underlying) < Math.abs(x.strike - chain.underlying) ? y : x), chain.rows[0]); return (a.ceIV || a.peIV || 0) as number; })().toFixed(1)}%`, color: "#ffa028" }] : []),
-              ...(chain2 ? [{ label: `IV ${chain2.expiry}`, value: (() => { const a = chain2.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain2.underlying) < Math.abs(x.strike - chain2.underlying) ? y : x), chain2.rows[0]); return (a.ceIV || a.peIV || 0) as number; })(), display: `${(() => { const a = chain2.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain2.underlying) < Math.abs(x.strike - chain2.underlying) ? y : x), chain2.rows[0]); return (a.ceIV || a.peIV || 0) as number; })().toFixed(1)}%`, color: "#8f7bff" }] : []),
+              { label: "HV10", value: hvNow.h10, display: `${hvNow.h10.toFixed(1)}%`, color: "var(--faint)" },
+              { label: "HV30", value: hvNow.h30, display: `${hvNow.h30.toFixed(1)}%`, color: "var(--cyan)" },
+              { label: "HV90", value: hvNow.h90, display: `${hvNow.h90.toFixed(1)}%`, color: "var(--green)" },
+              ...(chain ? [{ label: `IV ${chain.expiry}`, value: (() => { const a = chain.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain.underlying) < Math.abs(x.strike - chain.underlying) ? y : x), chain.rows[0]); return (a.ceIV || a.peIV || 0) as number; })(), display: `${(() => { const a = chain.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain.underlying) < Math.abs(x.strike - chain.underlying) ? y : x), chain.rows[0]); return (a.ceIV || a.peIV || 0) as number; })().toFixed(1)}%`, color: "var(--amber)" }] : []),
+              ...(chain2 ? [{ label: `IV ${chain2.expiry}`, value: (() => { const a = chain2.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain2.underlying) < Math.abs(x.strike - chain2.underlying) ? y : x), chain2.rows[0]); return (a.ceIV || a.peIV || 0) as number; })(), display: `${(() => { const a = chain2.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain2.underlying) < Math.abs(x.strike - chain2.underlying) ? y : x), chain2.rows[0]); return (a.ceIV || a.peIV || 0) as number; })().toFixed(1)}%`, color: "var(--violet)" }] : []),
             ]} />
             <p className="faint" style={{ fontSize: 11 }}>IV−HV = VOL RISK PREMIUM · IV HISTORY NEEDS ARCHIVE FEED (NO PERCENTILE).</p>
           </div>
@@ -725,7 +725,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
               <LineChart
                 dates={chain.rows.filter((x: any) => x.ceIV > 0).map((x: any) => String(x.strike))}
                 yFmt={(v) => `${v.toFixed(1)}%`}
-                series={[{ label: "IV", color: "#ffa028", values: chain.rows.filter((x: any) => x.ceIV > 0).map((x: any) => x.ceIV as number) }]}
+                series={[{ label: "IV", color: "var(--amber)", values: chain.rows.filter((x: any) => x.ceIV > 0).map((x: any) => x.ceIV as number) }]}
               />
             ) : <p className="muted">CHAIN THROTTLED — RETRY.</p>}
           </div>
@@ -806,7 +806,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
         </div>
         <div style={{ marginTop: 8 }}>
           <p className="p-head">Underwater</p>
-          <AreaChart values={ddS.filter((_, i) => i % 2 === 0)} height={100} color="#ff453a" fill="rgba(255,69,58,0.15)" fmt={(v) => `${v.toFixed(1)}%`} label="DD" />
+          <AreaChart values={ddS.filter((_, i) => i % 2 === 0)} height={100} color="var(--red)" fill="color-mix(in srgb, var(--red) 15%, transparent)" fmt={(v) => `${v.toFixed(1)}%`} label="DD" />
         </div>
         <div className="scrollx" style={{ marginTop: 8 }}>
           <table className="plain">
@@ -832,7 +832,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
         </div>
         <div style={{ marginTop: 10 }}>
           <p className="p-head">Rolling Sharpe 63D</p>
-          <LineChart dates={rdates} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[{ label: "SH63", color: "#ffa028", values: shRoll }]} />
+          <LineChart dates={rdates} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[{ label: "SH63", color: "var(--amber)", values: shRoll }]} />
         </div>
       </Sec>
 
@@ -859,15 +859,15 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
         <div className="grid grid-2" style={{ marginTop: 10 }}>
           <div><p className="p-head">ADX + DI+/DI−</p>
             <LineChart dates={rdates} xLabels={x3} yFmt={(v) => v.toFixed(0)} series={[
-              { label: "ADX", color: "#ffa028", values: axV.adx },
-              { label: "DI+", color: "#00d664", values: axV.pdi },
-              { label: "DI−", color: "#ff453a", values: axV.mdi },
+              { label: "ADX", color: "var(--amber)", values: axV.adx },
+              { label: "DI+", color: "var(--green)", values: axV.pdi },
+              { label: "DI−", color: "var(--red)", values: axV.mdi },
             ]} />
           </div>
           <div><p className="p-head">Aroon up/down 25D</p>
             <LineChart dates={rdates} xLabels={x3} yFmt={(v) => v.toFixed(0)} series={[
-              { label: "AROON-UP", color: "#00d664", values: arU },
-              { label: "AROON-DN", color: "#ff453a", values: arD },
+              { label: "AROON-UP", color: "var(--green)", values: arU },
+              { label: "AROON-DN", color: "var(--red)", values: arD },
             ]} />
           </div>
         </div>
@@ -926,7 +926,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
               </div>
               <div><p className="p-head">Implied expiry density (indicative)</p>
                 {opt.dens.length ? (
-                  <BarChart values={opt.dens.map((d) => d.v)} labels={opt.dens.map((d) => String(d.k))} height={110} posColor="#ffa028" negColor="#ffa028" />
+                  <BarChart values={opt.dens.map((d) => d.v)} labels={opt.dens.map((d) => String(d.k))} height={110} posColor="var(--amber)" negColor="var(--amber)" />
                 ) : <p className="muted">NO DENSITY.</p>}
               </div>
             </div>
@@ -944,10 +944,10 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
         {est?.recommendation && (
           <div style={{ marginTop: 8 }}>
             <HBars rows={[
-              { label: "STRONG BUY", value: est.recommendation.strongBuy ?? 0, display: String(est.recommendation.strongBuy ?? 0), color: "#00d664" },
-              { label: "BUY", value: est.recommendation.buy ?? 0, display: String(est.recommendation.buy ?? 0), color: "#00c8ff" },
-              { label: "HOLD", value: est.recommendation.hold ?? 0, display: String(est.recommendation.hold ?? 0), color: "#ffa028" },
-              { label: "SELL+", value: (est.recommendation.sell ?? 0) + (est.recommendation.strongSell ?? 0), display: String((est.recommendation.sell ?? 0) + (est.recommendation.strongSell ?? 0)), color: "#ff453a" },
+              { label: "STRONG BUY", value: est.recommendation.strongBuy ?? 0, display: String(est.recommendation.strongBuy ?? 0), color: "var(--green)" },
+              { label: "BUY", value: est.recommendation.buy ?? 0, display: String(est.recommendation.buy ?? 0), color: "var(--cyan)" },
+              { label: "HOLD", value: est.recommendation.hold ?? 0, display: String(est.recommendation.hold ?? 0), color: "var(--amber)" },
+              { label: "SELL+", value: (est.recommendation.sell ?? 0) + (est.recommendation.strongSell ?? 0), display: String((est.recommendation.sell ?? 0) + (est.recommendation.strongSell ?? 0)), color: "var(--red)" },
             ]} />
           </div>
         )}

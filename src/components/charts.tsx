@@ -123,19 +123,19 @@ export function LineChart({ series, height = 140, yFmt = (v: number) => v.toFixe
     <div>
       <div className="chart-wrap">
         <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" role="img" aria-label={ariaLabel} tabIndex={0} {...bind}>
-          {[0.25, 0.5, 0.75].map((f) => <line key={f} x1="0" x2={W} y1={height * f} y2={height * f} stroke="#1e1e24" strokeWidth="1" />)}
+          {[0.25, 0.5, 0.75].map((f) => <line key={f} x1="0" x2={W} y1={height * f} y2={height * f} stroke="var(--grid)" strokeWidth="1" />)}
           {tseries.map((s) => segments(s.values, mn, mx, height).map((d, i) => (
             <polyline key={`${s.label}${i}`} points={d} fill="none" stroke={s.color} strokeWidth="2" strokeDasharray={s.dashed ? "5 3" : undefined} strokeLinejoin="round" strokeLinecap="round" />
           )))}
           {showDots && tseries.map((s) =>
             s.values.map((v, i) => {
               if (v === null || !isFinite(v)) return null;
-              return <circle key={`${s.label}${i}`} cx={xOf(i)} cy={yOf(v)} r="5" fill={s.color} stroke="#0c0c0e" strokeWidth="2" vectorEffect="non-scaling-stroke" />;
+              return <circle key={`${s.label}${i}`} cx={xOf(i)} cy={yOf(v)} r="5" fill={s.color} stroke="var(--panel)" strokeWidth="2" vectorEffect="non-scaling-stroke" />;
             })
           )}
           {hover !== null && (
             <g>
-              <line x1={xOf(hover)} x2={xOf(hover)} y1="0" y2={height} stroke="#ffa028" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />
+              <line x1={xOf(hover)} x2={xOf(hover)} y1="0" y2={height} stroke="var(--amber)" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />
               {tseries.map((s) => {
                 const v = s.values[hover];
                 if (v === null || v === undefined || !isFinite(v)) return null;
@@ -169,7 +169,7 @@ export function LineChart({ series, height = 140, yFmt = (v: number) => v.toFixe
   );
 }
 
-export function AreaChart({ values, height = 120, color = "#ffb000", fill = "rgba(255,160,40,0.12)", fmt = (v: number) => v.toLocaleString("en-IN", { maximumFractionDigits: 1 }), label = "VALUE", dates }: {
+export function AreaChart({ values, height = 120, color = "var(--sec)", fill = "color-mix(in srgb, var(--amber) 12%, transparent)", fmt = (v: number) => v.toLocaleString("en-IN", { maximumFractionDigits: 1 }), label = "VALUE", dates }: {
   values: (number | null)[]; height?: number; color?: string; fill?: string; fmt?: (v: number) => string;
   label?: string; dates?: string[];
 }) {
@@ -194,7 +194,7 @@ export function AreaChart({ values, height = 120, color = "#ffb000", fill = "rgb
           <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="1.8" />
           {hover !== null && (
             <g>
-              <line x1={(hover / Math.max(n - 1, 1)) * W} x2={(hover / Math.max(n - 1, 1)) * W} y1="0" y2={height} stroke="#ffa028" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />
+              <line x1={(hover / Math.max(n - 1, 1)) * W} x2={(hover / Math.max(n - 1, 1)) * W} y1="0" y2={height} stroke="var(--amber)" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />
               {hv !== null && isFinite(hv) && (
                 <circle cx={(hover / Math.max(n - 1, 1)) * W} cy={height - 6 - ((hv - mn) / (mx - mn || 1)) * (height - 12)} r="4" fill={color} stroke="#000" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
               )}
@@ -215,7 +215,7 @@ export function AreaChart({ values, height = 120, color = "#ffb000", fill = "rgb
   );
 }
 
-export function BarChart({ values, labels, height = 120, posColor = "#00d664", negColor = "#ff453a" }: {
+export function BarChart({ values, labels, height = 120, posColor = "var(--green)", negColor = "var(--red)" }: {
   values: (number | null)[]; labels?: string[]; height?: number; posColor?: string; negColor?: string;
 }) {
   const f = values.filter((v): v is number => v !== null && isFinite(v));
@@ -234,7 +234,7 @@ export function BarChart({ values, labels, height = 120, posColor = "#00d664", n
     <div>
       <div className="chart-wrap">
         <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" role="img" aria-label={`Bar chart: peak ${peak.toLocaleString("en-IN", { maximumFractionDigits: 1 })}, N=${f.length}`} tabIndex={0} {...bind}>
-          <line x1="0" x2={W} y1={zeroY} y2={zeroY} stroke="#3a3a42" strokeWidth="1" />
+          <line x1="0" x2={W} y1={zeroY} y2={zeroY} stroke="var(--grid)" strokeWidth="1" />
           {vals.map((v, i) => {
             if (v === null || !isFinite(v)) return null;
             const h = Math.max(2, (Math.abs(v) / span) * (height - 12));
@@ -242,13 +242,13 @@ export function BarChart({ values, labels, height = 120, posColor = "#00d664", n
             return <rect key={i} x={i * bw + 1} y={y} width={Math.max(1.5, bw - 2)} height={h} rx="2.5" fill={v >= 0 ? posColor : negColor} opacity={hover === null || hover === i ? 0.92 : 0.3} />;
           })}
           {hover !== null && (
-            <line x1={(hover + 0.5) * bw} x2={(hover + 0.5) * bw} y1="0" y2={height} stroke="#ffa028" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />
+            <line x1={(hover + 0.5) * bw} x2={(hover + 0.5) * bw} y1="0" y2={height} stroke="var(--amber)" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />
           )}
         </svg>
         {hover !== null && (
           <HoverTip
             idx={hover} count={vals.length} date={tlabels?.[hover]}
-            rows={[{ label: "BAR", color: "#ffa028", text: hv === null || !isFinite(hv as number) ? "—" : (hv as number).toLocaleString("en-IN", { maximumFractionDigits: 2 }) }]}
+            rows={[{ label: "BAR", color: "var(--amber)", text: hv === null || !isFinite(hv as number) ? "—" : (hv as number).toLocaleString("en-IN", { maximumFractionDigits: 2 }) }]}
           />
         )}
       </div>
@@ -287,8 +287,8 @@ export function GroupedBars({ series, periods, height = 150, fmt = (v: number) =
     <div>
       <div className="chart-wrap">
         <svg viewBox={`0 0 ${W} ${height}`} style={{ width: "100%", height }} preserveAspectRatio="none" {...bind}>
-          {[0.25, 0.5, 0.75].map((f) => <line key={f} x1="0" x2={W} y1={height * f} y2={height * f} stroke="#1e1e24" strokeWidth="1" />)}
-          <line x1="0" x2={W} y1={zeroY} y2={zeroY} stroke="#3a3a42" strokeWidth="1" />
+          {[0.25, 0.5, 0.75].map((f) => <line key={f} x1="0" x2={W} y1={height * f} y2={height * f} stroke="var(--grid)" strokeWidth="1" />)}
+          <line x1="0" x2={W} y1={zeroY} y2={zeroY} stroke="var(--grid)" strokeWidth="1" />
           {tseries.map((s, si) =>
             s.values.map((v, i) => {
               if (v === null || !isFinite(v)) return null;
@@ -299,7 +299,7 @@ export function GroupedBars({ series, periods, height = 150, fmt = (v: number) =
             })
           )}
           {hover !== null && (
-            <line x1={(hover + 0.5) * gw} x2={(hover + 0.5) * gw} y1="0" y2={height} stroke="#ffa028" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />
+            <line x1={(hover + 0.5) * gw} x2={(hover + 0.5) * gw} y1="0" y2={height} stroke="var(--amber)" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />
           )}
         </svg>
         {hover !== null && (
@@ -336,8 +336,8 @@ export function HBars({ rows, height = 18 }: {  rows: Array<{ label: string; val
       {rows.map((r) => (
         <div key={r.label} style={{ display: "grid", gridTemplateColumns: "150px 1fr 90px", gap: 8, alignItems: "center", fontSize: 12 }}>
           <span className="muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.label}</span>
-          <div style={{ height, background: "#1a1a1e", borderRadius: 2 }}>
-            <div style={{ width: `${(Math.abs(r.value) / mx) * 100}%`, height: "100%", background: r.color ?? (r.value >= 0 ? "#00d664" : "#ff453a"), borderRadius: 2 }} />
+          <div style={{ height, background: "var(--track)", borderRadius: 2 }}>
+            <div style={{ width: `${(Math.abs(r.value) / mx) * 100}%`, height: "100%", background: r.color ?? (r.value >= 0 ? "var(--green)" : "var(--red)"), borderRadius: 2 }} />
           </div>
           <strong style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.display ?? r.value.toFixed(2)}</strong>
         </div>
@@ -346,7 +346,7 @@ export function HBars({ rows, height = 18 }: {  rows: Array<{ label: string; val
   );
 }
 
-export function Histogram({ values, bins = 20, height = 110, color = "#ffa028", prebinned }: {
+export function Histogram({ values, bins = 20, height = 110, color = "var(--amber)", prebinned }: {
   values?: number[]; bins?: number; height?: number; color?: string;
   prebinned?: { counts: number[]; edges: number[] };
 }) {
@@ -391,7 +391,7 @@ export function Histogram({ values, bins = 20, height = 110, color = "#ffa028", 
           const h = Math.max(1, (c / mx) * (height - 8));
           return <rect key={i} x={i * bw + 0.5} y={height - 4 - h} width={Math.max(1, bw - 1)} height={h} fill={color} opacity="0.8" />;
         })}
-        {meanX !== null && <line x1={meanX} x2={meanX} y1="0" y2={height} stroke="#00c8ff" strokeWidth="1.5" strokeDasharray="4 3" />}
+        {meanX !== null && <line x1={meanX} x2={meanX} y1="0" y2={height} stroke="var(--cyan)" strokeWidth="1.5" strokeDasharray="4 3" />}
       </svg>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5 }} className="faint">
         <span>{lo.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
@@ -420,14 +420,14 @@ export function Donut({ slices, size = 130, thickness = 24, unit = "%" }: {
     <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {segs.map((s, i) => <path key={i} d={s.d} fill={s.color} opacity="0.9"><title>{s.label}: {typeof s.value === "number" ? s.value.toFixed(1) : s.value}{unit} ({total ? ((s.value / total) * 100).toFixed(1) : "—"}% of total)</title></path>)}
-        <text x={cx} y={cy + 5} fontSize="13" fill="#f5f5f4" textAnchor="middle" fontWeight="700">{total >= 100 ? Math.round(total).toLocaleString("en-IN") : total.toFixed(1)}</text>
+        <text x={cx} y={cy + 5} fontSize="13" fill="var(--text)" textAnchor="middle" fontWeight="700">{total >= 100 ? Math.round(total).toLocaleString("en-IN") : total.toFixed(1)}</text>
       </svg>
       <div style={{ display: "grid", gap: 4, fontSize: 12 }}>
         {slices.map((s, i) => {
           const zero = !(s.value > 0);
           return (
             <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", opacity: zero ? 0.45 : 1 }} title={`${s.label}: ${typeof s.value === "number" ? s.value.toFixed(1) : s.value}${unit}`}>
-              <span style={{ width: 10, height: 10, background: zero ? "#5b5b62" : s.color, borderRadius: 2 }} />
+              <span style={{ width: 10, height: 10, background: zero ? "var(--faint)" : s.color, borderRadius: 2 }} />
               <span className="muted">{s.label}</span>
               <strong>{typeof s.value === "number" ? s.value.toFixed(1) : s.value}{unit}</strong>
             </div>
@@ -460,7 +460,7 @@ export function EquityDrawdown({ closes, height = 110 }: { closes: number[]; hei
       </div>
       <div>
         <p className="p-head">Underwater — worst {ddMn.toFixed(1)}% · now {ddEnd.toFixed(1)}%</p>
-        <AreaChart values={dd} height={height} color="#ff453a" fill="rgba(255,69,58,0.15)" fmt={(v) => `${v.toFixed(1)}%`} />
+        <AreaChart values={dd} height={height} color="var(--red)" fill="color-mix(in srgb, var(--red) 15%, transparent)" fmt={(v) => `${v.toFixed(1)}%`} />
       </div>
     </div>
   );

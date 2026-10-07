@@ -324,7 +324,7 @@ export function ValuationSection({ company, symbol }: { company: CompanyResp | n
           <ErrorState what="ESTIMATES" retry={est.refresh} detail={est.error} />
         ) : recRows.length ? (
           <>
-            <HBars rows={recRows.map((r) => ({ label: r.label, value: r.value, display: String(r.value ?? 0), color: r.label.includes("BUY") ? "#00d664" : r.label.includes("SELL") ? "#ff453a" : "#7a7a80" }))} />
+            <HBars rows={recRows.map((r) => ({ label: r.label, value: r.value, display: String(r.value ?? 0), color: r.label.includes("BUY") ? "var(--green)" : r.label.includes("SELL") ? "var(--red)" : "var(--faint)" }))} />
             <div className="dx-note">BROKER BREAKDOWN (COUNTS) — {e?.source ?? "ESTIMATES FEED"}.</div>
           </>
         ) : (

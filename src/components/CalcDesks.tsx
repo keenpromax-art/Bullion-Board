@@ -98,8 +98,8 @@ export function CalcDesks() {
           {isFinite(sipIn) && isFinite(sipFV) && sipIn > 0 && (
             <div style={{ marginTop: 8 }}>
               <HBars rows={[
-                { label: "INVESTED", value: sipIn, display: `₹${f2(sipIn)}`, color: "#8a8a93" },
-                { label: "GAINS", value: Math.max(sipFV - sipIn, 0), display: `₹${f2(sipFV - sipIn)}`, color: "#00d664" },
+                { label: "INVESTED", value: sipIn, display: `₹${f2(sipIn)}`, color: "var(--faint)" },
+                { label: "GAINS", value: Math.max(sipFV - sipIn, 0), display: `₹${f2(sipFV - sipIn)}`, color: "var(--green)" },
               ]} />
             </div>
           )}

@@ -295,7 +295,7 @@ export function NbOptDesk() {
           ]} />
           <div className="panel">
             <p className="p-head">Optimal allocations — 5-25% box, Σ=1</p>
-            <HBars rows={legs.map((l) => ({ label: l.sym, value: l.wPct, display: `${l.wPct}% · ₹${l.amt.toLocaleString("en-IN")}`, color: "#ffa028" }))} />
+            <HBars rows={legs.map((l) => ({ label: l.sym, value: l.wPct, display: `${l.wPct}% · ₹${l.amt.toLocaleString("en-IN")}`, color: "var(--amber)" }))} />
             <div className="scrollx" style={{ marginTop: 8 }}>
               <table className="plain">
                 <thead><tr><th>LEG</th><th style={{ textAlign: "right" }}>W%</th><th style={{ textAlign: "right" }}>₹</th><th style={{ textAlign: "right" }}>EXP%</th><th style={{ textAlign: "right" }}>SHARPE</th></tr></thead>
@@ -466,7 +466,7 @@ export function NbSectorDesk() {
         <>
           <div className="panel">
             <p className="p-head">Sectors by avg 1M% desc</p>
-            <HBars rows={secs.map((s) => ({ label: `${s.name} (${s.count})`, value: Math.abs(s.m1 ?? 0), display: `${fmt(s.m1)}%`, color: (s.m1 ?? 0) >= 0 ? "#00d664" : "#ff453a" }))} />
+            <HBars rows={secs.map((s) => ({ label: `${s.name} (${s.count})`, value: Math.abs(s.m1 ?? 0), display: `${fmt(s.m1)}%`, color: (s.m1 ?? 0) >= 0 ? "var(--green)" : "var(--red)" }))} />
           </div>
           <div className="panel">
             <p className="p-head">Sector board</p>
@@ -601,7 +601,7 @@ export function NbTerminalDesk() {
             <div className="grid grid-2">
               <div className="panel">
                 <p className="p-head">Breadth 1W</p>
-                <Donut slices={[{ label: "GAIN", value: data.gainers, color: "#00d664" }, { label: "LOSS", value: data.losers, color: "#ff453a" }]} />
+                <Donut slices={[{ label: "GAIN", value: data.gainers, color: "var(--green)" }, { label: "LOSS", value: data.losers, color: "var(--red)" }]} />
               </div>
               <div className="panel">
                 <p className="p-head">OB / OS (NB-RSI simple-mean)</p>

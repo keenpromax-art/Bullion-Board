@@ -23,7 +23,7 @@
 .pre-mast {
   position: relative; display: grid; gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto; align-items: start;
-  background: #060607; border: 1px solid var(--grid); border-top: 2px solid var(--amber);
+  background: var(--track); border: 1px solid var(--grid); border-top: 2px solid var(--amber);
   border-radius: 3px; padding: 14px 16px 12px;
 }
 .pre-mast::after {
@@ -47,7 +47,7 @@
 .pre-dot.open { background: var(--green); box-shadow: 0 0 7px var(--green); }
 .pre-dot.pre { background: var(--amber); box-shadow: 0 0 7px var(--amber); }
 .pre-dot.closed { background: var(--faint); }
-.pre-dot.weekend { background: #3a3a42; }
+.pre-dot.weekend { background: var(--grid); }
 .pre-mast-right { display: grid; gap: 8px; justify-items: end; text-align: right; }
 .pre-mast-call { display: grid; gap: 2px; min-width: 236px; border-left: 2px solid var(--grid); padding-left: 12px; }
 .pre-mast-call .lbl { font-size: 9.5px; letter-spacing: 0.14em; color: var(--faint); text-transform: uppercase; }
@@ -102,7 +102,7 @@
   position: sticky; top: var(--pre-nav-top, 36px); z-index: 15;
   display: flex; align-items: stretch; overflow-x: auto; scrollbar-width: thin;
   scrollbar-color: rgba(255, 160, 40, 0.34) transparent;
-  background: #060607; border: 1px solid var(--grid); border-radius: 3px;
+  background: var(--track); border: 1px solid var(--grid); border-radius: 3px;
   /* A wide, soft shadow darkens the paragraph sliding under the bar and makes
      the cut read as damaged text. Keep it tight so it reads as a bar edge. */
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
@@ -149,7 +149,7 @@
   background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; overflow: hidden;
 }
 .pre-hero-l { padding: 16px 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
-.pre-hero-r { border-left: 1px solid var(--grid); background: #08080a; padding: 16px 18px; display: grid; gap: 12px; align-content: start; }
+.pre-hero-r { border-left: 1px solid var(--grid); background: var(--track); padding: 16px 18px; display: grid; gap: 12px; align-content: start; }
 @media (max-width: 1080px) { .pre-hero { grid-template-columns: minmax(0, 1fr); } .pre-hero-r { border-left: none; border-top: 1px solid var(--grid); } }
 .pre-kicker { font-size: 10px; letter-spacing: 0.18em; color: var(--faint); text-transform: uppercase; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pre-verdict { font-size: 40px; font-weight: 800; line-height: 0.98; letter-spacing: -1.2px; }
@@ -232,7 +232,7 @@
    fills collapse to zero. */
 .pre-bar-cell { position: relative; display: block; width: 116px; margin-left: auto; }
 .pre-bar { display: block; position: relative; height: 9px; width: 100%; }
-.pre-bar::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: #3a3a42; }
+.pre-bar::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--grid); }
 .pre-bar i { position: absolute; top: 0; height: 9px; display: block; }
 .pre-bar i.pos { background: var(--green); }
 .pre-bar i.neg { background: var(--red); }
@@ -268,7 +268,7 @@
 .pre-tc-px { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pre-tc-chg { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
 .pre-tc-axis { position: relative; display: block; height: 12px; width: 100%; background: #000; border: 1px solid var(--grid); border-radius: 1px; }
-.pre-tc-axis .zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #3a3a42; }
+.pre-tc-axis .zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--grid); }
 .pre-tc-axis .band { position: absolute; top: 3px; bottom: 3px; background: rgba(255, 160, 40, 0.28); }
 .pre-tc-axis .mark { position: absolute; top: 1px; bottom: 1px; width: 3px; border-radius: 1px; }
 .pre-tc-axis-legend { display: flex; justify-content: space-between; font-size: 8.5px; letter-spacing: 0.06em; color: var(--faint); margin-top: -1px; }
@@ -280,7 +280,7 @@
 .pre-ad-bar span { display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: #04040a; min-width: 0; overflow: hidden; white-space: nowrap; }
 .pre-ad-bar .a { background: var(--green); }
 .pre-ad-bar .d { background: var(--red); }
-.pre-ad-bar .u { background: #2a2a30; color: var(--sub); }
+.pre-ad-bar .u { background: var(--grid); color: var(--sub); }
 /* Breadth heat cells: tinted by how lopsided each segment is, so the shape of
    the session is legible before any number is read. Tints are drawn from
    rgba() over the panel colour — no gradients, per DESIGN.md. */

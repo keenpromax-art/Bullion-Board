@@ -16,7 +16,7 @@ interface UResp {
 }
 
 const ctl: React.CSSProperties = {
-  background: "#0b0b0e", color: "#e8e8ea", border: "1px solid var(--grid)",
+  background: "var(--panel-2)", color: "var(--text)", border: "1px solid var(--grid)",
   borderRadius: 3, padding: "5px 8px", font: "inherit", fontSize: 12,
 };
 
@@ -123,7 +123,7 @@ export default function UniverseDesk() {
           <button className="ghost" onClick={() => { setQ(""); setQd(""); setRegion(""); setSector(""); setExch(""); setPage(1); setSort("symbol"); setDir("asc"); }}>RESET</button>
           <button className="ghost" onClick={runRefresh} disabled={refreshing}>{refreshing ? "CRAWLING…" : "REBUILD INDEX"}</button>
         </div>
-        {flash && <p className="neg" style={{ color: "var(--amber, #ffa028)", marginTop: 6 }}>{flash}</p>}
+        {flash && <p className="neg" style={{ color: "var(--amber, var(--amber))", marginTop: 6 }}>{flash}</p>}
       </div>
 
       {loading && !data && <p className="muted" style={{ padding: "8px 2px" }}>LOADING UNIVERSE…</p>}
@@ -160,7 +160,7 @@ export default function UniverseDesk() {
                   <td>
                     <button
                       className="ghost"
-                      style={{ color: "var(--yellow, #ffb000)" }}
+                      style={{ color: "var(--yellow, var(--sec))" }}
                       onClick={() => { store.setTicker(r.symbol); setFlash(`TICKER SET — ${r.symbol} (OPEN ON ANY PANEL)`); }}
                     >
                       {r.symbol}
@@ -173,7 +173,7 @@ export default function UniverseDesk() {
                   <td>{r.currency}</td>
                   <td style={{ textAlign: "right" }}>{fmtMcap(r.mcap)}</td>
                   <td>
-                    <a href={`/module/2?symbol=${encodeURIComponent(r.symbol)}`} target="_blank" rel="noopener" style={{ color: "var(--amber, #ffa028)" }}>
+                    <a href={`/module/2?symbol=${encodeURIComponent(r.symbol)}`} target="_blank" rel="noopener" style={{ color: "var(--amber, var(--amber))" }}>
                       OPEN «GO»
                     </a>
                   </td>

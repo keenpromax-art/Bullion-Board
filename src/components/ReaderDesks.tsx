@@ -265,8 +265,8 @@ export function ReaderDesk() {
           {text && <span className="muted" style={{ fontSize: 12 }}>PG {page + 1}/{pages} · {pct.toFixed(0)}%</span>}
         </div>
         {text && (
-          <div style={{ height: 6, background: "#1a1a1e", borderRadius: 2, marginTop: 10 }}>
-            <div style={{ width: `${pct}%`, height: "100%", background: "#ffa028", borderRadius: 2 }} />
+          <div style={{ height: 6, background: "var(--track)", borderRadius: 2, marginTop: 10 }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: "var(--amber)", borderRadius: 2 }} />
           </div>
         )}
       </div>

@@ -213,7 +213,7 @@ export default function SettingsPage() {
               </select>
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--sub)", cursor: "pointer" }}>
-              <input type="checkbox" checked={explAI} onChange={(e) => setExplAI(e.target.checked)} style={{ accentColor: "#ffa028" }} />
+              <input type="checkbox" checked={explAI} onChange={(e) => setExplAI(e.target.checked)} style={{ accentColor: "var(--amber)" }} />
               AI EXPLANATIONS (TIER 2)
             </label>
             <label style={{ display: "grid", gap: 6, fontSize: 12, color: "var(--sub)" }}>EXPLAINER MODEL

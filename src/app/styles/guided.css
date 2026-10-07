@@ -81,6 +81,22 @@
   --g-tabbar-h: 60px;
   --g-safe-t: env(safe-area-inset-top, 0px);
   --g-safe-b: env(safe-area-inset-bottom, 0px);
+
+  /* Terminal surface tokens, aliased onto Guided's own surfaces.
+     Every chart, meter, sparkline and SVG mark in the product now reads
+     `var(--panel)` / `var(--track)` / `var(--text)` rather than a literal, so
+     without this a chart embedded in a Guided card would render near-black
+     marks on a white card — correct for the terminal, wrong here. Aliasing the
+     SURFACES only is deliberate: the accent colours are shared on purpose, so
+     one chart looks the same in both faces. */
+  --bg: var(--g-canvas);
+  --panel: var(--g-surface);
+  --panel-2: var(--g-surface-2);
+  --grid: var(--g-line);
+  --text: var(--g-text);
+  --sub: var(--g-text-2);
+  --faint: var(--g-text-3);
+  --track: var(--g-surface-3);
 }
 
 /* ---------- dark ---------- */
@@ -113,6 +129,20 @@
   --g-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --g-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
   --g-shadow-lg: 0 18px 56px rgba(0, 0, 0, 0.55);
+
+  /* The same terminal-surface aliasing as the light block above, pointed at the
+     dark `--g-*` values. Declared on both because these are aliases, not
+     inherited theme tokens: the terminal's own `data-theme` light block sets
+     `--panel` etc. on `:root`, and an alias declared on a descendant is what
+     actually re-points them here. */
+  --bg: var(--g-canvas);
+  --panel: var(--g-surface);
+  --panel-2: var(--g-surface-2);
+  --grid: var(--g-line);
+  --text: var(--g-text);
+  --sub: var(--g-text-2);
+  --faint: var(--g-text-3);
+  --track: var(--g-surface-3);
 }
 
 /* ===========================================================================

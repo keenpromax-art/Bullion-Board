@@ -245,13 +245,13 @@ export function toneClass(v: number | null | undefined): string {
   return v > 0 ? "pos" : v < 0 ? "neg" : "";
 }
 /**
- * Direction colour. A flat reading used to return the old #5b5b62, which is
+ * Direction colour. A flat reading used to return the old var(--faint), which is
  * also a FONT colour here (the tape cards print the change in the line itself)
  * and was therefore unreadable. A flat value is neutral, not absent, so it takes
  * the dimmest readable text tier instead of the old invisible grey.
  */
 export const toneHex = (v: number | null | undefined) =>
-  v === null || v === undefined || !isFinite(v) || v === 0 ? "#8a8a93" : v > 0 ? "#00d664" : "#ff453a";
+  v === null || v === undefined || !isFinite(v) || v === 0 ? "var(--faint)" : v > 0 ? "var(--green)" : "var(--red)";
 
 export const VERDICT_TEXT: Record<Verdict, string> = {
   GREEN: "GAP UP", RED: "GAP DOWN", FLAT: "STAND ASIDE", NO_DATA: "NO CALL",
@@ -590,13 +590,13 @@ export function GapGauge({ egap, gate, realised, span = 1.0 }: {
       <svg viewBox={`0 0 ${W} ${H}`} role="img"
         aria-label={`Expected gap ${egap === null ? "unavailable" : `${egap.toFixed(2)} percent`} against a no-trade gate of plus or minus ${gate.toFixed(2)} percent`}
       >
-        <rect x="0" y={AX - 7} width={W} height="14" fill="#000" stroke="#26262b" />
-        <rect x={x1(px(-gate))} y={AX - 7} width={Math.max(1, px(gate) - px(-gate)).toFixed(1)} height="14" fill="rgba(255,160,40,0.10)" />
-        <line x1={x1(px(-gate))} y1={AX - 7} x2={x1(px(-gate))} y2={AX + 7} stroke="rgba(255,160,40,0.45)" />
-        <line x1={x1(px(gate))} y1={AX - 7} x2={x1(px(gate))} y2={AX + 7} stroke="rgba(255,160,40,0.45)" />
-        <line x1={x1(px(0))} y1={AX - 9} x2={x1(px(0))} y2={AX + 9} stroke="#5b5b62" />
+        <rect x="0" y={AX - 7} width={W} height="14" fill="#000" stroke="var(--grid)" />
+        <rect x={x1(px(-gate))} y={AX - 7} width={Math.max(1, px(gate) - px(-gate)).toFixed(1)} height="14" fill="color-mix(in srgb, var(--amber) 10%, transparent)" />
+        <line x1={x1(px(-gate))} y1={AX - 7} x2={x1(px(-gate))} y2={AX + 7} stroke="color-mix(in srgb, var(--amber) 45%, transparent)" />
+        <line x1={x1(px(gate))} y1={AX - 7} x2={x1(px(gate))} y2={AX + 7} stroke="color-mix(in srgb, var(--amber) 45%, transparent)" />
+        <line x1={x1(px(0))} y1={AX - 9} x2={x1(px(0))} y2={AX + 9} stroke="var(--faint)" />
         {[-0.5, 0.5].map((t) => (
-          <line key={t} x1={x1(px(t))} y1={AX - 5} x2={x1(px(t))} y2={AX + 5} stroke="#26262b" />
+          <line key={t} x1={x1(px(t))} y1={AX - 5} x2={x1(px(t))} y2={AX + 5} stroke="var(--grid)" />
         ))}
         {egap !== null && isFinite(egap) && (
           <>
@@ -621,20 +621,20 @@ export function GapGauge({ egap, gate, realised, span = 1.0 }: {
           </>
         )}
         {showReal && (
-          <line x1={x1(px(realised!))} y1={AX - 9} x2={x1(px(realised!))} y2={AX + 9} stroke="#f5f5f4" strokeWidth="1.5" />
+          <line x1={x1(px(realised!))} y1={AX - 9} x2={x1(px(realised!))} y2={AX + 9} stroke="var(--text)" strokeWidth="1.5" />
         )}
         {/* The realised marker can land near either end, so its caption is
             clamped inside the viewBox the same way the forecast label is. */}
         {showReal && (
-          <text x={x1(Math.max(36, Math.min(W - 36, px(realised!))))} y={AX + 20} textAnchor="middle" fill="#f5f5f4" fontSize="9">
+          <text x={x1(Math.max(36, Math.min(W - 36, px(realised!))))} y={AX + 20} textAnchor="middle" fill="var(--text)" fontSize="9">
             {`REALISED ${realised! >= 0 ? "+" : ""}${realised!.toFixed(2)}%`}
           </text>
         )}
-        <text x={x1(px(0))} y={AX + 20} textAnchor="middle" fill="#8a8a93" fontSize="9">
+        <text x={x1(px(0))} y={AX + 20} textAnchor="middle" fill="var(--faint)" fontSize="9">
           {`NO TRADE ±${gate.toFixed(2)}%`}
         </text>
-        <text x={W} y={AX - 11} textAnchor="end" fill="#8a8a93" fontSize="9">GAP UP +1.00%</text>
-        <text x="0" y={AX - 11} fill="#8a8a93" fontSize="9">−1.00% GAP DOWN</text>
+        <text x={W} y={AX - 11} textAnchor="end" fill="var(--faint)" fontSize="9">GAP UP +1.00%</text>
+        <text x="0" y={AX - 11} fill="var(--faint)" fontSize="9">−1.00% GAP DOWN</text>
       </svg>
       <div className="pre-gauge-ax">
         <span>FORECAST IN % OF PRIOR CLOSE</span>
@@ -1261,7 +1261,7 @@ export function GapPathChart({ snap, height = 150 }: { snap: OpeningSnap; height
   const hv = hover !== null ? vals[hover] : null;
   const last = vals[vals.length - 1]!;
   const up = last >= prev;
-  const col = up ? "#00d664" : "#ff453a";
+  const col = up ? "var(--green)" : "var(--red)";
   return (
     <div>
       <div className="chart-wrap">
@@ -1269,12 +1269,12 @@ export function GapPathChart({ snap, height = 150 }: { snap: OpeningSnap; height
           role="img" tabIndex={0} {...bind}
           aria-label={`${snap.market?.label ?? "Index"} intraday path from ${fprice(prev)} to ${fprice(last)}`}
         >
-          <polygon points={`0,${H} ${pts.join(" ")} ${W},${H}`} fill={up ? "rgba(0,214,100,0.12)" : "rgba(255,69,58,0.12)"} />
-          <line x1="0" y1={y(prev)} x2={W} y2={y(prev)} stroke="#5b5b62" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+          <polygon points={`0,${H} ${pts.join(" ")} ${W},${H}`} fill={up ? "color-mix(in srgb, var(--green) 12%, transparent)" : "color-mix(in srgb, var(--red) 12%, transparent)"} />
+          <line x1="0" y1={y(prev)} x2={W} y2={y(prev)} stroke="var(--faint)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
           <line x1={x(0)} y1={y(bars[0]!.open)} x2={W} y2={y(bars[0]!.open)} stroke="rgba(255,176,0,0.35)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           <polyline points={pts.join(" ")} fill="none" stroke={col} strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
           {hover !== null && (
-            <line x1={x(hover)} y1="0" x2={x(hover)} y2={H} stroke="#ffa028" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+            <line x1={x(hover)} y1="0" x2={x(hover)} y2={H} stroke="var(--amber)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
           )}
         </svg>
         {hover !== null && hv !== null && (
@@ -1370,21 +1370,21 @@ function TrackChart({ wire }: { wire: PathWire }) {
         aria-label={`${wire.market.label} intraday track: ${done.length} settled hours printed, ${marks.length} hourly marks projected to the close`}
       >
         {a.prevClose !== null && (
-          <line x1="0" y1={ys(a.prevClose)} x2={W} y2={ys(a.prevClose)} stroke="#5b5b62" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+          <line x1="0" y1={ys(a.prevClose)} x2={W} y2={ys(a.prevClose)} stroke="var(--faint)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
         )}
         {marks.length > 1 && (
           <polygon points={`${anchorX},${anchorY ?? ys(a.level ?? 0)} ${fanTop.join(" ")} ${fanBot.join(" ")}`}
-            fill="rgba(255,160,40,0.10)" stroke="rgba(255,160,40,0.32)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            fill="color-mix(in srgb, var(--amber) 10%, transparent)" stroke="color-mix(in srgb, var(--amber) 32%, transparent)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
         )}
-        {real && <polyline points={real} fill="none" stroke="#f5f5f4" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />}
+        {real && <polyline points={real} fill="none" stroke="var(--text)" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />}
         {anchorY !== null && (
           <line x1={anchorX} y1={anchorY} x2={marks[0] ? xs(marks[0].slot!) : anchorX} y2={marks[0] ? ys(marks[0].lo!) : anchorY}
-            stroke="#a1a1aa" strokeWidth="1" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+            stroke="var(--sub)" strokeWidth="1" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
         )}
-        {line.length > 1 && <polyline points={line.join(" ")} fill="none" stroke="#ffa028" strokeWidth="1.8" strokeDasharray="5 3" vectorEffect="non-scaling-stroke" />}
-        {anchorY !== null && <circle cx={anchorX} cy={anchorY} r="3.5" fill="#030304" stroke="#f5f5f4" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />}
+        {line.length > 1 && <polyline points={line.join(" ")} fill="none" stroke="var(--amber)" strokeWidth="1.8" strokeDasharray="5 3" vectorEffect="non-scaling-stroke" />}
+        {anchorY !== null && <circle cx={anchorX} cy={anchorY} r="3.5" fill="var(--bg)" stroke="var(--text)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />}
         {marks.map((m) => (
-          <circle key={m.j} cx={xs(m.slot!)} cy={ys(m.level!)} r={m.close ? 4 : 2.6} fill={m.close ? "#ffa028" : "#030304"} stroke="#ffa028" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+          <circle key={m.j} cx={xs(m.slot!)} cy={ys(m.level!)} r={m.close ? 4 : 2.6} fill={m.close ? "var(--amber)" : "var(--bg)"} stroke="var(--amber)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
         ))}
       </svg>
       <div className="pre-track-ax">
@@ -1849,7 +1849,7 @@ export function ConfirmTimeline({ snap }: { snap: OpeningSnap }) {
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 46 }}
           role="img" aria-label={`All values against prior close: forecast ${f2(forecast)}%, open ${f2(c.gapPct)}%, after ${f2(c.retracePct)}% retraced ${f2(retraceLevel)}%, now ${f2(g.livePct)}%`}
         >
-          <line x1="0" y1={y(0)} x2={W} y2={y(0)} stroke="#3a3a42" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <line x1="0" y1={y(0)} x2={W} y2={y(0)} stroke="var(--grid)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           {/* No <text> in this SVG on purpose: it scales with
               preserveAspectRatio="none", so a label inside it is stretched
               non-uniformly with the plot. The zero rule is captioned below in
@@ -1861,7 +1861,7 @@ export function ConfirmTimeline({ snap }: { snap: OpeningSnap }) {
           })}
           {pts.map((v, i) =>
             v === null || !isFinite(v) ? null : (
-              <circle key={i} cx={(X[i]! * W).toFixed(1)} cy={y(v)} r={i === 0 ? 3 : 4} fill={i === 0 ? "#030304" : toneHex(v)} stroke={toneHex(v)} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+              <circle key={i} cx={(X[i]! * W).toFixed(1)} cy={y(v)} r={i === 0 ? 3 : 4} fill={i === 0 ? "var(--bg)" : toneHex(v)} stroke={toneHex(v)} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
             )
           )}
         </svg>

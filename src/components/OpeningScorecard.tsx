@@ -87,7 +87,7 @@ const edge = o.dirSignPct !== null && o.dirBasePct !== null ? o.dirSignPct - o.d
         <Cell lbl="In-sample sign agree" val={is.dirSignPct !== null ? `${is.dirSignPct.toFixed(1)}%` : "—"} sub="FIT ON ITS OWN SAMPLE — NOT THE HEADLINE" cls="faint" />
       </div>
 
-      <div className="panel" style={{ marginTop: 12, borderColor: "rgba(255,160,40,0.35)" }}>
+      <div className="panel" style={{ marginTop: 12, borderColor: "color-mix(in srgb, var(--amber) 35%, transparent)" }}>
         <p className="p-head">Read this before quoting any percentage above</p>
         <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11.5, lineHeight: 1.65 }}>
           <li className="muted">
@@ -245,13 +245,13 @@ function CalibrationTable({ h }: { h: HistoryWire }) {
                 <td style={{ textAlign: "right" }} className={toneClass(c.avgGapPct)}>{f2(c.avgGapPct, "%")}</td>
                 <td style={{ textAlign: "right" }}>
                   <span style={{ display: "inline-block", width: 88, position: "relative", height: 10 }}>
-                    <span style={{ position: "absolute", left: 44, top: 0, bottom: 0, width: 1, background: "#5b5b62" }} />
+                    <span style={{ position: "absolute", left: 44, top: 0, bottom: 0, width: 1, background: "var(--faint)" }} />
                     {c.avgGapPct !== null && (
                       <span style={{
                         position: "absolute", top: 0, bottom: 0,
                         left: c.avgGapPct >= 0 ? 44 : 44 - (Math.abs(c.avgGapPct) / maxAbs) * 44,
                         width: (Math.abs(c.avgGapPct) / maxAbs) * 44,
-                        background: c.avgGapPct >= 0 ? "#00d664" : "#ff453a",
+                        background: c.avgGapPct >= 0 ? "var(--green)" : "var(--red)",
                       }} />
                     )}
                   </span>
@@ -299,7 +299,7 @@ function OperatingCurve({ h }: { h: HistoryWire }) {
             {h.gateSweep.map((g) => {
               const live = Math.abs(g.egapMin - h.egapMin) < 1e-9;
               return (
-                <tr key={g.egapMin} style={live ? { background: "rgba(255,160,40,0.06)" } : undefined}>
+                <tr key={g.egapMin} style={live ? { background: "color-mix(in srgb, var(--amber) 6%, transparent)" } : undefined}>
                   <td>
                     <strong>±{g.egapMin.toFixed(2)}%</strong>
                     {live && <span className="badge fnc" style={{ marginLeft: 6 }}>SHIPPED</span>}
@@ -323,7 +323,7 @@ function OperatingCurve({ h }: { h: HistoryWire }) {
                 </tr>
               );
             })}
-            <tr style={{ borderTop: "1px solid #26262b" }}>
+            <tr style={{ borderTop: "1px solid var(--grid)" }}>
               <td><strong className="faint">edge ≥ {h.legacyGate.edgeMin.toFixed(2)} × regime</strong></td>
               <td style={{ textAlign: "right" }} className="faint">{h.legacyGate.dirCalls}</td>
               <td style={{ textAlign: "right" }} className="faint">{h.legacyGate.dirN}</td>
@@ -628,8 +628,8 @@ function ConfidenceCalibration({ h }: { h: HistoryWire }) {
                   </td>
                   <td style={{ textAlign: "right" }}>
                     <span style={{ display: "inline-block", width: 78, position: "relative", height: 10 }}>
-                      <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: (b.ptsRight / widest) * 78, background: "#00d664" }} />
-                      <span style={{ position: "absolute", left: 0, top: 6, bottom: 0, width: (b.ptsWrong / widest) * 78, background: "#ff453a" }} />
+                      <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: (b.ptsRight / widest) * 78, background: "var(--green)" }} />
+                      <span style={{ position: "absolute", left: 0, top: 6, bottom: 0, width: (b.ptsWrong / widest) * 78, background: "var(--red)" }} />
                     </span>
                   </td>
                   <td style={{ textAlign: "right" }} className="pos">+{b.ptsRight.toFixed(1)}%</td>
@@ -693,7 +693,7 @@ export function ScorecardPanels({ h }: { h: HistoryWire }) {
         <p className="p-head">
           Accuracy scorecard — not available for {h.target?.label ?? "this market"}
         </p>
-        <div className="cell" style={{ borderColor: "rgba(255,160,40,0.45)" }}>
+        <div className="cell" style={{ borderColor: "color-mix(in srgb, var(--amber) 45%, transparent)" }}>
           <div className="lbl">NO PREDICTION TO SCORE</div>
           <div className="sub" style={{ fontSize: 11.5, lineHeight: 1.6, marginTop: 4 }}>
             {h.skipReason ?? "THE DESK PUBLISHES NO VERDICT FOR THIS MARKET."}
@@ -711,7 +711,7 @@ export function ScorecardPanels({ h }: { h: HistoryWire }) {
   return (
     <div className="grid">
       <ScorecardHeadline h={h} />
-      <div className="panel" style={{ borderColor: t?.fitted ? "rgba(0,214,100,0.35)" : "rgba(255,160,40,0.4)" }}>
+      <div className="panel" style={{ borderColor: t?.fitted ? "color-mix(in srgb, var(--green) 35%, transparent)" : "color-mix(in srgb, var(--amber) 40%, transparent)" }}>
         <p className="p-head">What this rebuild graded</p>
         <div className="cells">
           <Cell lbl="Index" val={t?.label ?? "—"} sub={`${t?.symbol ?? "—"} · ${t?.venue ?? "—"}`} />

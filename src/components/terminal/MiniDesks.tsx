@@ -140,8 +140,8 @@ export function StratMini({ symbol, onFull }: { symbol: string; onFull: () => vo
       </div>
       {pts && (
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 110, display: "block", marginTop: 8 }} preserveAspectRatio="none">
-          <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="#5b5b62" strokeWidth="1" strokeDasharray="3 3" />
-          <polyline points={pts.d} fill="none" stroke={pts.up ? "#00d664" : "#ff453a"} strokeWidth="1.8" />
+          <line x1="0" x2={W} y1={H / 2} y2={H / 2} stroke="var(--faint)" strokeWidth="1" strokeDasharray="3 3" />
+          <polyline points={pts.d} fill="none" stroke={pts.up ? "var(--green)" : "var(--red)"} strokeWidth="1.8" />
         </svg>
       )}
       <table className="plain" style={{ marginTop: 8 }}>

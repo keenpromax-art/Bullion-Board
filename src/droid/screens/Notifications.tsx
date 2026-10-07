@@ -154,7 +154,7 @@ export default function Notifications() {
                 {
                   key: "clear",
                   label: "CLEAR",
-                  color: "#ff453a",
+                  color: "var(--red)",
                   onClick: () => {
                     try {
                       store.setAlerts(store.getAlerts().filter((x) => !(x.symbol === a.symbol && x.price === a.price)));

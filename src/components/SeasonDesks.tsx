@@ -85,7 +85,7 @@ export function SeasonDesks({ symbol, showInput = false }: { symbol: string; sho
                 <tr>
                   <td><strong>AVG %</strong></td>
                   {stats.map((s) => (
-                    <td key={s.m} style={{ textAlign: "right", background: s.avg >= 0 ? `rgba(0,214,100,${Math.min(0.5, Math.abs(s.avg) / 12)})` : `rgba(255,69,58,${Math.min(0.5, Math.abs(s.avg) / 12)})` }}>
+                    <td key={s.m} style={{ textAlign: "right", background: s.avg >= 0 ? `color-mix(in srgb, var(--green) ${Math.min(50, (Math.abs(s.avg) / 12) * 100)}%, transparent)` : `color-mix(in srgb, var(--red) ${Math.min(50, (Math.abs(s.avg) / 12) * 100)}%, transparent)` }}>
                       {s.avg >= 0 ? "+" : ""}{s.avg.toFixed(1)}
                     </td>
                   ))}

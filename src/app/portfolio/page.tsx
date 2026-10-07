@@ -125,8 +125,8 @@ export default function PortfolioPage() {
                   <td style={{ textAlign: "right" }}>{Math.round(r.value).toLocaleString("en-IN")}</td>
                   <td style={{ textAlign: "right" }}><span className={r.pnl >= 0 ? "pos" : "neg"}>{r.pnl >= 0 ? "+" : ""}{r.pnlPct.toFixed(1)}%</span></td>
                   <td style={{ textAlign: "right" }}>
-                    <div style={{ height: 6, background: "#1a1a1e", borderRadius: 2, minWidth: 80 }}>
-                      <div style={{ width: `${value ? (r.value / value) * 100 : 0}%`, height: "100%", background: "#ffa028", borderRadius: 2 }} />
+                    <div style={{ height: 6, background: "var(--track)", borderRadius: 2, minWidth: 80 }}>
+                      <div style={{ width: `${value ? (r.value / value) * 100 : 0}%`, height: "100%", background: "var(--amber)", borderRadius: 2 }} />
                     </div>
                   </td>
                   <td style={{ textAlign: "right" }}><button className="ghost" style={{ padding: "4px 10px" }} onClick={() => save(positions.filter((x) => x.id !== r.id))}>DEL</button></td>
@@ -141,7 +141,7 @@ export default function PortfolioPage() {
                 label: r.symbol.replace(".NS", ""),
                 value: Math.round(r.pnl),
                 display: `${r.pnl >= 0 ? "+" : ""}₹${Math.round(r.pnl).toLocaleString("en-IN")}`,
-                color: r.pnl >= 0 ? "#00d664" : "#ff453a",
+                color: r.pnl >= 0 ? "var(--green)" : "var(--red)",
               }))} />
             </div>
           )}

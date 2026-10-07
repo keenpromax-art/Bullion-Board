@@ -50,7 +50,7 @@ export function DVDesk({ symbol }: { symbol: string }) {
         </div>
         <div style={{ marginTop: 10 }}>
           <p className="p-head">Annual payouts ₹ — with yearly growth</p>
-          <BarChart values={annualAsc.map((a: any) => a.total)} labels={annualAsc.map((a: any) => String(a.year))} height={110} posColor="#ffa028" negColor="#ffa028" />
+          <BarChart values={annualAsc.map((a: any) => a.total)} labels={annualAsc.map((a: any) => String(a.year))} height={110} posColor="var(--amber)" negColor="var(--amber)" />
         </div>
         <div className="toolbar" style={{ marginTop: 10 }}>
           {(["PAYOUTS", "SPLITS", "BOARD"] as DivTab[]).map((t) => (
@@ -127,7 +127,7 @@ export function DVDesk({ symbol }: { symbol: string }) {
 /* ---------------- ownership desk (OWN) ---------------- */
 
 const HOLDER_COLORS: Record<string, string> = {
-  PROMOTER: "#ffa028", FII: "#00d664", DII: "#8f7bff", PUBLIC: "#5b5b62", GOVT: "#00c8ff",
+  PROMOTER: "var(--amber)", FII: "var(--green)", DII: "var(--violet)", PUBLIC: "var(--faint)", GOVT: "var(--cyan)",
 };
 
 function pickHolder(rows: Array<{ label: string; values: (number | null)[] }>, cands: string[]) {
@@ -196,13 +196,13 @@ export function OwnDesk({ symbol }: { symbol: string }) {
             <p className="p-head">Holder mix — latest</p>
             <Donut slices={series.map((g) => {
               const vals = g.row!.values.filter((v): v is number => v !== null);
-              return { label: g.key, value: vals.length ? vals[vals.length - 1] : 0, color: HOLDER_COLORS[g.key] ?? "#5b5b62" };
+              return { label: g.key, value: vals.length ? vals[vals.length - 1] : 0, color: HOLDER_COLORS[g.key] ?? "var(--faint)" };
             })} />
           </div>
           <div>
             <p className="p-head">Mix trend — quarterly %</p>
             <LineChart
-              series={series.map((g) => ({ label: g.key, color: HOLDER_COLORS[g.key] ?? "#5b5b62", values: g.row!.values }))}
+              series={series.map((g) => ({ label: g.key, color: HOLDER_COLORS[g.key] ?? "var(--faint)", values: g.row!.values }))}
               height={150} yFmt={(v) => `${v.toFixed(0)}%`} dates={data.periods} xLabels={x3}
             />
           </div>
