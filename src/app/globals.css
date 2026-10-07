@@ -785,6 +785,66 @@ pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: v
 
 /* ratio hover explainer uses a fixed-position React tooltip (see RatiosTables) */
 
+/* ---------- corporate documents hub (module 43) ----------
+   Built entirely from existing primitives — .cells, .panel, .plain, .pill —
+   so this block is only what a filing browser genuinely needs and nothing the
+   skin already covers. Sized off the CONTAINER, not the viewport, because the
+   desk also runs as a workspace panel tile. */
+.doc-shell { display: grid; gap: 10px; }
+/* flex spacer between the filter cluster and the window control */
+.doc-sp { flex: 1 1 0; min-width: 0; }
+.doc-fam {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.07em; padding: 1px 5px;
+  border-radius: 2px; white-space: nowrap;
+  border: 1px solid var(--grid); color: var(--faint);
+}
+/* Family is a CATEGORY, not a direction and not a severity, so it takes the
+   neutral grid outline rather than a colour — except the two families a
+   fundamental reader navigates by, which get the accent and the security tier. */
+.doc-fam-results { color: var(--amber); border-color: var(--amber-line-hard); }
+.doc-fam-commentary { color: var(--sec); border-color: color-mix(in srgb, var(--sec) 50%, transparent); }
+/* The subject cell is a button, so it reads as one without a chrome button. */
+.doc-subj {
+  background: none; border: none; padding: 0; cursor: pointer; text-align: left;
+  color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.45;
+  display: block; width: 100%;
+}
+.doc-subj:hover { color: var(--amber); text-decoration: underline; }
+.doc-subj:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+/* Character count is the only signal separating a real explanation from
+   one-line Reg-30 boilerplate, so it is graded, not just printed. */
+.doc-sub { color: var(--sec); font-weight: 700; }
+/* The expanded read-out: filed prose, verbatim, in reading measure. */
+.doc-read {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--panel-2); border: 1px solid var(--amber-line);
+  border-left: 2px solid var(--amber); border-radius: 3px;
+}
+.doc-read-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; font-size: 11.5px; }
+.doc-txt {
+  margin: 0; font-size: 12.5px; line-height: 1.72; color: var(--text);
+  white-space: pre-wrap; max-width: 96ch;
+}
+.doc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; }
+.doc-card {
+  background: var(--panel-2); border: 1px solid var(--grid);
+  border-left: 2px solid var(--sec); border-radius: 3px; padding: 8px 10px 9px;
+  display: grid; gap: 5px; min-width: 0;
+}
+.doc-card-top { display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
+.doc-card-h { margin: 0; font-size: 11.5px; font-weight: 600; color: var(--text); line-height: 1.45; }
+.doc-card .doc-txt { font-size: 12px; line-height: 1.65; color: var(--sub); }
+/* Provenance footnote. The faintest text tier by design: this is the caveat,
+   and it must never compete with the filing text it qualifies. */
+.doc-foot {
+  margin: 10px 0 0; font-size: 10.5px; line-height: 1.6; color: var(--faint);
+  border-top: 1px solid var(--grid); padding-top: 8px;
+}
+@container panel (max-width: 760px) {
+  .doc-cards { grid-template-columns: minmax(0, 1fr); }
+  .doc-txt { font-size: 12px; }
+}
+
 /* ---------- reader dialog ---------- */
 .dlg-back {
   position: fixed; inset: 0; z-index: 100;

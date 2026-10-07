@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { chatComplete, streamChat, aiSystem } from "@/lib/ai";
 import { store } from "@/lib/store";
 
@@ -285,31 +285,317 @@ export function ReaderDesk() {
   );
 }
 
-/* ---------------- external links / filings ---------------- */
+/* ---------------- corporate documents (43) / chart launcher (42) ---------------- */
+
+// The payload shape is the route's, not a copy of it: a second declaration here
+// would drift the first time a field was added, and this desk is the only
+// consumer. `import type` is erased at compile time, so nothing from the route
+// module reaches the client bundle.
+type DocsPayload = import("@/app/api/documents/route").DocumentsPayload;
+
+/** Below this a filed text is boilerplate ("…is attached"), not commentary. */
+const SUBSTANTIVE = 300;
+
+const docDate = (ts: string | null) => {
+  if (!ts) return "—";
+  const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[2]} ${m[3]} ${m[1]}`;
+  const d = Date.parse(ts.replace(" ", "T"));
+  return isFinite(d) ? new Date(d).toISOString().slice(0, 10) : "—";
+};
+
+function DocumentsDesk({ symbol }: { symbol: string }) {
+  const [months, setMonths] = useState(18);
+  const [d, setD] = useState<DocsPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [fam, setFam] = useState<string>("ALL");
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState<string | null>(null);
+
+  async function load(m: number) {
+    setLoading(true); setErr("");
+    try {
+      const r = await fetch(`/api/documents?symbol=${encodeURIComponent(symbol)}&months=${m}`);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      setD(j); setOpen(null); setFam("ALL");
+    } catch (e: any) {
+      setErr(e?.message ?? "FEED UNAVAILABLE"); setD(null);
+    } finally { setLoading(false); }
+  }
+
+  useEffect(() => { load(months); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [months, symbol]);
+
+  const filings = d?.filings ?? [];
+  const needle = q.trim().toUpperCase();
+  const shown = useMemo(
+    () => filings.filter((f) =>
+      (fam === "ALL" || f.family === fam) &&
+      (!needle || f.subject.toUpperCase().includes(needle) || f.family.includes(needle))),
+    [filings, fam, needle]
+  );
+  // Ranked by how much the issuer actually wrote, not by date: on most listings
+  // the recent filings are one-line Reg-30 boilerplate and the real explanation
+  // sits further back, so a date-ordered panel would read as empty.
+  const commentary = useMemo(
+    () => filings
+      .filter((f) => f.text && f.text.length >= SUBSTANTIVE)
+      .sort((a, b) => (b.text!.length - a.text!.length) || (a.ts < b.ts ? 1 : -1))
+      .slice(0, 8),
+    [filings]
+  );
+  const boilerplate = useMemo(
+    () => filings.filter((f) => f.text && f.text.length < SUBSTANTIVE).length,
+    [filings]
+  );
+  // Resolved once: the read-out below used to call this per JSX node, which both
+  // repeated the scan and defeated narrowing on `pdf` (string | null).
+  const opened = useMemo(() => (open ? filings.find((f) => f.id === open) ?? null : null), [filings, open]);
+
+  if (loading && !d) {
+    return (
+      <div className="panel">
+        <p className="p-head">Corporate documents — {symbol}</p>
+        <p className="muted">PULLING THE EXCHANGE FILING RECORD…</p>
+      </div>
+    );
+  }
+  if (err) {
+    return (
+      <div className="panel">
+        <p className="p-head">Corporate documents — {symbol}</p>
+        <p className="neg">FILINGS FEED ERR: {err}</p>
+        <div className="toolbar" style={{ marginTop: 8 }}>
+          <button className="btn" onClick={() => load(months)}>RETRY</button>
+          <span className="faint" style={{ fontSize: 11 }}>NSE PUBLISHES ~2.5MB PER UNFILTERED REQUEST, SO THIS IS CACHED 15 MIN.</span>
+        </div>
+      </div>
+    );
+  }
+  if (!d || (!d.ok && !d.filings.length)) {
+    return (
+      <div className="panel">
+        <p className="p-head">Corporate documents — {symbol}</p>
+        <p className="warn" style={{ fontSize: 12.5, lineHeight: 1.6 }}>{d?.error ?? "NO FILINGS."}</p>
+        <div className="toolbar" style={{ marginTop: 8 }}>
+          <button className="btn" onClick={() => load(months)}>RETRY</button>
+          <a href="https://www.nseindia.com/companies-listing/corporate-filings-announcements" target="_blank" rel="noreferrer">
+            <button className="ghost">NSE ANNOUNCEMENTS ↗</button>
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const cells = [
+    ["COMPANY", d.name ?? "—", d.base],
+    ["ISIN", d.isin ?? "—", d.venue ?? "—"],
+    ["INDUSTRY", d.industry ?? "—", d.venue ? `NSE · ${d.venue}` : "—"],
+    ["FILINGS", String(d.total), `${d.from} → ${d.to}`],
+    ["WITH TEXT", String(d.withText), `${boilerplate} BOILERPLATE`],
+    ["LATEST", docDate(d.latestAt), d.latestAt ? d.latestAt.slice(11, 16) + " IST" : "—"],
+  ];
+
+  return (
+    <div className="doc-shell">
+      <div className="cells">
+        {cells.map(([l, v, s]) => (
+          <div className="cell" key={l}>
+            <div className="lbl">{l}</div>
+            <div className="val" style={{ fontSize: l === "COMPANY" || l === "INDUSTRY" ? 14 : 19 }}>{v}</div>
+            <div className="sub">{s}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="panel panel-glow">
+        <p className="p-head">Filing record — NSE exchange disclosures, newest first</p>
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <input
+            className="box"
+            value={q}
+            onChange={(e) => setQ(e.target.value.toUpperCase())}
+            placeholder="FILTER SUBJECT…"
+            style={{ maxWidth: 260 }}
+          />
+          <div className="pills">
+            <button className={`pill${fam === "ALL" ? " active" : ""}`} onClick={() => setFam("ALL")}>
+              ALL {d.total}
+            </button>
+            {d.families.map((f) => (
+              <button
+                key={f.key}
+                className={`pill${fam === f.key ? " active" : ""}`}
+                onClick={() => setFam(fam === f.key ? "ALL" : f.key)}
+                title={`${f.label} · latest ${docDate(f.latest)}`}
+              >
+                {f.label} {f.count}
+              </button>
+            ))}
+          </div>
+          <span className="doc-sp" />
+          {[18, 36].map((m) => (
+            <button key={m} className={`pill${months === m ? " active" : ""}`} onClick={() => setMonths(m)}>
+              {m}M
+            </button>
+          ))}
+          <button className="ghost" onClick={() => load(months)}>REFRESH</button>
+        </div>
+
+        <div className="scrollx">
+          <table className="plain">
+            <thead>
+              <tr>
+                <th>DATE</th>
+                <th>FAMILY</th>
+                <th>SUBJECT AS FILED</th>
+                <th style={{ textAlign: "right" }}>TEXT</th>
+                <th style={{ textAlign: "right" }}>SIZE</th>
+                <th>PDF</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.slice(0, 120).map((f) => {
+                const isOpen = open === f.id;
+                const tl = f.text ? f.text.length : 0;
+                return (
+                  <tr key={f.id} className={isOpen ? "active" : undefined}>
+                    <td style={{ whiteSpace: "nowrap" }}>{docDate(f.ts)}</td>
+                    <td><span className={`doc-fam doc-fam-${f.family.toLowerCase()}`}>{f.family}</span></td>
+                    <td>
+                      <button
+                        className="doc-subj"
+                        onClick={() => setOpen(isOpen ? null : f.id)}
+                        title={isOpen ? "Collapse filed text" : "Read the text the issuer filed"}
+                      >
+                        {f.subject}
+                      </button>
+                    </td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      {f.text ? (
+                        <span className={tl >= SUBSTANTIVE ? "doc-sub" : "faint"}>{tl} ch</span>
+                      ) : (
+                        <span className="faint">—</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }} className="faint">{f.size ?? "—"}</td>
+                    <td>
+                      {f.pdf ? (
+                        <a href={f.pdf} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>PDF ↗</a>
+                      ) : (
+                        <span className="faint">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {opened && (
+          <div className="doc-read">
+            <div className="doc-read-head">
+              <span className="sec">{docDate(opened.ts)}</span>
+              <span className="muted">{opened.headline}</span>
+              <span className="doc-sp" />
+              <span className="faint" style={{ fontSize: 10.5 }}>
+                FILED WITH NSE · {opened.text?.length ?? 0} CHARS
+                {opened.truncated ? " · CLAMPED AT 1400" : ""}
+              </span>
+            </div>
+            <p className="doc-txt">{opened.text ?? "NO FILED TEXT — THIS DISCLOSURE ATTACHED A DOCUMENT ONLY."}</p>
+            {opened.pdf && (
+              <div className="toolbar" style={{ marginTop: 8 }}>
+                <a href={opened.pdf} target="_blank" rel="noreferrer">
+                  <button className="ghost">OPEN FILED PDF ↗</button>
+                </a>
+                {opened.xbrl && <span className="badge ok">XBRL FILED</span>}
+              </div>
+            )}
+          </div>
+        )}
+        {shown.length === 0 && <p className="muted" style={{ marginTop: 10 }}>NO FILING MATCHES THIS FILTER.</p>}
+        {shown.length > 120 && (
+          <p className="faint" style={{ fontSize: 10.5, marginTop: 6 }}>
+            SHOWING NEWEST 120 OF {shown.length} MATCHES — NARROW THE FAMILY OR SUBJECT FILTER TO SEE THE REST.
+          </p>
+        )}
+      </div>
+
+      <div className="panel">
+        <p className="p-head">Management commentary — the issuer's own filed prose, ranked by substance</p>
+        {commentary.length === 0 ? (
+          <p className="muted" style={{ fontSize: 12.5, lineHeight: 1.65 }}>
+            NO SUBSTANTIVE FILED TEXT IN THIS WINDOW. MOST ISSUERS ATTACH THE DOCUMENT AND FILE ONE LINE OF
+            REG-30 BOILERPLATE — {boilerplate} OF {d.withText} FILINGS CARRYING TEXT FALL UNDER {SUBSTANTIVE}
+            CHARACTERS. WIDEN THE WINDOW TO 36M: THE LONGER EXPLANATIONS TEND TO BE FILED WHEN AN EXCHANGE
+            ASKS A QUESTION, WHICH HAPPENS MONTHS AFTER THE EVENT.
+          </p>
+        ) : (
+          <div className="doc-cards">
+            {commentary.map((f) => (
+              <div className="doc-card" key={f.id}>
+                <div className="doc-card-top">
+                  <span className="sec">{docDate(f.ts)}</span>
+                  <span className={`doc-fam doc-fam-${f.family.toLowerCase()}`}>{f.family}</span>
+                  <span className="doc-sp" />
+                  <span className="faint" style={{ fontSize: 10 }}>{f.text!.length} CH</span>
+                  {f.pdf && <a href={f.pdf} target="_blank" rel="noreferrer">PDF ↗</a>}
+                </div>
+                <p className="doc-card-h">{f.subject}</p>
+                <p className="doc-txt">{f.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="doc-foot">
+          FILED TEXT, NOT PARSED PDF. THIS IS WHAT THE ISSUER SUBMITTED TO THE EXCHANGE IN THE DISCLOSURE
+          FIELD — VERBATIM, TRIMMED ONLY OF WHITESPACE AND CLAMPED AT 1,400 CHARACTERS. THE FORMAL
+          &ldquo;MANAGEMENT DISCUSSION AND ANALYSIS&rdquo; CHAPTER IS A SECTION OF THE ANNUAL REPORT PDF, WHICH
+          A BROWSER CANNOT PARSE; OPEN THE LINKED PDF TO READ IT IN FULL. WINDOW {d.from} → {d.to}.
+        </p>
+      </div>
+
+      <div className="panel">
+        <p className="p-head">Venue &amp; external record</p>
+        <div className="toolbar">
+          <a href={`https://www.nseindia.com/companies-listing/corporate-filings-announcements?symbol=${encodeURIComponent(d.base)}`} target="_blank" rel="noreferrer"><button className="ghost">NSE FILINGS ↗</button></a>
+          <a href={`https://www.bseindia.com/corporates/ann.html`} target="_blank" rel="noreferrer"><button className="ghost">BSE ANNOUNCEMENTS ↗</button></a>
+          <a href={`https://www.screener.in/company/${encodeURIComponent(d.base)}/`} target="_blank" rel="noreferrer"><button className="ghost">SCREENER.IN ↗</button></a>
+          <a href={`https://www.moneycontrol.com/financials/${encodeURIComponent(d.base.toLowerCase())}/results/yearly/`} target="_blank" rel="noreferrer"><button className="ghost">MONEYCONTROL RESULTS ↗</button></a>
+        </div>
+        <p className="doc-foot">
+          NSE ONLY, AND THAT IS A LIMITATION NOT A CHOICE. BSE&rsquo;S ANNOUNCEMENT API ANSWERS 403 WITHOUT A LIVE
+          BROWSER SESSION, SO A .BO LISTING CANNOT BE READ SERVER-SIDE AND SAYS SO INSTEAD OF SHOWING AN EMPTY
+          TABLE. SCREENER.IN&rsquo;S /documents/ PATH RETURNS 404 AND WAS REMOVED FROM THIS DESK — THE LINK WAS DEAD,
+          NOT THE DOCUMENTS.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export function LinkDesk({ symbol, mode }: { symbol: string; mode: "charts" | "filings" }) {
+  if (mode === "filings") return <DocumentsDesk symbol={symbol} />;
   const base = symbol.replace(/\.NS$|\.BO$/, "");
-  const links = mode === "charts" ? [
+  const links: Array<[string, string]> = [
     ["TRADINGVIEW", `https://www.tradingview.com/chart/?symbol=${base.endsWith("BO") ? "BSE" : "NSE"}%3A${encodeURIComponent(base)}`],
     ["SCREENER.IN", `https://www.screener.in/company/${encodeURIComponent(base)}/`],
     ["YAHOO FINANCE", `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`],
     ["MONEYCONTROL", `https://www.moneycontrol.com/stocks/cptmarket/compsearchnew.php?search_data=&cid=&mbsearch_str=${encodeURIComponent(base)}`],
     ["TICKERTAPE", `https://www.tickertape.in/stocks/${encodeURIComponent(base)}`],
-  ] : [
-    ["NSE ANNOUNCEMENTS", `https://www.nseindia.com/companies-listing/corporate-filings-announcements`],
-    ["BSE ANNOUNCEMENTS", `https://www.bseindia.com/corporates/ann.html`],
-    ["SCREENER DOCUMENTS", `https://www.screener.in/company/${encodeURIComponent(base)}/documents/`],
-    ["MONEYCONTROL RESULTS", `https://www.moneycontrol.com/financials/${encodeURIComponent(base.toLowerCase())}/results/yearly/`],
   ];
   return (
     <div className="panel panel-glow">
-      <p className="p-head">{mode === "charts" ? "Chart launcher" : "Filings & documents"} — {symbol}</p>
+      <p className="p-head">Chart launcher — {symbol}</p>
       <div className="toolbar">
         {links.map(([label, url]) => (
           <a key={label} href={url} target="_blank" rel="noreferrer"><button className="ghost">{label} ↗</button></a>
         ))}
       </div>
-      <p className="muted" style={{ fontSize: 11.5 }}>DEEP LINKS OPEN THE SECURITY WHERE THE VENUE SUPPORTS IT — NSE/BSE ANNOUNCEMENT PAGES ARE EXCHANGE-WIDE FEEDS.</p>
+      <p className="muted" style={{ fontSize: 11.5 }}>THIRD-PARTY CHARTING AND SCREENS — EACH OPENS THE SECURITY ON ITS OWN VENUE.</p>
     </div>
   );
 }
