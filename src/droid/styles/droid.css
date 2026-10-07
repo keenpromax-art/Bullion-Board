@@ -13,7 +13,10 @@
   --dx-grid: #26262b;
   --dx-text: #f5f5f4;
   --dx-sub: #a1a1aa;
-  --dx-faint: #5b5b62;
+  /* Mirrors --faint on the terminal: 5.7:1 on --dx-panel, so a 9.5px footnote
+     on a phone in daylight is still readable. The old #5b5b62 measured 2.9:1
+     and read as dark-grey-on-black at this size. */
+  --dx-faint: #8a8a93;
   --dx-amber: #ffa028;
   --dx-amber-deep: #b26a00;
   --dx-amber-subtle: rgba(255, 160, 40, 0.12);

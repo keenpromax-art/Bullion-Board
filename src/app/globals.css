@@ -8,7 +8,12 @@
   --grid: #26262b;
   --text: #f5f5f4;
   --sub: #a1a1aa;
-  --faint: #5b5b62;
+  /* Faint is the DIMMEST TEXT TIER, not an invisible one. #5b5b62 measured
+     2.9:1 on --panel, which reads as dark-grey-on-black at 9-10px and is the
+     one value in this palette that genuinely cannot be read. #8a8a93 measures
+     5.7:1 — clears WCAG AA for body text while staying a clear step below
+     --sub (7.6:1), so the three text tiers are still distinguishable. */
+  --faint: #8a8a93;
   --amber: #ffa028;
   --amber-deep: #b26a00;
   --amber-subtle: rgba(255, 160, 40, 0.12);
@@ -298,7 +303,9 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 .top-row:hover { background: rgba(255, 160, 40, 0.06); }
 .top-num { color: var(--amber); }
 .top-head { color: #f5f5f4; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.top-row.read .top-head { color: #6d6d75; }
+  /* An already-read headline recedes, but 3.8:1 was below AA and read as dark
+     grey on the wire. 4.8:1 is still visibly quieter than --sub (7.6:1). */
+  .top-row.read .top-head { color: #7d7d86; }
 .top-src { color: var(--faint); font-size: 11px; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top-time { color: var(--sub); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .unread { width: 8px; height: 8px; min-width: 8px; background: #4da3ff; border-radius: 1px; align-self: center; box-shadow: 0 0 6px rgba(77, 163, 255, 0.8); }

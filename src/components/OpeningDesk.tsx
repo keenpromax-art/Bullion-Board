@@ -244,8 +244,14 @@ export function toneClass(v: number | null | undefined): string {
   if (v === null || v === undefined || !isFinite(v)) return "";
   return v > 0 ? "pos" : v < 0 ? "neg" : "";
 }
+/**
+ * Direction colour. A flat reading used to return the old #5b5b62, which is
+ * also a FONT colour here (the tape cards print the change in the line itself)
+ * and was therefore unreadable. A flat value is neutral, not absent, so it takes
+ * the dimmest readable text tier instead of the old invisible grey.
+ */
 export const toneHex = (v: number | null | undefined) =>
-  v === null || v === undefined || !isFinite(v) || v === 0 ? "#5b5b62" : v > 0 ? "#00d664" : "#ff453a";
+  v === null || v === undefined || !isFinite(v) || v === 0 ? "#8a8a93" : v > 0 ? "#00d664" : "#ff453a";
 
 export const VERDICT_TEXT: Record<Verdict, string> = {
   GREEN: "GAP UP", RED: "GAP DOWN", FLAT: "STAND ASIDE", NO_DATA: "NO CALL",
@@ -624,11 +630,11 @@ export function GapGauge({ egap, gate, realised, span = 1.0 }: {
             {`REALISED ${realised! >= 0 ? "+" : ""}${realised!.toFixed(2)}%`}
           </text>
         )}
-        <text x={x1(px(0))} y={AX + 20} textAnchor="middle" fill="#5b5b62" fontSize="9">
+        <text x={x1(px(0))} y={AX + 20} textAnchor="middle" fill="#8a8a93" fontSize="9">
           {`NO TRADE ±${gate.toFixed(2)}%`}
         </text>
-        <text x={W} y={AX - 11} textAnchor="end" fill="#5b5b62" fontSize="9">GAP UP +1.00%</text>
-        <text x="0" y={AX - 11} fill="#5b5b62" fontSize="9">−1.00% GAP DOWN</text>
+        <text x={W} y={AX - 11} textAnchor="end" fill="#8a8a93" fontSize="9">GAP UP +1.00%</text>
+        <text x="0" y={AX - 11} fill="#8a8a93" fontSize="9">−1.00% GAP DOWN</text>
       </svg>
       <div className="pre-gauge-ax">
         <span>FORECAST IN % OF PRIOR CLOSE</span>
@@ -1364,10 +1370,7 @@ function TrackChart({ wire }: { wire: PathWire }) {
         aria-label={`${wire.market.label} intraday track: ${done.length} settled hours printed, ${marks.length} hourly marks projected to the close`}
       >
         {a.prevClose !== null && (
-          <>
-            <line x1="0" y1={ys(a.prevClose)} x2={W} y2={ys(a.prevClose)} stroke="#5b5b62" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-            <text x="2" y={(Number(ys(a.prevClose)) - 3).toFixed(1)} fill="#5b5b62" fontSize="8" vectorEffect="non-scaling-stroke">PRIOR CLOSE {fprice(a.prevClose, 0)}</text>
-          </>
+          <line x1="0" y1={ys(a.prevClose)} x2={W} y2={ys(a.prevClose)} stroke="#5b5b62" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
         )}
         {marks.length > 1 && (
           <polygon points={`${anchorX},${anchorY ?? ys(a.level ?? 0)} ${fanTop.join(" ")} ${fanBot.join(" ")}`}
@@ -1386,6 +1389,11 @@ function TrackChart({ wire }: { wire: PathWire }) {
       </svg>
       <div className="pre-track-ax">
         <span>{wire.market.openHHMM} OPEN</span>
+        {/* The prior-close rule is captioned in HTML, not in the SVG: this chart
+            scales with `preserveAspectRatio="none"` so the plot stretches to
+            fill the panel, and any <text> inside it is stretched with it. An
+            8px caption in a stretched viewport renders as a smeared smear. */}
+        <span>PRIOR CLOSE <b>{a.prevClose === null ? "—" : fprice(a.prevClose, 0)}</b></span>
         <span className="pos">PRINTED</span>
         <span className="amber">CONDITIONAL MEDIAN · p10–p90 FAN</span>
         <span>{wire.market.closeHHMM} CLOSE</span>
@@ -1842,7 +1850,10 @@ export function ConfirmTimeline({ snap }: { snap: OpeningSnap }) {
           role="img" aria-label={`All values against prior close: forecast ${f2(forecast)}%, open ${f2(c.gapPct)}%, after ${f2(c.retracePct)}% retraced ${f2(retraceLevel)}%, now ${f2(g.livePct)}%`}
         >
           <line x1="0" y1={y(0)} x2={W} y2={y(0)} stroke="#3a3a42" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          <text x={(X[0]! * W).toFixed(1)} y={(yRaw(0) + 11).toFixed(1)} fill="#5b5b62" fontSize="8">PRIOR CLOSE</text>
+          {/* No <text> in this SVG on purpose: it scales with
+              preserveAspectRatio="none", so a label inside it is stretched
+              non-uniformly with the plot. The zero rule is captioned below in
+              HTML instead, where it keeps its own type size and weight. */}
           {seg.map(([a, b]) => {
             const va = pts[a], vb = pts[b];
             if (va === null || vb === null || !isFinite(va) || !isFinite(vb)) return null;
@@ -1854,6 +1865,10 @@ export function ConfirmTimeline({ snap }: { snap: OpeningSnap }) {
             )
           )}
         </svg>
+        <div className="pre-tl-zero">
+          <span>PRIOR CLOSE = 0.00% · ALL FOUR MARKS ARE LEVELS AGAINST IT</span>
+          <span className="faint">{fprice(snap.index?.prevClose ?? null)}</span>
+        </div>
       </div>
       <div className="pre-tl-nodes">
         {node("Forecast", f2(forecast, "%"), "PUBLISHED BEFORE THE BELL")}

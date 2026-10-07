@@ -558,7 +558,7 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
                 return (
                   <g key={i}>
                     <rect x={8 + i * 49} y={108 - h} width={36} height={h} fill={i === vals.length - 1 ? "#ffa028" : "#3a3a42"} rx={2} />
-                    <text x={26 + i * 49} y={119} fontSize={8.5} fill="#5b5b62" textAnchor="middle">{pers[i] ?? ""}</text>
+                    <text x={26 + i * 49} y={119} fontSize={8.5} fill="#8a8a93" textAnchor="middle">{pers[i] ?? ""}</text>
                   </g>
                 );
               })}
@@ -619,7 +619,7 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
               { label: "PROMOTER", value: get(["promoters"]) ?? 0, color: "#ffa028" },
               { label: "FII", value: get(["fiis", "fii"]) ?? 0, color: "#00d664" },
               { label: "DII", value: get(["diis", "dii"]) ?? 0, color: "#8f7bff" },
-              { label: "PUBLIC", value: get(["public"]) ?? 0, color: "#5b5b62" },
+              { label: "PUBLIC", value: get(["public"]) ?? 0, color: "#8a8a93" },
               { label: "GOVT", value: get(["government"]) ?? 0, color: "#00c8ff" },
             ];
             if (parts.some((p) => p.value > 0)) return <Donut slices={parts} />;
@@ -632,7 +632,7 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
             const yp = [
               { label: "INSIDER", value: Math.round(insider * 100) / 100, color: "#ffa028" },
               { label: "INSTIT", value: Math.round(instit * 100) / 100, color: "#00d664" },
-              { label: "PUBLIC+", value: Math.round(other * 100) / 100, color: "#5b5b62" },
+              { label: "PUBLIC+", value: Math.round(other * 100) / 100, color: "#8a8a93" },
             ];
             if (!yp.some((p) => p.value > 0)) return <p className="muted">NO HOLDING SPLIT.</p>;
             return (
@@ -727,7 +727,7 @@ function ComparePanel({ symbol, periods, rev, gp, opI, net, assets, debt, equity
             periods={["REVENUE", "GROSS", "OP INC", "NET"]}
             fmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             series={[
-              { label: yA, color: "#5b5b62", values: [at(rev, iA), at(gp, iA), at(opI, iA), at(net, iA)] },
+              { label: yA, color: "#8a8a93", values: [at(rev, iA), at(gp, iA), at(opI, iA), at(net, iA)] },
               { label: yB, color: "#ffa028", values: [at(rev, iB), at(gp, iB), at(opI, iB), at(net, iB)] },
             ]}
           />
@@ -738,7 +738,7 @@ function ComparePanel({ symbol, periods, rev, gp, opI, net, assets, debt, equity
             periods={["ASSETS", "DEBT", "EQUITY", "OCF"]}
             fmt={(v) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             series={[
-              { label: yA, color: "#5b5b62", values: [at(assets, iA), at(debt, iA), at(equity, iA), at(ocf, iA)] },
+              { label: yA, color: "#8a8a93", values: [at(assets, iA), at(debt, iA), at(equity, iA), at(ocf, iA)] },
               { label: yB, color: "#00d664", values: [at(assets, iB), at(debt, iB), at(equity, iB), at(ocf, iB)] },
             ]}
           />
@@ -2306,7 +2306,7 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
               { label: "PROMOTER", value: get(["promoters"]) ?? 0, color: "#ffa028" },
               { label: "FII", value: get(["fiis", "fii"]) ?? 0, color: "#00d664" },
               { label: "DII", value: get(["diis", "dii"]) ?? 0, color: "#8f7bff" },
-              { label: "PUBLIC", value: get(["public"]) ?? 0, color: "#5b5b62" },
+              { label: "PUBLIC", value: get(["public"]) ?? 0, color: "#8a8a93" },
               { label: "GOVT", value: get(["government"]) ?? 0, color: "#00c8ff" },
             ];
             if (!parts.some((p) => p.value > 0)) return <p className="muted">NO HOLDING SPLIT.</p>;
@@ -2324,7 +2324,7 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
                 { label: "PROM", color: "#ffa028", values: hRow(["promoters"]) },
                 { label: "FII", color: "#00d664", values: hRow(["fiis", "fii"]) },
                 { label: "DII", color: "#8f7bff", values: hRow(["diis", "dii"]) },
-                { label: "PUB", color: "#5b5b62", values: hRow(["public"]) },
+                { label: "PUB", color: "#8a8a93", values: hRow(["public"]) },
               ]}
             />
           ) : (
@@ -2657,7 +2657,7 @@ export function DCFDesk({ symbol }: { symbol: string }) {
                 <div className="panel" style={{ marginTop: 10 }}>
                   <p className="p-head">Fair value vs price</p>
                   <HBars rows={[
-                    { label: "P10", value: mm.mc.p10, display: isFinite(mm.mc.p10) ? `₹${Math.round(mm.mc.p10).toLocaleString("en-IN")}` : "—", color: "#5b5b62" },
+                    { label: "P10", value: mm.mc.p10, display: isFinite(mm.mc.p10) ? `₹${Math.round(mm.mc.p10).toLocaleString("en-IN")}` : "—", color: "#8a8a93" },
                     { label: "P50 FAIR", value: mm.mc.p50, display: isFinite(mm.mc.p50) ? `₹${Math.round(mm.mc.p50).toLocaleString("en-IN")}` : "—", color: "#ffa028" },
                     { label: "MODEL FAIR", value: mm.fv, display: `₹${Math.round(mm.fv).toLocaleString("en-IN")}`, color: "#00d664" },
                     { label: "PRICE", value: price, display: `₹${Math.round(price).toLocaleString("en-IN")}`, color: "#00c8ff" },
@@ -3187,7 +3187,7 @@ export function LinkerDesk({ symbol }: { symbol: string }) {
                       const h = Math.max(2, (Math.abs(v) / tMax) * 88);
                       return <rect key={j} x={gx + j * 22} y={104 - h} width={18} height={h} fill={c} opacity="0.9" rx={1}><title>{t.p} {fmtCr0(v)}</title></rect>;
                     })}
-                    <text x={gx + 31} y={116} fontSize="9" fill="#5b5b62" textAnchor="middle">{t.p}</text>
+                    <text x={gx + 31} y={116} fontSize="9" fill="#8a8a93" textAnchor="middle">{t.p}</text>
                   </g>
                 );
               })}

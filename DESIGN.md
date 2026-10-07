@@ -16,7 +16,10 @@ as instant. Uppercase micro-headers, square panels, tabular numerals everywhere.
 - **Terminal Black** `#030304` — app canvas
 - **Panel** `#0c0c0e` — cards, panels; **Panel 2** `#121214` — raised/hover
 - **Grid** `#26262b` — 1px borders, table rules
-- **Text** `#f5f5f4` — primary; **Sub** `#a1a1aa` — secondary; **Faint** `#5b5b62`
+- **Text** `#f5f5f4` — primary; **Sub** `#a1a1aa` — secondary; **Faint** `#8a8a93` —
+  dimmest text tier. Never below this: it measures 5.7:1 on the panel, so even
+  9px footnotes stay readable. If a label needs to recede, shrink it or drop a
+  tier to `--grid` — do not invent a darker grey.
 - **Amber** `#ffa028` — functions, headers, primary actions, focus rings
 - **Amber Deep** `#b26a00` — hover states, dim accents
 - **Security Yellow** `#ffb000` — ticker symbols (Bloomberg shows securities yellow)

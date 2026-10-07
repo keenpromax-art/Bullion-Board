@@ -481,7 +481,7 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             </div>
           ))}
           {!store.getExplainAI() && (
-            <div style={{ marginTop: 4, fontSize: 10, color: "#5b5b62" }}>
+            <div style={{ marginTop: 4, fontSize: 10, color: "#8a8a93" }}>
               AI OFF — GLOSSARY ONLY
             </div>
           )}
@@ -527,13 +527,13 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             <span style={{ color: "#ffa028", fontWeight: 700, fontSize: 13, flex: 1, letterSpacing: "0.05em" }}>
               ▮ {state.label.toUpperCase()}
             </span>
-            <span style={{ color: "#5b5b62", fontSize: 10 }}>
+            <span style={{ color: "#8a8a93", fontSize: 10 }}>
               {state.source}
             </span>
             <button
               onClick={close}
               style={{
-                background: "none", border: "none", color: "#5b5b62",
+                background: "none", border: "none", color: "#8a8a93",
                 cursor: "pointer", fontSize: 16, padding: "0 4px", lineHeight: 1,
               }}
               aria-label="Close"
@@ -592,14 +592,14 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
 
             {/* Loading state */}
             {state.tier2Loading && !state.tier2 && (
-              <div style={{ fontSize: 12, color: "#5b5b62" }}>
+              <div style={{ fontSize: 12, color: "#8a8a93" }}>
                 LOADING…
               </div>
             )}
 
             {/* No glossary + no AI */}
             {!state.tier1 && !state.tier2 && !state.tier2Loading && (
-              <div style={{ fontSize: 12, color: "#5b5b62" }}>
+              <div style={{ fontSize: 12, color: "#8a8a93" }}>
                 NO GLOSSARY ENTRY — {store.getExplainAI() ? "CLICK FOR AI READ" : "ENABLE AI IN SETTINGS"}
               </div>
             )}
@@ -608,7 +608,7 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
           {/* Footer */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "6px 12px", borderTop: "1px solid #26262b", fontSize: 10, color: "#5b5b62",
+            padding: "6px 12px", borderTop: "1px solid #26262b", fontSize: 10, color: "#8a8a93",
           }}>
             <span>SOURCE: {state.source}</span>
             <span>{state.model?.split("/").pop() ?? "NEMOTRON"}</span>

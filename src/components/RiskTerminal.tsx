@@ -662,7 +662,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
           <LineChart dates={rdates} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[
             { label: "B30", color: "#00c8ff", values: b30 },
             { label: "B90", color: "#ffa028", values: b90 },
-            { label: "B252", color: "#5b5b62", values: b252 },
+            { label: "B252", color: "#8a8a93", values: b252 },
           ]} />
         </div>
         <div style={{ marginTop: 10 }}>
@@ -710,7 +710,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
           </div>
           <div><p className="p-head">Realized vs implied term</p>
             <HBars rows={[
-              { label: "HV10", value: hvNow.h10, display: `${hvNow.h10.toFixed(1)}%`, color: "#5b5b62" },
+              { label: "HV10", value: hvNow.h10, display: `${hvNow.h10.toFixed(1)}%`, color: "#8a8a93" },
               { label: "HV30", value: hvNow.h30, display: `${hvNow.h30.toFixed(1)}%`, color: "#00c8ff" },
               { label: "HV90", value: hvNow.h90, display: `${hvNow.h90.toFixed(1)}%`, color: "#00d664" },
               ...(chain ? [{ label: `IV ${chain.expiry}`, value: (() => { const a = chain.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain.underlying) < Math.abs(x.strike - chain.underlying) ? y : x), chain.rows[0]); return (a.ceIV || a.peIV || 0) as number; })(), display: `${(() => { const a = chain.rows.reduce((x: any, y: any) => (Math.abs(y.strike - chain.underlying) < Math.abs(x.strike - chain.underlying) ? y : x), chain.rows[0]); return (a.ceIV || a.peIV || 0) as number; })().toFixed(1)}%`, color: "#ffa028" }] : []),

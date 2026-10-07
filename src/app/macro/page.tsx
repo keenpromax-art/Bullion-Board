@@ -516,8 +516,8 @@ function EcfcForecasts() {
                 </text>
               </g>
             )}
-            <text x="4" y={H - 4} fontSize="9" fill="#5b5b62">{allX[0]}</text>
-            <text x={W - 4} y={H - 4} fontSize="9" fill="#5b5b62" textAnchor="end">{allX[allX.length - 1]}F</text>
+            <text x="4" y={H - 4} fontSize="9" fill="#8a8a93">{allX[0]}</text>
+            <text x={W - 4} y={H - 4} fontSize="9" fill="#8a8a93" textAnchor="end">{allX[allX.length - 1]}F</text>
           </svg>
         </div>
       )}

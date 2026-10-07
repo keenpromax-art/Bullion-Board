@@ -98,7 +98,7 @@ function Quad({ rows, hot }: { rows: SectorRow[]; hot: string }) {
   const X = (v: number) => ((v - loX) / (hiX - loX || 1)) * (W - 16) + 8;
   const Y = (v: number) => H - 14 - ((v - loY) / (hiY - loY || 1)) * (H - 28);
   const q = (x: number, y: number, t: string) => (
-    <text x={x} y={y} fontSize="10" fill="#5b5b62" textAnchor="middle" fontWeight="700">{t}</text>
+    <text x={x} y={y} fontSize="10" fill="#8a8a93" textAnchor="middle" fontWeight="700">{t}</text>
   );
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block" }}>

@@ -1056,8 +1056,8 @@ export function DayDesk({ symbol }: { symbol: string }) {
             series={[
               { label: "CLOSE", color: "#ffb000", values: closes },
               { label: "VWAP", color: "#ffa028", values: vwapS },
-              { label: "+1σ", color: "#5b5b62", values: up1, dashed: true },
-              { label: "−1σ", color: "#5b5b62", values: lo1, dashed: true },
+              { label: "+1σ", color: "#8a8a93", values: up1, dashed: true },
+              { label: "−1σ", color: "#8a8a93", values: lo1, dashed: true },
               { label: "IBH", color: "#00d664", values: closes.map(() => ibH), dashed: true },
               { label: "IBL", color: "#ff453a", values: closes.map(() => ibL), dashed: true },
             ]}
@@ -1472,8 +1472,8 @@ export function ForecastDesk({ symbol }: { symbol: string }) {
           <polyline points={line(mrS, HIST - 1)} fill="none" stroke="#8f7bff" strokeWidth="1.2" strokeDasharray="5 3" />
           <circle cx={X(HIST + H - 1)} cy={Y(ens.tgt)} r="3.5" fill="#00d664" />
           <text x={Math.min(X(HIST + H - 1) - 4, W - 120)} y={Math.max(Y(ens.tgt) - 8, 12)} fontSize="11" fill="#00d664" fontWeight="700" textAnchor="end">{inr(ens.tgt)}</text>
-          <text x="4" y={Hh - 4} fontSize="9" fill="#5b5b62">{eng.dates[eng.dates.length - HIST] ?? ""}</text>
-          <text x={W - 4} y={Hh - 4} fontSize="9" fill="#5b5b62" textAnchor="end">T+{H}</text>
+          <text x="4" y={Hh - 4} fontSize="9" fill="#8a8a93">{eng.dates[eng.dates.length - HIST] ?? ""}</text>
+          <text x={W - 4} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="end">T+{H}</text>
         </svg>
       </div>
       <div className="panel">
@@ -1891,8 +1891,8 @@ export function ArimaLstmDesk({ symbol }: { symbol: string }) {
           <polyline points={line(driftLine, HIST - 1)} fill="none" stroke="#a1a1aa" strokeWidth="1.2" strokeDasharray="5 3" />
           <circle cx={X(HIST + H - 1)} cy={Y(ens.tgt)} r="3.5" fill="#00d664" />
           <text x={Math.min(X(HIST + H - 1) - 4, W - 120)} y={Math.max(Y(ens.tgt) - 8, 12)} fontSize="11" fill="#00d664" fontWeight="700" textAnchor="end">{inr(ens.tgt)}</text>
-          <text x="4" y={Hh - 4} fontSize="9" fill="#5b5b62">{eng.dates[eng.dates.length - HIST] ?? ""}</text>
-          <text x={W - 4} y={Hh - 4} fontSize="9" fill="#5b5b62" textAnchor="end">T+{H}</text>
+          <text x="4" y={Hh - 4} fontSize="9" fill="#8a8a93">{eng.dates[eng.dates.length - HIST] ?? ""}</text>
+          <text x={W - 4} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="end">T+{H}</text>
         </svg>
       </div>
       <div className="panel">
@@ -2096,7 +2096,7 @@ export function VolFrameworkDesk({ symbol }: { symbol: string }) {
             <g key={t.w}>
               <circle cx={TX(i)} cy={TY(t.v)} r="3" fill="#ffa028" />
               <text x={TX(i)} y={TY(t.v) - 8} fontSize="10" fill="#f5f5f4" textAnchor="middle">{t.v.toFixed(1)}</text>
-              <text x={TX(i)} y={Hh - 4} fontSize="9" fill="#5b5b62" textAnchor="middle">{t.w}D</text>
+              <text x={TX(i)} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="middle">{t.w}D</text>
             </g>
           ))}
           <line x1="0" x2={W} y1={TY(eng.ewNow)} y2={TY(eng.ewNow)} stroke="#00c8ff" strokeWidth="1" strokeDasharray="5 3" />
@@ -2351,9 +2351,9 @@ export function GarchDesk({ symbol }: { symbol: string }) {
           <line x1="0" x2={W} y1={CY(eng.uncond)} y2={CY(eng.uncond)} stroke="#5b5b62" strokeWidth="1" strokeDasharray="5 3" />
           <polyline points={tail.map((vv, i) => `${CX(i).toFixed(1)},${CY(vv).toFixed(1)}`).join(" ")} fill="none" stroke="#ffa028" strokeWidth="1.6" />
           <circle cx={W - 4} cy={CY(eng.condNow)} r="3" fill={eng.regime === "ELEVATED" ? "#ff453a" : eng.regime === "DEPRESSED" ? "#00d664" : "#ffa028"} />
-          <text x={W - 8} y={CY(eng.uncond) - 5} fontSize="10" fill="#5b5b62" textAnchor="end">UNCOND {eng.uncond.toFixed(1)}</text>
-          <text x="4" y={Hh - 4} fontSize="9" fill="#5b5b62">-1Y</text>
-          <text x={W - 4} y={Hh - 4} fontSize="9" fill="#5b5b62" textAnchor="end">NOW {eng.condNow.toFixed(1)}</text>
+          <text x={W - 8} y={CY(eng.uncond) - 5} fontSize="10" fill="#8a8a93" textAnchor="end">UNCOND {eng.uncond.toFixed(1)}</text>
+          <text x="4" y={Hh - 4} fontSize="9" fill="#8a8a93">-1Y</text>
+          <text x={W - 4} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="end">NOW {eng.condNow.toFixed(1)}</text>
         </svg>
       </div>
       <div className="duo">
@@ -2366,7 +2366,7 @@ export function GarchDesk({ symbol }: { symbol: string }) {
               <g key={f.k}>
                 <circle cx={FX(i)} cy={FY(f.v)} r="3" fill="#00c8ff" />
                 <text x={FX(i)} y={FY(f.v) - 8} fontSize="10" fill="#f5f5f4" textAnchor="middle">{f.v.toFixed(1)}</text>
-                <text x={FX(i)} y={Hh - 4} fontSize="9" fill="#5b5b62" textAnchor="middle">{f.k}D</text>
+                <text x={FX(i)} y={Hh - 4} fontSize="9" fill="#8a8a93" textAnchor="middle">{f.k}D</text>
               </g>
             ))}
           </svg>
@@ -2785,8 +2785,8 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
           dates={calc.d90} xLabels={short(calc.d90)} yFmt={(v) => `₹${v.toFixed(0)}`}
           series={[
             { label: "CLOSE", color: "#ffb000", values: calc.c90 },
-            { label: "UPPER", color: "#5b5b62", values: calc.up90, dashed: true },
-            { label: "LOWER", color: "#5b5b62", values: calc.lo90, dashed: true },
+            { label: "UPPER", color: "#8a8a93", values: calc.up90, dashed: true },
+            { label: "LOWER", color: "#8a8a93", values: calc.lo90, dashed: true },
           ]}
         />
         <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>BANDS = SMA20 ± ATR14 · A CLOSE OUTSIDE A BAND IS A 1-DAY ±1SD EVENT.</p>
@@ -2801,7 +2801,7 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
               series={[
                 { label: "BETA20", color: "#ffa028", values: calc.beta20 },
                 { label: "CORR20", color: "#00c8ff", values: calc.corr20 },
-                { label: "PAR 1.0", color: "#5b5b62", values: calc.oneLine, dashed: true },
+                { label: "PAR 1.0", color: "#8a8a93", values: calc.oneLine, dashed: true },
               ]}
             />
           ) : <p className="muted">NIFTY TAPE UNAVAILABLE — BETA SERIES OFF.</p>}
@@ -3035,14 +3035,14 @@ export function RollingRiskDesk({ symbol }: { symbol: string }) {
           <LineChart dates={rdates} xLabels={x3} yFmt={(v) => `${v.toFixed(1)}%`} series={[
             { label: "HV21", color: "#00c8ff", values: vol21 },
             { label: "HV63", color: "#ffa028", values: vol63 },
-            { label: "HV126", color: "#5b5b62", values: vol126 },
+            { label: "HV126", color: "#8a8a93", values: vol126 },
           ]} />
         </div>
         <div className="panel">
           <p className="p-head">Risk-adjusted — rolling Sharpe/Sortino</p>
           <LineChart dates={rdates} xLabels={x3} yFmt={(v) => v.toFixed(2)} series={[
             { label: "SH63", color: "#ffa028", values: sh63 },
-            { label: "SH126", color: "#5b5b62", values: sh126 },
+            { label: "SH126", color: "#8a8a93", values: sh126 },
             { label: "SO63", color: "#00d664", values: so63 },
           ]} />
           <p className="faint" style={{ fontSize: 11 }}>GUIDES: +1 GOOD · 0 BREAK-EVEN · RF 6.5%.</p>

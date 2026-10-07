@@ -1088,7 +1088,7 @@ function CompanyChart({ symbol }: { symbol: string }) {
       <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
         <span style={{ color: "#ffb000" }}>— PX</span>{"  "}
         <span style={{ color: "#a1a1aa" }}>— MA50</span>{"  "}
-        <span style={{ color: "#5b5b62" }}>┄ MA200</span>{"  "}
+        <span style={{ color: "#8a8a93" }}>┄ MA200</span>{"  "}
         <span className="faint">· {bars[0]?.date} → {bars[bars.length - 1]?.date}</span>
       </div>
     </div>
@@ -1346,7 +1346,7 @@ export function CompanyDesk({ symbol }: { symbol: string }) {
                   <Donut slices={[
                     { label: "PROMOTER", value: hh.insider * 100, color: "#ffa028" },
                     { label: "INSTIT", value: hh.instit * 100, color: "#00d664" },
-                    { label: "PUBLIC/OTHER", value: Math.max(0, 100 - hh.insider * 100 - hh.instit * 100), color: "#5b5b62" },
+                    { label: "PUBLIC/OTHER", value: Math.max(0, 100 - hh.insider * 100 - hh.instit * 100), color: "#8a8a93" },
                   ]} />
                 </div>
               )}

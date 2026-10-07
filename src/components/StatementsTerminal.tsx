@@ -819,7 +819,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
                     { label: "PROM", color: "#ffa028", values: findVals(st.sh, ["promoters"]) ?? [] },
                     { label: "FII", color: "#00d664", values: findVals(st.sh, ["fiis", "fii"]) ?? [] },
                     { label: "DII", color: "#8f7bff", values: findVals(st.sh, ["diis", "dii"]) ?? [] },
-                    { label: "PUB", color: "#5b5b62", values: findVals(st.sh, ["public"]) ?? [] },
+                    { label: "PUB", color: "#8a8a93", values: findVals(st.sh, ["public"]) ?? [] },
                   ]}
                 />
               ) : <p className="muted">NO HOLDING SERIES.</p>}

@@ -46,7 +46,7 @@
 .pre-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); display: inline-block; flex: 0 0 auto; }
 .pre-dot.open { background: var(--green); box-shadow: 0 0 7px var(--green); }
 .pre-dot.pre { background: var(--amber); box-shadow: 0 0 7px var(--amber); }
-.pre-dot.closed { background: #5b5b62; }
+.pre-dot.closed { background: var(--faint); }
 .pre-dot.weekend { background: #3a3a42; }
 .pre-mast-right { display: grid; gap: 8px; justify-items: end; text-align: right; }
 .pre-mast-call { display: grid; gap: 2px; min-width: 236px; border-left: 2px solid var(--grid); padding-left: 12px; }
@@ -306,6 +306,10 @@
 /* ---------- confirm timeline ---------- */
 .pre-tl { display: grid; gap: 10px; }
 .pre-tl-track svg { display: block; width: 100%; height: 46px; }
+/* The zero rule's caption lives OUTSIDE the SVG, which stretches with
+   preserveAspectRatio="none". Inside, an 8px label is scaled with the plot and
+   renders smeared; in HTML it keeps its own size and stays legible. */
+.pre-tl-zero { display: flex; justify-content: space-between; gap: 10px; font-size: 9.5px; letter-spacing: 0.08em; color: var(--sub); text-transform: uppercase; margin-top: 3px; font-variant-numeric: tabular-nums; }
 /* The four nodes sit UNDER their marks on the track, so they read as one
    instrument instead of a chart above a table. Each cell names the mark it
    belongs to. */
@@ -324,24 +328,38 @@
    stretched to fill its cell. */
 .pre-track-chart { display: grid; gap: 4px; }
 .pre-track-chart svg { display: block; width: 100%; height: 168px; }
-.pre-track-ax { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; letter-spacing: 0.08em; color: var(--faint); text-transform: uppercase; }
-.pre-track-ax .pos { color: var(--text); }
-.pre-track-ax .amber { color: var(--amber); }
+/* The axis labels name what the two line styles mean, so they carry --sub
+   rather than --faint: a legend you cannot read is not a legend. */
+.pre-track-ax { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 9.5px; letter-spacing: 0.08em; color: var(--sub); text-transform: uppercase; }
+.pre-track-ax b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pre-track-ax .pos { color: var(--text); font-weight: 600; }
+.pre-track-ax .amber { color: var(--amber); font-weight: 600; }
 .pre-track-foot { display: grid; gap: 6px; }
 
 .pre-tn-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 .pre-tn { background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; padding: 7px 8px 8px; display: grid; gap: 3px; align-content: start; min-width: 0; }
 .pre-tn.close { border-color: rgba(255, 160, 40, 0.55); background: rgba(255, 160, 40, 0.07); }
-.pre-tn.dead { border-style: dashed; opacity: 0.62; }
-.pre-tn-t { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--amber); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 5px; }
-.pre-tn-t em { font-style: normal; font-size: 9px; font-weight: 400; letter-spacing: 0.06em; color: var(--faint); }
+/* A mark past the bell recedes by DASHED BORDER and a dimmed label — never by
+   `opacity` on the whole card, which multiplies into the text colour and drops
+   a 10px line to roughly 2:1 against the panel. That is how a dash ends up
+   looking like a rendering fault instead of an honest "no mark here". */
+.pre-tn.dead { border-style: dashed; }
+.pre-tn.dead .pre-tn-t { color: var(--sub); font-weight: 600; }
+.pre-tn.dead .pre-tn-v { color: var(--faint); font-size: 13px; }
+.pre-tn.dead .pre-tn-s { color: var(--faint); }
+.pre-tn-t { font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; color: var(--amber); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 5px; }
+.pre-tn-t em { font-style: normal; font-size: 9.5px; font-weight: 400; letter-spacing: 0.06em; color: var(--faint); }
 /* tabular-nums everywhere, and the level never wraps: a wrapped index level is
-   read as two numbers. */
-.pre-tn-v { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; white-space: nowrap; }
-.pre-tn-s { font-size: 9px; color: var(--faint); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
-.pre-tn-s b { color: var(--sub); font-weight: 600; }
+   read as two numbers. 16px matches the confirm timeline's node value so the
+   two instruments do not disagree about how big a number is. */
+.pre-tn-v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; white-space: nowrap; color: var(--text); }
+/* The mark's move-vs-prior line is DATA, not chrome, so it takes --sub. */
+.pre-tn-s { font-size: 10px; color: var(--sub); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.pre-tn-s b { color: var(--text); font-weight: 600; }
+/* The band bar sits on pure black so the amber fan reads as light on dark; it
+   is the one element in the card that legitimately sits below the panel. */
 .pre-tn-bar { position: relative; display: block; height: 8px; background: #000; border: 1px solid var(--grid); border-radius: 1px; margin: 2px 0; }
-.pre-tn-bar i { position: absolute; top: 0; bottom: 0; background: rgba(255, 160, 40, 0.26); }
+.pre-tn-bar i { position: absolute; top: 0; bottom: 0; background: rgba(255, 160, 40, 0.3); }
 .pre-tn-bar b { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--amber); }
 
 @media (max-width: 1180px) { .pre-tn-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

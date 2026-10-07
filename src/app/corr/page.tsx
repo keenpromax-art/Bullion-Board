@@ -96,8 +96,8 @@ export default function CorrPage() {
     stats?.min && ((stats.min.a === a && stats.min.b === b) || (stats.min.a === b && stats.min.b === a));
 
   function cellStyle(v: number | null, i: number, j: number, a: string, b: string): React.CSSProperties {
-    if (v === null) return { background: "transparent", color: "#5b5b62" };
-    if (i === j) return { background: "rgba(161,161,170,0.08)", color: "#5b5b62" };
+    if (v === null) return { background: "transparent", color: "#8a8a93" };
+    if (i === j) return { background: "rgba(161,161,170,0.08)", color: "#8a8a93" };
     const alpha = Math.min(0.55, 0.08 + Math.abs(v) * 0.45);
     const bg = v >= 0 ? `rgba(0,214,100,${alpha})` : `rgba(255,69,58,${alpha})`;
     const style: React.CSSProperties = { background: bg, color: "#f5f5f4" };

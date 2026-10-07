@@ -467,7 +467,7 @@ export default function OChainPage() {
                   <g key={r.strike}>
                     <rect x={i * bw + 1} y={70 - hc} width={bw / 2 - 1} height={hc} fill={atm ? "#ffa028" : "#ff453a"} opacity="0.85" />
                     <rect x={i * bw + bw / 2} y={70} width={bw / 2 - 1} height={hp} fill={atm ? "#ffd28f" : "#00d664"} opacity="0.85" />
-                    {i % 4 === 0 && <text x={i * bw} y={146} fontSize="9" fill="#5b5b62">{r.strike >= 1000 ? `${(r.strike / 1000).toFixed(1)}k` : r.strike}</text>}
+                    {i % 4 === 0 && <text x={i * bw} y={146} fontSize="9" fill="#8a8a93">{r.strike >= 1000 ? `${(r.strike / 1000).toFixed(1)}k` : r.strike}</text>}
                   </g>
                 );
               })}
@@ -688,7 +688,7 @@ export default function OChainPage() {
               <p className="p-head">Signal accuracy — {Math.round(acc.hitRate * 1000) / 10}% over {acc.n} calls</p>
               <HBars rows={[
                 { label: "HIT RATE", value: Math.round(acc.hitRate * 1000) / 10, display: `${Math.round(acc.hitRate * 1000) / 10}%`, color: "#00d664" },
-                { label: "SCORED", value: acc.n, display: String(acc.n), color: "#5b5b62" },
+                { label: "SCORED", value: acc.n, display: String(acc.n), color: "#8a8a93" },
               ]} />
               <table className="plain" style={{ marginTop: 8 }}>
                 <thead><tr><th>TIME</th><th style={{ textAlign: "right" }}>SCORE</th><th>PRED</th><th>ACT</th><th style={{ textAlign: "right" }}>HIT?</th></tr></thead>

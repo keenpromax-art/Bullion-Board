@@ -441,7 +441,7 @@ export function ExtraPanels({ bars }: { bars: Bars[] }) {
       case "ema":
         return <div className="panel" key={id}>{head("EMA 9·21 TREND")}<LineChart series={[{ label: "CLOSE", color: "#ffb000", values: closes }, { label: "EMA9", color: "#00d664", values: D.ema9 }, { label: "EMA21", color: "#8f7bff", values: D.ema21 }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
       case "donch":
-        return <div className="panel" key={id}>{head("DONCHIAN 20 CHANNEL")}<LineChart series={[{ label: "CLOSE", color: "#ffb000", values: closes }, { label: "UPPER", color: "#5b5b62", values: D.donch.upper, dashed: true }, { label: "LOWER", color: "#5b5b62", values: D.donch.lower, dashed: true }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
+        return <div className="panel" key={id}>{head("DONCHIAN 20 CHANNEL")}<LineChart series={[{ label: "CLOSE", color: "#ffb000", values: closes }, { label: "UPPER", color: "#8a8a93", values: D.donch.upper, dashed: true }, { label: "LOWER", color: "#8a8a93", values: D.donch.lower, dashed: true }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
       case "vwap":
         return <div className="panel" key={id}>{head("VWAP ANCHORED")}<LineChart series={[{ label: "CLOSE", color: "#ffb000", values: closes }, { label: "VWAP", color: "#ffa028", values: D.vwap, dashed: true }]} height={110} yFmt={f1} dates={dates} xLabels={x3} /></div>;
       default:
@@ -997,7 +997,7 @@ export function FrontierPanel({ symbols, title }: { symbols: string[]; title: st
           {env.length > 1 && (
             <polyline points={env.map((e) => `${px(e.vol).toFixed(1)},${py(e.ret).toFixed(1)}`).join(" ")} fill="none" stroke="#ffa028" strokeWidth="1.6" opacity="0.85" />
           )}
-          {pts.map((p, i) => <circle key={i} cx={px(p.vol)} cy={py(p.ret)} r="3.5" fill="#5b5b62" opacity="0.6"><title>VOL {p.vol.toFixed(1)}% · RET {p.ret.toFixed(1)}%</title></circle>)}
+          {pts.map((p, i) => <circle key={i} cx={px(p.vol)} cy={py(p.ret)} r="3.5" fill="#8a8a93" opacity="0.6"><title>VOL {p.vol.toFixed(1)}% · RET {p.ret.toFixed(1)}%</title></circle>)}
           {assets.map((a) => <g key={a.s}><circle cx={px(a.vol)} cy={py(a.ret)} r="4" fill={isBench(a.s) ? "#a1a1aa" : "#ffb000"}><title>{a.s} · VOL {a.vol.toFixed(1)}% · RET {a.ret.toFixed(1)}%</title></circle><text x={px(a.vol) + lblDx(a.vol)} y={py(a.ret) + 4} fontSize="10" fill={isBench(a.s) ? "#a1a1aa" : "#ffb000"} textAnchor={lblX(a.vol)}>{a.s.replace(".NS", "")}</text></g>)}
           <circle cx={px(minV.vol)} cy={py(minV.ret)} r="5" fill="none" stroke="#00d664" strokeWidth="2"><title>MIN VOL · VOL {minV.vol.toFixed(1)}% · RET {minV.ret.toFixed(1)}%</title></circle>
           <circle cx={px(best.vol)} cy={py(best.ret)} r="5" fill="#ffa028"><title>MAX SHARPE {best.sh.toFixed(2)} · VOL {best.vol.toFixed(1)}% · RET {best.ret.toFixed(1)}%</title></circle>
