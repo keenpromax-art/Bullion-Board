@@ -777,7 +777,7 @@ pre.term { white-space: pre-wrap; font-size: 12px; margin: 0; color: var(--sub);
 pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: var(--track); border: 1px solid var(--grid); border-radius: 3px; padding: 12px; }
 
 /* legacy .nav/.logo aliases kept for simple pages */
-.nav { display: flex; gap: 10px; align-items: center; padding: 8px 14px; background: var(--bg); border-bottom: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); position: sticky; top: 0; z-index: 20; }
+.nav { display: flex; gap: 10px; align-items: center; padding: 8px 14px; background: var(--chrome); border-bottom: 1px solid var(--amber-line); position: sticky; top: 0; z-index: 20; }
 .nav .logo { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--text); font-size: 13px; }
 .nav .logo:hover { text-decoration: none; }
 .nav .logo-mark { color: var(--amber); }

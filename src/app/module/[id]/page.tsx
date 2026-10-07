@@ -166,7 +166,7 @@ function Inner({ id }: { id: string }) {
           <iframe
             src={NEXUS_CHAT_URL}
             title="Nexus Chat — CFA study app"
-            style={{ width: "100%", height: "calc(100dvh - 260px)", minHeight: 480, border: "1px solid var(--grid)", borderRadius: 3, background: "#000" }}
+            style={{ width: "100%", height: "calc(100dvh - 260px)", minHeight: 480, border: "1px solid var(--grid)", borderRadius: 3, background: "var(--track)" }}
             allow="clipboard-read; clipboard-write; fullscreen"
             allowFullScreen
             loading="lazy"
@@ -199,7 +199,7 @@ function Inner({ id }: { id: string }) {
           <iframe
             src="/macro"
             title="Global Macro Dashboard"
-            style={{ width: "100%", height: "calc(100dvh - 260px)", minHeight: 480, border: "1px solid var(--grid)", borderRadius: 3, background: "#000" }}
+            style={{ width: "100%", height: "calc(100dvh - 260px)", minHeight: 480, border: "1px solid var(--grid)", borderRadius: 3, background: "var(--track)" }}
             loading="lazy"
           />
         </div>
