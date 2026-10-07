@@ -97,7 +97,7 @@ export default function CorrPage() {
 
   function cellStyle(v: number | null, i: number, j: number, a: string, b: string): React.CSSProperties {
     if (v === null) return { background: "transparent", color: "var(--faint)" };
-    if (i === j) return { background: "rgba(161,161,170,0.08)", color: "var(--faint)" };
+    if (i === j) return { background: "color-mix(in srgb, var(--sub) 12%, transparent)", color: "var(--faint)" };
     const alpha = Math.min(0.55, 0.08 + Math.abs(v) * 0.45);
     // The tint is intensity-proportional, so it has to stay a runtime value — but
   // it reads the DIRECTIONAL TOKENS rather than the dark-mode literals, so the

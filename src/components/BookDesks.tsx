@@ -381,7 +381,7 @@ export function BookReader() {
           </div>
           {status && <p className="muted">{status}</p>}
           {err && <p className="neg">READER ERR: {err}</p>}
-          <div ref={wrapRef} style={{ marginTop: 8, background: "#000", border: "1px solid var(--grid)", borderRadius: 3, overflow: "hidden" }}>
+          <div ref={wrapRef} style={{ marginTop: 8, background: "var(--track)", border: "1px solid var(--track)", borderRadius: 3, overflow: "hidden" }}>
             <canvas ref={canvasRef} style={{ width: "100%", height: "auto", display: "block" }} />
           </div>
           <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>←/→ PAGES · +/− ZOOM · PAGE AUTOSAVES PER BOOK</p>

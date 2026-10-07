@@ -47,7 +47,7 @@ export default function InstallPrompt() {
         border: "1px solid var(--dx-amber)",
         borderRadius: 3,
         padding: "12px 12px 10px",
-        boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
+        boxShadow: "var(--shadow-lg)",
       }}
       role="dialog"
       aria-label="Install Bullion Droid"

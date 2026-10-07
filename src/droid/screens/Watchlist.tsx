@@ -176,7 +176,11 @@ export default function Watchlist() {
                 {
                   key: "news",
                   label: "NEWS",
-                  color: "var(--grid)",
+                  /* A neutral action wants a NEUTRAL fill. This was --grid, which
+                     is a hairline colour: white ink on #d3d7e0 in light mode
+                     measured 1.5:1 and the button rendered as a blank gap in the
+                     swipe rail. --sub carries an ink that clears AA either way. */
+                  color: "var(--sub)",
                   onClick: () => router.push(`/s/${encodeURIComponent(sym)}?tab=news`),
                 },
                 { key: "alert", label: "ALERT", color: "var(--amber-deep)", onClick: () => setAlertFor(sym) },

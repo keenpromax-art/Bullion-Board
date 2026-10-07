@@ -669,7 +669,7 @@ export function MarketDesk() {
                 {" · "}<span className={above ? "pos" : "neg"} title="VS 20D AVG">{above ? "▲" : "▼"}20D</span>
               </div>
               {isFinite(rng) && (
-                <div style={{ height: 3, background: "rgba(0,0,0,0.45)", borderRadius: 2, marginTop: 4, position: "relative" }} title={`1MO RANGE ${isFinite(rng) ? rng.toFixed(0) + "% UP" : ""}`}>
+                <div style={{ height: 3, background: "var(--track)", borderRadius: 2, marginTop: 4, position: "relative" }} title={`1MO RANGE ${isFinite(rng) ? rng.toFixed(0) + "% UP" : ""}`}>
                   <div style={{ position: "absolute", left: `calc(${rng.toFixed(1)}% - 1px)`, top: -1.5, width: 2, height: 6, background: "var(--text)", borderRadius: 1 }} />
                 </div>
               )}

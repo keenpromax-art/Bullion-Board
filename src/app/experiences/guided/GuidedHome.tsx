@@ -46,9 +46,14 @@ function heatStyle(chg: number | null): React.CSSProperties {
   const t = Math.min(1, Math.abs(chg) / 1.4);
   const base = chg >= 0 ? "var(--g-heat-up)" : "var(--g-heat-down)";
   // Mixed solid over the canvas: no CSS gradients anywhere in this product.
+  // The INK is --g-text in both themes, never a hardcoded white. A fixed #fff
+  // was correct on dark and invisible on light: at the 31% mix this threshold
+  // sits at, the light cell is #b0e2cc and white type on it measures 1.5:1.
+  // --g-text is pale on a dark-tinted cell and near-black on a pale one, which
+  // is the right answer on both sides of the mix without a second threshold.
   return {
     background: `color-mix(in srgb, ${base} ${Math.round(14 + t * 40)}%, var(--g-surface))`,
-    color: t > 0.42 ? (chg >= 0 ? "#fff" : "#fff") : "var(--g-text)",
+    color: "var(--g-text)",
   };
 }
 

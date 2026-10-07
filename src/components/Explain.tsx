@@ -437,7 +437,7 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             color: "var(--amber)",
             cursor: "pointer",
             whiteSpace: "nowrap",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
+            boxShadow: "var(--shadow)",
             letterSpacing: "0.06em",
           }}
           onMouseDown={(e) => {
@@ -471,7 +471,7 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             borderRadius: 3, padding: "8px 10px",
             fontFamily: "var(--mono)", fontSize: 11.5, lineHeight: 1.55,
             color: "var(--sub)", pointerEvents: "none",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
+            boxShadow: "var(--shadow-lg)",
           }}
         >
           {tip1Sections.map((s, i) => (
@@ -503,7 +503,7 @@ export function ExplainProvider({ children }: { children: React.ReactNode }) {
             border: "1px solid var(--amber)",
             borderRadius: 3,
             fontFamily: "var(--mono)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+            boxShadow: "var(--shadow-lg)",
             ...(isMobile ? { borderTop: "2px solid var(--amber)" } : {}),
           }}
           onClick={(e) => e.stopPropagation()}

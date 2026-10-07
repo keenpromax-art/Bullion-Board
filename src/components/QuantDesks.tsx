@@ -720,7 +720,7 @@ export function MertonDesk({ symbol }: { symbol: string }) {
       <div className="panel">
         <p className="p-head">Fan — Merton vs GBM · {horizon}D · amber paths = jumps · grey band = GBM P5–P95 · P50 {inr(model.mStats.p50)}</p>
         <svg viewBox={`0 0 ${W} ${Hh}`} style={{ width: "100%", display: "block" }} preserveAspectRatio="none">
-          <polygon points={gPoly} fill="rgba(161,161,170,0.16)" />
+          <polygon points={gPoly} fill="color-mix(in srgb, var(--sub) 16%, transparent)" />
           <polyline points={line(model.gBand.p50, HISTN - 1)} fill="none" stroke="var(--sub)" strokeWidth="1.2" strokeDasharray="5 3" />
           {model.mjShow.map((p, i) => (
             <polyline key={i} points={line(p.filter((_, d) => d % 3 === 0), HISTN - 1)} fill="none" stroke="var(--amber)" strokeWidth="1" opacity="0.25" />
@@ -2551,7 +2551,7 @@ export function AdvGreeksDesk({ symbol }: { symbol: string }) {
               {eng.rows.map(({ K, g }) => {
                 const isATM = K === eng.atm, is40 = K === eng.d40;
                 return (
-                  <tr key={K} className={isATM ? "active" : undefined} style={is40 && !isATM ? { background: "rgba(0,200,255,0.06)" } : undefined}>
+                  <tr key={K} className={isATM ? "active" : undefined} style={is40 && !isATM ? { background: "color-mix(in srgb, var(--cyan) 12%, transparent)" } : undefined}>
                     <td><strong className={isATM ? "sec" : ""}>{inr(K)}{isATM ? " ●" : ""}{is40 ? " Δ40" : ""}</strong></td>
                     <td style={{ textAlign: "right" }}>{f2(g!.price)}</td>
                     <td style={{ textAlign: "right" }}>{f2(g!.delta)}</td>

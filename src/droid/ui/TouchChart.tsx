@@ -270,7 +270,7 @@ export default function TouchChart({
             x2={W}
             y1={g.y(last.close)}
             y2={g.y(last.close)}
-            stroke="rgba(255,176,0,0.55)"
+            stroke="color-mix(in srgb, var(--dx-sec) 55%, transparent)"
             strokeDasharray="3 3"
             strokeWidth={1}
           />

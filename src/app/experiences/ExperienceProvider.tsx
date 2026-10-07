@@ -163,11 +163,12 @@ export function ExperienceProvider({ children }: { children: ReactNode }) {
     document.documentElement.dataset.exp = experience;
     document.documentElement.dataset.theme = resolved;
     // The browser chrome should follow the resolved theme. These two values are
-    // the terminal's own --bg, and they MUST match the boot script in layout.tsx
-    // or the status-bar tint changes on hydration — which is the one frame the
-    // reader sees the flash we worked to remove.
+    // the terminal's own canvas and CHROME BAND (--bg on dark, --chrome on
+    // light), and they MUST match the boot script in layout.tsx or the
+    // status-bar tint changes on hydration — which is the one frame the reader
+    // sees the flash we worked to remove.
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", resolved === "dark" ? "#030304" : "#e9e9e6");
+    if (meta) meta.setAttribute("content", resolved === "dark" ? "#030304" : "#dfe3ea");
   }, [experience, resolved]);
 
   const value = useMemo<ExperienceCtx>(

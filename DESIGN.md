@@ -25,14 +25,33 @@ as instant. Uppercase micro-headers, square panels, tabular numerals everywhere.
 - **Security Yellow** `#ffb000` — ticker symbols (Bloomberg shows securities yellow)
 - **Up Green** `#00d664` — advances, bullish (▲)
 - **Down Red** `#ff453a` — declines, bearish (▼)
-- Links in body copy: amber. Red/green strictly directional.
+- Links in body copy: amber (`--link`). Red/green strictly directional.
 - **Light theme** re-keys the SAME tokens; no rule may read a raw hex for chrome.
   `:root[data-theme="light"]` in globals.css is the entire list. Dark stays the
-  default — this is a terminal. Amber moves furthest in hue
-  (`#ffa028 → #9a5600`) because it is the signature and has to stay recognisably
-  amber instead of becoming brown. Every light value is measured against BOTH
-  `--panel` and `--bg`, because `--bg` is darker than `--panel` and a colour that
-  clears AA on a card while failing on the canvas has not cleared it.
+  default — this is a terminal. Three decisions make it an instrument rather
+  than a document:
+  1. **The accent is split in two.** A colour cannot be a 4.5:1 text colour on
+     white *and* a fill that takes black ink — those land on opposite sides of
+     the same luminance. `--amber` is the TEXT tier (`#9c4a08`, a burnt orange,
+     deliberately NOT the brown a naive darken produces); `--amber-hi` stays
+     `#ffa028` for solid fills with `#24160a` ink at 8.6:1. Same split for
+     security-yellow (`--sec` / `--sec-hi`) and for direction (`--green` /
+     `--on-dir`). Any surface that inverts inverts as a PAIR.
+  2. **The chrome is the darker band.** On black, canvas and chrome separate by
+     lightness; on white that pair is invisible, so the relationship inverts —
+     `--bg` goes to a cool `#eceef3` and `--chrome` goes *deeper* (`#dfe3ea`) so
+     the command bar, tape, function keys and status bar frame the workspace.
+  3. **Colour comes from tint, not saturation.** The accent has to stay
+     text-safe, so warmth is carried by 4–12% washes over the surface.
+  Every light value is measured against all FOUR surfaces it can land on —
+  `--panel`, `--bg`, `--track` and `--chrome` — and the worst of the four is the
+  number quoted in the block. A colour that clears AA on a card and fails on the
+  recessed strip inside a panel has not cleared it.
+- Light-only treatments live in ONE `:root[data-theme="light"]` finishes block
+  at the end of globals.css (plot paper, focus rings, float elevation, hover
+  strength). Tokens handle colour; that block handles everything a light
+  surface needs and a dark one must not have. Do not scatter new light-only
+  rules — put them there.
 - `color-scheme` follows the theme so UA scrollbars, caret, text selection and
   form interiors are not left dark under a light terminal.
 

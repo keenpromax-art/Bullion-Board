@@ -590,7 +590,7 @@ export function GapGauge({ egap, gate, realised, span = 1.0 }: {
       <svg viewBox={`0 0 ${W} ${H}`} role="img"
         aria-label={`Expected gap ${egap === null ? "unavailable" : `${egap.toFixed(2)} percent`} against a no-trade gate of plus or minus ${gate.toFixed(2)} percent`}
       >
-        <rect x="0" y={AX - 7} width={W} height="14" fill="#000" stroke="var(--grid)" />
+        <rect x="0" y={AX - 7} width={W} height="14" fill="var(--track)" stroke="var(--grid)" />
         <rect x={x1(px(-gate))} y={AX - 7} width={Math.max(1, px(gate) - px(-gate)).toFixed(1)} height="14" fill="color-mix(in srgb, var(--amber) 10%, transparent)" />
         <line x1={x1(px(-gate))} y1={AX - 7} x2={x1(px(-gate))} y2={AX + 7} stroke="color-mix(in srgb, var(--amber) 45%, transparent)" />
         <line x1={x1(px(gate))} y1={AX - 7} x2={x1(px(gate))} y2={AX + 7} stroke="color-mix(in srgb, var(--amber) 45%, transparent)" />
@@ -1271,7 +1271,7 @@ export function GapPathChart({ snap, height = 150 }: { snap: OpeningSnap; height
         >
           <polygon points={`0,${H} ${pts.join(" ")} ${W},${H}`} fill={up ? "color-mix(in srgb, var(--green) 12%, transparent)" : "color-mix(in srgb, var(--red) 12%, transparent)"} />
           <line x1="0" y1={y(prev)} x2={W} y2={y(prev)} stroke="var(--faint)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-          <line x1={x(0)} y1={y(bars[0]!.open)} x2={W} y2={y(bars[0]!.open)} stroke="rgba(255,176,0,0.35)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <line x1={x(0)} y1={y(bars[0]!.open)} x2={W} y2={y(bars[0]!.open)} stroke="color-mix(in srgb, var(--sec) 42%, transparent)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           <polyline points={pts.join(" ")} fill="none" stroke={col} strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
           {hover !== null && (
             <line x1={x(hover)} y1="0" x2={x(hover)} y2={H} stroke="var(--amber)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />

@@ -1,6 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap");
 
-/* Terminal skin — tokens from DESIGN.md */
+/* Terminal skin â€” tokens from DESIGN.md */
 :root {
   --bg: #030304;
   --panel: #0c0c0e;
@@ -11,12 +11,12 @@
   /* Faint is the DIMMEST TEXT TIER, not an invisible one. #5b5b62 measured
      2.9:1 on --panel, which reads as dark-grey-on-black at 9-10px and is the
      one value in this palette that genuinely cannot be read. #8a8a93 measures
-     5.7:1 — clears WCAG AA for body text while staying a clear step below
+     5.7:1 â€” clears WCAG AA for body text while staying a clear step below
      --sub (7.6:1), so the three text tiers are still distinguishable. */
   --faint: #8a8a93;
   --amber: #ffa028;
   --amber-deep: #b26a00;
-  --amber-subtle: rgba(255, 160, 40, 0.12);
+  --amber-subtle: color-mix(in srgb, var(--amber) 12%, transparent);
   --sec: #ffb000;
   --green: #00d664;
   --green-bg: rgba(0, 214, 100, 0.14);
@@ -32,17 +32,122 @@
      in the terminal that is genuinely recessed rather than raised. */
   --track: #000000;
   --scrim: rgba(0, 0, 0, 0.62);
+  /* Drop shadows for menus, dropdowns and popovers. A 60-80% black shadow is
+     correct on a black canvas — it is the only thing separating a menu from the
+     panel behind it — and far too heavy on a white one, where the same shadow
+     reads as a smudge. Both tiers are tokens so a floating surface lifts by the
+     same amount in either theme instead of by eye. */
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 34px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 24px 80px rgba(0, 0, 0, 0.8);
   /* The news ticker's band. It is the only surface in the app that is not the
      neutral panel stack, so it gets its own tokens rather than borrowing amber:
      on dark it is a deep red with pale text, on light the same red inverted to
-     a wash with the deep red as the text. Inverting the PAIR is the point —
+     a wash with the deep red as the text. Inverting the PAIR is the point â€”
      tinting one without the other would put pale text on a pale band. */
   --ticker-bg: #8f0000;
   --ticker-text: #ffd9d9;
+  /* Hover on the wire band goes BRIGHTER on a deep band and DEEPER on a pale
+     one. A single `#fff` literal did the first and was invisible on the second. */
+  --ticker-hover: #ffffff;
   /* Unread-story dot. #4da3ff is 1.9:1 on a light panel, so it darkens. */
   --unread: #4da3ff;
+  --unread-glow: rgba(77, 163, 255, 0.8);
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
-  /* terminal chrome heights — single source of truth so the shell, the AI
+  /* ---------------------------------------------------------------------
+     SECONDARY SURFACE LADDER.
+
+     `--bg` is the canvas a desk floats on. The terminal CHROME — command
+     bar, tape, function keys, status bar — is a different surface: a band
+     that frames the workspace rather than sitting under it. On black the
+     two separated by lightness alone (#030304 vs #08080a); on white that
+     difference is invisible, so the light theme inverts the relationship
+     and makes the chrome the DEEPER band. That is the whole reason the
+     light terminal reads as an instrument instead of a document.
+
+       --chrome   the four chrome bands
+       --chrome-2 the recessed variant (tape well, settings drop-up body)
+     --------------------------------------------------------------------- */
+  --chrome: #08080a;
+  --chrome-2: #0a0a0c;
+  /* Panel headers and the desks' masthead blocks: the two places a light
+     terminal can afford real warmth, because both are identity surfaces rather
+     than data surfaces. On dark they are just the neutral stack; on light they
+     pick up a 6-8% amber tint so the top of every panel carries the accent
+     without a single saturated pixel. */
+  --panel-head: #121214;
+  --masthead: #000000;
+  /* Links in body copy. DESIGN.md gives links the amber role; naming it as
+     a token means a rule can ask for it without hardcoding, which is what
+     `--link` was invented for. */
+  --link: var(--amber);
+  /* THE VIVID FILL TIER.
+
+     A colour cannot be both a 4.5:1 text colour on white and a fill that
+     takes black ink — the two requirements land on opposite sides of the
+     same luminance and meet in a ~0.01 window. So the accent is split in
+     two, which is how a well-made light palette behaves and how the dark
+     theme already reads:
+
+       --amber      the TEXT tier — headings, codes, borders, focus rings
+       --amber-hi   the FILL tier — buttons, tags, the active nav row
+
+     On dark the two are the same value, so this is a no-op there; on light
+     --amber-hi stays the terminal's signature #ffa028 with near-black ink
+     at 8.6:1, and a light terminal keeps the one colour that says BULLION
+     BOARD louder than anything else on the page. */
+  --amber-hi: #ffa028;
+  /* The same split for security-yellow, and it is what the amber HOVER state
+     needs. Six rules hover a solid amber fill by swapping it for `--sec`, which
+     on light is the text-tier #7d5600 — near-black ink on it measures 2.68:1,
+     so every primary button went unreadable the instant the pointer landed on
+     it. Hover has to stay inside the FILL family, so it gets a vivid gold.
+     Identical in both themes, so dark hover is unchanged. */
+  --sec-hi: #ffb000;
+  /* Ink ON a vivid amber or gold fill. Black on dark's --amber-hi is 10.3:1 and
+     on --sec-hi is 11.5:1; on light those same fills take #24160a at 8.6:1 and
+     9.6:1. One token, two values, and it is never allowed to drift away from
+     the fill it sits on. */
+  --on-fill: #000000;
+  /* Ink for text sitting ON a vivid directional fill (an up-green bar with its
+     percentage printed inside it). The fill is vivid on dark and deep on
+     light, so the ink inverts with it. Always paired: fill and ink together,
+     never one without the other. */
+  --on-dir: #04160c;
+  /* Chart tooltip — its own surface because it floats over anything, and
+     over a dark chart a panel-coloured tooltip disappears. */
+  --tip-bg: #0a0a0c;
+  --tip-fg: #f5f5f4;
+  --tip-dim: var(--sub);
+  --tip-line: var(--amber);
+  /* The transient function-code overlay a desk flashes while loading. */
+  --overlay: rgba(0, 0, 0, 0.78);
+  --overlay-fg: var(--amber);
+  /* Text selection. Left to the UA it is a system blue that appears in
+     neither palette and reads as a rendering fault on amber chrome. */
+  --sel-bg: rgba(255, 160, 40, 0.30);
+  --sel-fg: #ffffff;
+  /* Chart plot area. Transparent on dark — a frame around an amber line on
+     black is noise — and a faint paper tint on light, where a bare white
+     plot makes the gridlines and the series the same value. */
+  --plot: transparent;
+  /* Soft elevation for raised surfaces. `none` on dark because a shadow on
+     black is invisible; on light it is the only thing separating a white
+     card from a near-white canvas. */
+  --panel-lift: none;
+  /* THE AMBER HAIRLINE.
+
+     Eleven rules were written as `color-mix(in srgb, var(--amber) %,
+     transparent)` with the percentage missing. Per spec an omitted
+     percentage is 0%, so every one of them resolved to fully transparent:
+     the command bar's underline, the autocomplete frame, `.panel-glow`'s
+     border, the favourite tiles, the AI dock edge and the tour spotlight
+     were all painting nothing. The amber frame this skin is built on was
+     simply absent. It is a token now so it cannot recur. */
+  --amber-line: color-mix(in srgb, var(--amber) 42%, transparent);
+  --amber-line-soft: color-mix(in srgb, var(--amber) 22%, transparent);
+  --amber-line-hard: color-mix(in srgb, var(--amber) 62%, transparent);
+  /* terminal chrome heights â€” single source of truth so the shell, the AI
      dock and any fixed overlay can't drift apart (they used to hardcode
      36/26/28px independently and the dock ended up over the status bar) */
   --term-cmd-h: 36px;
@@ -55,66 +160,191 @@
    default, but a desk pinned open on a second monitor all day is not a good
    reason to keep reading it against black. This block re-keys the SAME tokens;
    no rule anywhere reads a raw hex for chrome, so the whole terminal, both
-   workspace surfaces and every desk follow from these sixteen values.
+   workspace surfaces and every desk follow from these values.
 
-   Every value below was picked by measuring contrast against --panel, not by
-   eye. The bright set cannot simply be reused: #ffa028 measures 1.97:1 on a
-   light panel and #00d664 1.88:1, so amber, security-yellow and both
-   directional colours all have to DARKEN to stay readable. Amber moves furthest
-   in hue (#ffa028 -> #9a5600) because it is the palette's signature and has to
-   stay recognisably amber rather than becoming brown.
+   DESIGN, not just re-keying. The first light pass took the dark palette and
+   darkened it, which produced a document, not an instrument: brown amber, a
+   canvas and a panel three points apart in lightness, and chrome that vanished
+   into the page. Three decisions fix that.
 
-     token     dark      light     light on --panel / on --bg
-     --text    #f5f5f4   #101013   18.34 / 15.61
-     --sub     #a1a1aa   #4a4a52    8.48 /  7.22
-     --faint   #8a8a93   #63636b    5.75 /  4.89
-     --amber   #ffa028   #9a5600    5.47 /  4.66
-     --sec     #ffb000   #8a5c00    5.62 /  4.78
-     --green   #00d664   #0a733c    5.74 /  4.89
-     --red     #ff453a   #c0261c    5.74 /  4.88
-     --cyan    #00c8ff   #00648e    6.31 /  5.37
-     --violet  #8f7bff   #5b45c8    6.48 /  5.52
+   1. THE ACCENT IS SPLIT. A colour cannot be a 4.5:1 text colour on white AND
+      a fill that takes black ink — those land on opposite sides of the same
+      luminance. So `--amber` is the text tier (#9c4a08, a true burnt orange,
+      NOT the brown #9a5600 the first pass shipped) and `--amber-hi` keeps the
+      terminal's #ffa028 for solid fills with near-black ink at 8.6:1. A light
+      terminal is allowed to shout in the one colour that says BULLION BOARD.
 
-   Measured against BOTH light surfaces, not just the panel. --bg is darker than
-   --panel, so the first pass at green, cyan and the unread dot cleared AA on a
-   card and still missed it on the canvas (4.46 / 4.11 / 4.04) — a colour that
-   passes on a card and fails on the background is not a passing colour.
+   2. THE CHROME IS THE DARK BAND. On black, canvas (#030304) and chrome
+      (#08080a) separate by lightness. On white that pair is 4 points apart
+      and invisible, so the relationship INVERTS: the canvas goes to a cool
+      #eceef3 and the four chrome bands go DEEPER (#dfe3ea) than the canvas,
+      framing the workspace the way a bezel frames a screen.
+
+   3. COLOUR IS CARRIED BY TINT, NOT BY SATURATION. Because the accent has to
+      stay text-safe, the warmth in this theme comes from washes — 4-12% amber
+      over the surface — not from a brighter accent. Every state that was an
+      invisible 3% wash on dark is a visible tint here.
+
+   Every value below was picked by measuring contrast against the FOUR light
+   surfaces it can land on — --panel, --bg, --track and --chrome — not by eye,
+   and the WORST of the four is the number quoted. A colour that clears AA on a
+   card and fails on the recessed strip inside a panel is not a passing colour,
+   which is exactly how the first pass shipped a 4.2:1 amber on the function bar.
+
+      token     dark      light      worst of 4 light surfaces
+      --text    #f5f5f4   #0d1117    16.30 on --bg
+      --sub     #a1a1aa   #4b525d     6.79 on --bg
+      --faint   #8a8a93   #5c636f     4.70 on --chrome
+      --amber   #ffa028   #9c4a08     4.80 on --chrome
+      --sec     #ffb000   #7d5600     5.09 on --chrome
+      --green   #00d664   #08703d     4.95 on --track
+      --red     #ff453a   #c1121f     4.98 on --track
+      --cyan    #00c8ff   #0b6f96     4.50 on --track
+      --violet  #8f7bff   #5b46c9     5.31 on --track
+      --pink    #ff5da2   #be1e6a     4.69 on --track
+
+   Ink ON amber has to invert with the theme and is its own token for that
+   reason: black on #ffa028 is 10.3:1, but black on the light #9c4a08 is 4.7:1
+   and fails, while white on that same amber is 6.2:1. Any surface that inverts
+   inverts as a PAIR — fill and ink together, never one without the other.
 
    The three text tiers keep the same relative spacing they have on black
    (text >> sub > faint), so nothing that read as a caption on dark starts
    competing with body copy on light. */
 :root[data-theme="light"] {
-  --bg: #e9e9e6;
-  --panel: #fbfbfa;
-  --panel-2: #f1f1ef;
-  --grid: #cfcfcb;
-  --track: #e4e4e1;
-  --scrim: rgba(20, 20, 24, 0.38);
-  --text: #101013;
-  --sub: #4a4a52;
-  --faint: #63636b;
-  --amber: #9a5600;
-  --amber-deep: #7a4400;
-  --amber-subtle: rgba(154, 86, 0, 0.10);
-  --sec: #8a5c00;
-  --green: #0a733c;
-  --green-bg: rgba(10, 115, 60, 0.11);
-  --red: #c0261c;
-  --red-bg: rgba(192, 38, 28, 0.10);
-  --cyan: #00648e;
-  --violet: #5b45c8;
-  --pink: #c02a72;
+  /* Pure-white cards on a crisp, barely-cool canvas, with the chrome band
+     below DARKER than both. Panels lift by lightness and a hairline; the
+     frame lifts by shadow. That is what keeps a dense grid from looking like
+     graph paper. */
+  --bg: #eceef3;
+  --panel: #ffffff;
+  --panel-2: #f6f7fa;
+  --grid: #d3d7e0;
+  --track: #e3e6ec;
+  --chrome: #dfe3ea;
+  --chrome-2: #e8ebf1;
+  --panel-head: color-mix(in srgb, var(--amber) 6%, var(--panel-2));
+  --masthead: color-mix(in srgb, var(--amber) 9%, var(--track));
+  --scrim: rgba(20, 24, 34, 0.38);
+  --text: #0d1117;
+  --sub: #4b525d;
+  --faint: #5c636f;
+  --amber: #9c4a08;
+  --amber-deep: #7d3c05;
+  --amber-subtle: rgba(156, 74, 8, 0.10);
+  --sec: #7d5600;
+  --green: #08703d;
+  --green-bg: rgba(8, 112, 61, 0.10);
+  --red: #c1121f;
+  --red-bg: rgba(193, 18, 31, 0.09);
+  --cyan: #0b6f96;
+  --violet: #5b46c9;
+  --pink: #be1e6a;
+  /* Ink printed ON a directional fill inverts with the fill: the fill is vivid
+     on dark and deep on light, so near-black ink is right on one and white on
+     the other. The pair never moves without the other. */
+  --on-dir: #ffffff;
+  --amber-hi: #ffa028;
+  --sec-hi: #ffb000;
+  /* Ink ON a vivid amber or gold fill. Near-black, not pure black: 8.6:1 on
+     #ffa028 and warmer than #000, which keeps a solid amber button from looking
+     like a hole punched in the page. */
+  --on-fill: #24160a;
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 8px 28px rgba(16, 24, 40, 0.10), 0 2px 6px rgba(16, 24, 40, 0.05);
+  --shadow-xl: 0 20px 64px rgba(16, 24, 40, 0.14), 0 4px 12px rgba(16, 24, 40, 0.06);
   --ticker-bg: #fdecec;
   --ticker-text: #8f0000;
+  --ticker-hover: #6b0000;
   --unread: #1361be;
+  --unread-glow: rgba(19, 97, 190, 0.45);
+  --tip-bg: #ffffff;
+  --tip-fg: #0d1117;
+  --tip-dim: #4b525d;
+  --tip-line: #9c4a08;
+  --overlay: rgba(255, 255, 255, 0.95);
+  --overlay-fg: #9c4a08;
+  --sel-bg: rgba(156, 74, 8, 0.16);
+  --sel-fg: #0d1117;
+  /* The one place this theme ADDS a surface rather than removing ink: a faint
+     paper tint under every chart, so the plot grid and the series are two
+     different values instead of amber hairlines on bare white. */
+  --plot: #f8f9fc;
+  /* Elevation, which a shadow cannot give on black. */
+  --panel-lift: 0 1px 2px rgba(16, 24, 40, 0.06);
 }
+
+/* ---------- light-theme finishes ----------
+   The re-key above handles COLOUR. These are the treatments a light surface
+   needs and a dark one must not have — plot paper, focus that survives on
+   white, a float that actually floats. They live in one block so the two
+   themes can never disagree about what "light" means. */
+
+/* A chart is a plot, and a plot needs a surface. On dark the amber line and
+   the panel are far enough apart to read without one; on white an amber
+   hairline grid on bare #ffffff is a 1.44:1 pairing that disappears at
+   desktop viewing distance, so the plot gets faint paper and a real frame.
+   Inset box-shadow rather than a border, so no chart changes size. */
+:root[data-theme="light"] .chart-wrap { background: var(--plot); box-shadow: inset 0 0 0 1px var(--grid); border-radius: 2px; }
+
+/* Focus is a 24px amber GLOW on black and a 1px amber RING on white: a glow
+   with no dark surface to bleed into paints nothing, and the focused panel is
+   the one panel the eye must land on. */
+:root[data-theme="light"] .term-panel.focused { box-shadow: 0 0 0 1px var(--amber), var(--panel-lift); }
+:root[data-theme="light"] .panel-glow { box-shadow: 0 0 0 1px var(--amber), var(--panel-lift); }
+
+/* Floating surfaces. Menus, popovers, the AI dock and the settings drop-up all
+   sit on --panel; against a #ffffff panel a soft shadow is the only thing
+   that lifts them, and the dark theme's 60%-black shadow would read as a
+   smudge if it were reused here. */
+:root[data-theme="light"] .ai-dock,
+:root[data-theme="light"] .term-menu,
+:root[data-theme="light"] .dir-menu,
+:root[data-theme="light"] .set-drop,
+:root[data-theme="light"] .ws-drop,
+:root[data-theme="light"] .suggest,
+:root[data-theme="light"] .dlg { box-shadow: var(--shadow-xl); }
+
+/* The stat strip and the in-panel cards get elevation so a white card is not
+   the same value as the white panel it sits on. */
+:root[data-theme="light"] .term-panel-body .cell,
+:root[data-theme="light"] .desk-fill .cell,
+:root[data-theme="light"] .set-drop .cell { box-shadow: var(--panel-lift); }
+
+/* The command bar's underline is the skin's signature hairline. On light it
+   needs the full 62%, not the 42% that reads correctly against black.
+   `:not()` is load-bearing: this selector carries three pseudo-classes worth of
+   specificity, so without the guard it would outrank `.term-cmdbar.go-ok` /
+   `.go-err` and pin the flash to the amber hairline for the whole session. */
+:root[data-theme="light"] .cmdbar:not(.go-ok):not(.go-err),
+:root[data-theme="light"] .nav { border-bottom-color: var(--amber-line-hard); }
+
+/* Inputs are RECESSED, so on light the inset has to be darker than the panel
+   rather than a hairline lighter. --track already is; the amber focus ring
+   gets the harder weight so a focused field is unmistakable. */
+:root[data-theme="light"] input.box:focus,
+:root[data-theme="light"] select.box:focus,
+:root[data-theme="light"] textarea.box:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--amber) 34%, transparent); }
+
+/* Hover states were written as 5-9% amber over black, where a barely-there
+   wash is correct because the panel is already dark. Over white the same
+   percentages are invisible, so the interactive rows step up. */
+:root[data-theme="light"] .bbrow:hover,
+:root[data-theme="light"] .fnrow:hover,
+:root[data-theme="light"] .top-row:hover,
+:root[data-theme="light"] .plain tbody tr:hover { background: color-mix(in srgb, var(--amber) 10%, transparent); }
+
 * { box-sizing: border-box; }
-/* Tells the UA which palette to render its OWN furniture in — scrollbars, form
+/* Tells the UA which palette to render its OWN furniture in â€” scrollbars, form
    control interiors, the caret, text selection. Without it a light terminal
    still gets a dark scrollbar gutter and a black caret, which is the single
    most obvious tell that a theme was bolted on rather than designed. */
 :root { color-scheme: dark; }
 :root[data-theme="light"] { color-scheme: light; }
+/* Text selection and the caret. Left to the UA they are a system blue that
+   belongs to neither palette — most obviously wrong on amber chrome, where a
+   blue block breaks the one colour rule the whole skin is built on. */
+::selection { background: var(--sel-bg); color: var(--sel-fg); }
 html, body {
   margin: 0; padding: 0; background: var(--bg); color: var(--text);
   font-family: var(--mono); font-feature-settings: "tnum" 1; font-size: 14px;
@@ -126,14 +356,14 @@ a:hover { text-decoration: underline; }
 /* ---------- command bar ---------- */
 .cmdbar {
   display: flex; gap: 10px; align-items: center; padding: 8px 14px;
-  background: #000; border-bottom: 1px solid rgba(255, 160, 40, 0.4);
+  background: var(--chrome); border-bottom: 1px solid var(--amber-line);
   position: sticky; top: 0; z-index: 20;
 }
 .cmd-logo { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; color: var(--text); letter-spacing: 0.04em; white-space: nowrap; }
 .cmd-logo:hover { text-decoration: none; }
 .cmd-mark { color: var(--amber); }
 .fn-tag {
-  font-size: 12px; font-weight: 700; color: #000; background: var(--amber);
+  font-size: 12px; font-weight: 700; color: var(--on-fill); background: var(--amber-hi);
   padding: 2px 8px; border-radius: 2px; white-space: nowrap;
 }
 .cmd-prompt { color: var(--amber); font-weight: 700; }
@@ -144,10 +374,10 @@ a:hover { text-decoration: underline; }
 }
 .cmd-input::placeholder { color: var(--faint); }
 .cmd-go {
-  background: var(--amber); color: #000; border: none; border-radius: 2px;
+  background: var(--amber-hi); color: var(--on-fill); border: none; border-radius: 2px;
   font-family: var(--mono); font-weight: 700; font-size: 12px; padding: 6px 14px; cursor: pointer;
 }
-.cmd-go:hover { background: var(--sec); }
+.cmd-go:hover { background: var(--sec-hi); }
 .cmd-feed { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--sub); white-space: nowrap; }
 .feed-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); display: inline-block; }
 .cmd-clock { font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
@@ -156,15 +386,15 @@ a:hover { text-decoration: underline; }
 /* ---------- lookup suggest ---------- */
 .suggest {
   position: absolute; top: 100%; left: 0; right: 0; z-index: 30;
-  background: #000; border: 1px solid rgba(255, 160, 40, 0.5); border-top: none;
-  max-height: 340px; overflow-y: auto; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.7);
+  background: var(--panel); border: 1px solid var(--amber-line); border-top: none;
+  max-height: 340px; overflow-y: auto; box-shadow: var(--shadow-lg);
 }
 .sug-head {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; color: var(--amber);
   padding: 8px 14px 4px 14px; text-transform: uppercase;
 }
 .sug-row { display: flex; gap: 12px; align-items: baseline; padding: 7px 14px; cursor: pointer; font-size: 12.5px; }
-.sug-row.active { background: rgba(255, 160, 40, 0.12); box-shadow: inset 2px 0 0 var(--amber); }
+.sug-row.active { background: color-mix(in srgb, var(--amber) 12%, transparent); box-shadow: inset 2px 0 0 var(--amber); }
 .sug-sym { color: var(--sec); font-weight: 700; min-width: 150px; }
 .sug-sym.fn { color: var(--amber); }
 .sug-name { color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -174,17 +404,17 @@ a:hover { text-decoration: underline; }
 .statusbar {
   position: fixed; left: 0; right: 0; bottom: 0; height: 28px; z-index: 20;
   display: flex; gap: 18px; align-items: center; padding: 0 14px;
-  background: #000; border-top: 1px solid var(--grid);
+  background: var(--chrome); border-top: 1px solid var(--grid);
   font-size: 11px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.05em;
 }
 .statusbar .sec { color: var(--sec); font-weight: 700; }
 
 /* ---------- layout ---------- */
 .container { max-width: 1400px; margin: 0 auto; padding: 12px; }
-.panel { background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; padding: 14px; }
-.panel-glow { box-shadow: 0 0 24px rgba(255, 160, 40, 0.12); border-color: rgba(255, 160, 40, 0.45); }
+.panel { background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; padding: 14px; box-shadow: var(--panel-lift); }
+.panel-glow { box-shadow: 0 0 24px color-mix(in srgb, var(--amber) 12%, transparent); border-color: var(--amber-line-hard); }
 .p-head { display: flex; align-items: center; gap: 8px; margin: 0 0 10px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--amber); }
-.p-head::before { content: "▮"; }
+.p-head::before { content: "â–®"; }
 .grid { display: grid; gap: 10px; }
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -209,8 +439,8 @@ a:hover { text-decoration: underline; }
 }
 .sec-item:hover { border-color: var(--amber); }
 .sec-item.active { background: var(--amber-subtle); border-color: var(--amber); box-shadow: inset 2px 0 0 var(--amber); }
-.sec-item.fn { color: #000; background: var(--amber); border-color: var(--amber); }
-.sec-item.fn:hover { background: var(--sec); border-color: var(--sec); }
+.sec-item.fn { color: var(--on-fill); background: var(--amber-hi); border-color: var(--amber-hi); }
+.sec-item.fn:hover { background: var(--sec-hi); border-color: var(--sec-hi); color: var(--on-fill); }
 .strip-sep { align-self: center; color: var(--faint); font-size: 12px; user-select: none; }
 
 /* ---------- security header ---------- */
@@ -237,7 +467,7 @@ a:hover { text-decoration: underline; }
 .bbgroup { break-inside: avoid; margin-bottom: 14px; }
 .bbgroup-head {
   display: flex; align-items: center; gap: 8px; width: 100%;
-  background: none; border: none; border-bottom: 1px solid rgba(255, 160, 40, 0.4);
+  background: none; border: none; border-bottom: 1px solid var(--amber-line-soft);
   padding: 4px 2px 6px 2px; cursor: pointer; font-family: var(--mono);
 }
 .bbgroup-arrow { color: var(--amber); font-size: 11px; }
@@ -247,7 +477,7 @@ a:hover { text-decoration: underline; }
 .bbgroup-head:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
 .bbgroup-rows { display: grid; padding: 4px 0; }
 .bbrow { display: flex; align-items: center; gap: 8px; padding: 5px 4px; cursor: pointer; border-radius: 2px; min-width: 0; }
-.bbrow:hover { background: rgba(255, 160, 40, 0.07); outline: 1px solid rgba(255, 255, 255, 0.55); outline-offset: -1px; }
+.bbrow:hover { background: color-mix(in srgb, var(--amber) 7%, transparent); outline: 1px solid color-mix(in srgb, var(--text) 55%, transparent); outline-offset: -1px; }
 .bbrow:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .bbrow .fav-star { padding: 2px 4px; font-size: 12px; }
 .bbnum { color: var(--amber); opacity: 0.75; font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -262,10 +492,10 @@ a:hover { text-decoration: underline; }
 .fav-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; }
 .fav-tile {
   position: relative; display: grid; gap: 2px; align-content: center;
-  background: var(--panel-2); border: 1px solid rgba(255, 160, 40, 0.45); border-radius: 3px;
+  background: var(--panel-2); border: 1px solid var(--amber-line); border-radius: 3px;
   padding: 10px 30px 10px 10px; cursor: pointer; min-height: 56px;
 }
-.fav-tile:hover { background: rgba(255, 160, 40, 0.09); border-color: var(--amber); box-shadow: 0 0 24px rgba(255, 160, 40, 0.12); }
+.fav-tile:hover { background: color-mix(in srgb, var(--amber) 9%, transparent); border-color: var(--amber); box-shadow: 0 0 24px color-mix(in srgb, var(--amber) 12%, transparent); }
 .fav-tile:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .fav-tile-code { font-size: 13px; font-weight: 700; color: var(--amber); letter-spacing: 0.06em; }
 .fav-tile-label { font-size: 11px; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -274,23 +504,23 @@ a:hover { text-decoration: underline; }
   background: transparent; border: none; border-radius: 2px; cursor: pointer;
   color: var(--amber); font-size: 13px; line-height: 1;
 }
-.fav-tile-x:hover { background: rgba(255, 160, 40, 0.15); color: var(--sec); }
+.fav-tile-x:hover { background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--sec); }
 .fav-star {
   background: transparent; border: none; cursor: pointer; padding: 2px 6px;
   color: var(--faint); font-size: 14px; line-height: 1; border-radius: 2px;
 }
-.fav-star:hover { color: var(--amber); background: rgba(255, 160, 40, 0.1); }
+.fav-star:hover { color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); }
 .fav-star.active { color: var(--amber); }
 .fav-star:focus-visible, .fav-tile-x:focus-visible, .fav-filter:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
 .fndir-panel .bbrow.fav .bbcode { color: var(--sec); }
 button.ghost.fav-filter { padding: 3px 8px; font-size: 10.5px; }
-button.ghost.fav-filter.active { border-color: var(--amber); color: var(--amber); background: rgba(255, 160, 40, 0.09); }
+button.ghost.fav-filter.active { border-color: var(--amber); color: var(--amber); background: color-mix(in srgb, var(--amber) 9%, transparent); }
 .term-icon.fav { color: var(--faint); }
-.term-icon.fav:hover { color: var(--amber); background: rgba(255,160,40,0.1); }
+.term-icon.fav:hover { color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); }
 .term-icon.fav.active { color: var(--amber); }
 .task-banner {
   display: flex; gap: 8px; align-items: center; margin-top: 10px; padding: 7px 10px;
-  background: rgba(255, 160, 40, 0.09); border: 1px solid rgba(255, 160, 40, 0.45);
+  background: color-mix(in srgb, var(--amber) 9%, transparent); border: 1px solid var(--amber-line);
   border-radius: 3px; font-size: 12px;
 }
 table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -302,17 +532,17 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 
 /* ---------- news wire screen ---------- */
-.top { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--grid); border-radius: 3px; overflow: hidden; background: #000; height: 100%; }
+.top { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--grid); border-radius: 3px; overflow: hidden; background: var(--panel); box-shadow: var(--panel-lift); height: 100%; }
 .top-tabs { display: flex; gap: 2px; align-items: center; background: var(--ticker-bg); padding: 5px 8px; }
 .top-tab {
   background: transparent; border: none; border-radius: 0; color: var(--ticker-text);
   font-family: var(--mono); font-size: 12.5px; font-weight: 600; padding: 6px 12px;
   cursor: pointer; text-transform: uppercase; white-space: nowrap;
 }
-.top-tab:hover { background: rgba(255, 255, 255, 0.12); box-shadow: none; transform: none; color: #fff; }
+.top-tab:hover { background: color-mix(in srgb, var(--ticker-text) 14%, transparent); box-shadow: none; transform: none; color: var(--ticker-hover); }
 .top-tab.active { background: var(--panel); color: var(--ticker-text); font-weight: 700; }
 /* Source health sits inside the LIVE count. Green when every publisher feed
-   answered, red when one is down — the wire says so rather than quietly
+   answered, red when one is down â€” the wire says so rather than quietly
    serving less news. */
 .top-src-health {
   color: var(--green); font-size: 10px; letter-spacing: 0.06em; margin-left: 8px;
@@ -327,7 +557,7 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
   color: var(--amber); font-family: var(--mono); font-size: 10px; font-weight: 700;
   letter-spacing: 0.08em; padding: 1px 7px; margin-left: 8px; cursor: pointer;
 }
-.top-new-count:hover { background: rgba(255, 160, 40, 0.14); }
+.top-new-count:hover { background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .top-new-count:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
 .top-count { margin-left: auto; color: var(--ticker-text); font-size: 11.5px; white-space: nowrap; }
 .top-narrow {
@@ -384,7 +614,7 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
   display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto;
   gap: 8px; align-items: baseline; padding: 3.5px 0; font-size: 13px;
 }
-.top-row:hover { background: rgba(255, 160, 40, 0.06); }
+.top-row:hover { background: color-mix(in srgb, var(--amber) 6%, transparent); }
 .top-num { color: var(--amber); }
 .top-head { color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* An already-read headline recedes, but 3.8:1 was below AA and read as dark
@@ -393,14 +623,17 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
   .top-row.read .top-head { color: var(--faint); }
 .top-src { color: var(--faint); font-size: 11px; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top-time { color: var(--sub); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.unread { width: 8px; height: 8px; min-width: 8px; background: var(--unread); border-radius: 1px; align-self: center; box-shadow: 0 0 6px rgba(77, 163, 255, 0.8); }
-.top-rail { border-left: 1px solid var(--grid); padding: 8px 12px; display: grid; gap: 8px; align-content: start; background: #050506; min-height: 0; overflow: auto; }
+.unread { width: 8px; height: 8px; min-width: 8px; background: var(--unread); border-radius: 1px; align-self: center; box-shadow: 0 0 6px var(--unread-glow); }
+/* The rail is a RECESSED surface — one step below the panel, not a black hole.
+   It was hardcoded #050506, which on a light theme left a black column down the
+   middle of a white news desk with black-on-black text in it. */
+.top-rail { border-left: 1px solid var(--grid); padding: 8px 12px; display: grid; gap: 8px; align-content: start; background: var(--track); min-height: 0; overflow: auto; }
 .rail-head { color: var(--amber); font-size: 13px; font-weight: 700; margin: 0 0 3px 0; }
 .rail-sub { color: var(--link); font-size: 11px; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
 .rail-link { font-size: 11.5px; margin-bottom: 5px; line-height: 1.35; }
 .rail-link > a { color: var(--amber); }
 .rail-first { font-size: 11.5px; margin-bottom: 5px; line-height: 1.4; }
-.top-tape { border-top: 1px solid var(--grid); background: #000; overflow: hidden; white-space: nowrap; padding: 7px 0; }
+.top-tape { border-top: 1px solid var(--grid); background: var(--bg); overflow: hidden; white-space: nowrap; padding: 7px 0; }
 .tape-inner { display: inline-block; animation: tape-scroll 60s linear infinite; }
 .top-tape:hover .tape-inner { animation-play-state: paused; }
 .tape-bit { font-size: 12.5px; color: var(--text); margin-right: 56px; }
@@ -412,50 +645,57 @@ table.plain { width: 100%; border-collapse: collapse; font-size: 13px; }
   display: flex; gap: 10px; align-items: center; padding: 7px 8px;
   cursor: pointer; border-bottom: 1px dotted var(--grid); font-size: 13px;
 }
-.fnrow:hover { background: rgba(255, 160, 40, 0.07); }
+.fnrow:hover { background: color-mix(in srgb, var(--amber) 7%, transparent); }
 .fnrow.dead { cursor: default; opacity: 0.75; }
 .fnrow.dead:hover { background: none; }
 
 /* ---------- interactive chart hover ---------- */
-.chart-wrap { position: relative; }
+/* `--plot` is transparent on dark (the panel is already the surface) and faint
+   paper on light; the light-theme finish block adds the frame. */
+.chart-wrap { position: relative; background: var(--plot); }
 .chart-wrap svg { cursor: crosshair; display: block; }
+/* The tooltip floats over anything — including a dark chart on a light desk —
+   so it carries its own surface rather than borrowing `--panel`. Inheriting
+   `--text` over a hardcoded black background put near-black type on near-black
+   and the whole crosshair readout vanished the moment light mode was enabled. */
 .chart-tip {
   position: absolute; top: 8px; z-index: 5; pointer-events: none;
-  background: rgba(0, 0, 0, 0.92); border: 1px solid var(--amber); border-radius: 3px;
+  background: var(--tip-bg); color: var(--tip-fg);
+  border: 1px solid var(--tip-line); border-radius: 3px;
   padding: 7px 10px; font-size: 11.5px; line-height: 1.65; white-space: nowrap;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6); font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-lg); font-variant-numeric: tabular-nums;
 }
-.chart-tip-date { color: var(--amber); font-weight: 700; margin-bottom: 2px; }
-.chart-tip-row { display: flex; gap: 6px; align-items: baseline; }
-.chart-tip-row strong { margin-left: auto; padding-left: 12px; }
+.chart-tip-date { color: var(--tip-line); font-weight: 700; margin-bottom: 2px; }
+.chart-tip-row { display: flex; gap: 6px; align-items: baseline; color: var(--tip-dim); }
+.chart-tip-row strong { margin-left: auto; padding-left: 12px; color: var(--tip-fg); }
 
 /* ---------- AI chat dock ---------- */
 .ai-fab {
   position: fixed; top: 4px; right: 10px; bottom: auto; z-index: 60;
-  background: var(--amber); color: #000; border: 1px solid var(--amber); border-radius: 3px;
+  background: var(--amber-hi); color: var(--on-fill); border: 1px solid var(--amber-hi); border-radius: 3px;
   font-family: var(--mono); font-weight: 700; font-size: 12px; padding: 6px 12px; cursor: pointer;
-  box-shadow: 0 8px 32px rgba(255, 160, 40, 0.35); line-height: 1;
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--amber) 30%, transparent); line-height: 1;
 }
-.ai-fab:hover { background: var(--sec); border-color: var(--sec); }
+.ai-fab:hover { background: var(--sec-hi); border-color: var(--sec-hi); color: var(--on-fill); }
 /* In-flow AI button: last item of the terminal command bar's right cluster */
 .ai-inline {
-  flex: 0 0 auto; background: var(--amber); color: #000; border: 1px solid var(--amber); border-radius: 3px;
+  flex: 0 0 auto; background: var(--amber-hi); color: var(--on-fill); border: 1px solid var(--amber-hi); border-radius: 3px;
   font-family: var(--mono); font-weight: 700; font-size: 11px; padding: 4px 10px; cursor: pointer; line-height: 1.4;
 }
-.ai-inline:hover { background: var(--sec); border-color: var(--sec); }
+.ai-inline:hover { background: var(--sec-hi); border-color: var(--sec-hi); color: var(--on-fill); }
 /* CFA launcher: outlined sibling of the solid AI button */
 .cfa-inline {
-  flex: 0 0 auto; background: transparent; color: var(--amber); border: 1px solid rgba(255,160,40,0.4); border-radius: 3px;
+  flex: 0 0 auto; background: transparent; color: var(--amber); border: 1px solid var(--amber-line); border-radius: 3px;
   font-family: var(--mono); font-weight: 700; font-size: 11px; padding: 4px 10px; cursor: pointer; line-height: 1.4;
 }
-.cfa-inline:hover { background: rgba(255,160,40,0.12); }
-/* Terminal pages use the in-bar button — hide the floating overlay fab there */
+.cfa-inline:hover { background: color-mix(in srgb, var(--amber) 12%, transparent); }
+/* Terminal pages use the in-bar button â€” hide the floating overlay fab there */
 body:has(.term-root) .ai-fab { display: none; }
 /* Reserve room for the top-right AI button so it never covers the clock/feed/fnc-tag */
 .cmdbar, .nav { padding-right: 96px; }
 .ai-dock {
   position: fixed; top: 36px; right: 0; bottom: 28px; width: min(430px, 100vw); z-index: 40;
-  background: #000; border-left: 1px solid rgba(255, 160, 40, 0.45);
+  background: var(--panel); border-left: 1px solid var(--amber-line);
   display: flex; flex-direction: column;
 }
 /* On the terminal the status bar is IN-FLOW (26px, position:static), not the
@@ -482,7 +722,7 @@ body:has(.term-root) .ai-dock {
 @media (prefers-reduced-motion: reduce) { .tape-inner { animation: none; } }
 .plain th { padding: 7px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--sub); border-bottom: 1px solid var(--grid); }
 .plain td { padding: 8px 10px; border-bottom: 1px solid var(--grid); text-align: left; font-variant-numeric: tabular-nums; }
-.plain tbody tr:hover { background: rgba(255, 160, 40, 0.06); }
+.plain tbody tr:hover { background: color-mix(in srgb, var(--amber) 6%, transparent); }
 
 /* ---------- badges / buttons / inputs ---------- */
 .badge {
@@ -496,11 +736,11 @@ body:has(.term-root) .ai-dock {
 .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 button.btn {
-  background: var(--amber); color: #000; border: 1px solid var(--amber); border-radius: 3px;
+  background: var(--amber-hi); color: var(--on-fill); border: 1px solid var(--amber-hi); border-radius: 3px;
   padding: 9px 16px; font-family: var(--mono); font-size: 13px; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer;
 }
-button.btn:hover { background: var(--sec); border-color: var(--sec); }
+button.btn:hover { background: var(--sec-hi); border-color: var(--sec-hi); color: var(--on-fill); }
 button.ghost {
   background: transparent; border: 1px solid var(--grid); border-radius: 3px;
   color: var(--sub); font-family: var(--mono); font-size: 12.5px; font-weight: 600;
@@ -509,10 +749,10 @@ button.ghost {
 button.ghost:hover { border-color: var(--amber); color: var(--amber); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 input.box, select.box, textarea.box {
-  background: #000; color: var(--text); border: 1px solid var(--grid); border-radius: 2px;
+  background: var(--track); color: var(--text); border: 1px solid var(--grid); border-radius: 2px;
   padding: 9px 10px; font-family: var(--mono); font-size: 13px;
 }
-input.box:focus, select.box:focus, textarea.box:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px rgba(255, 160, 40, 0.3); }
+input.box:focus, select.box:focus, textarea.box:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px color-mix(in srgb, var(--amber) 30%, transparent); }
 
 .kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dotted var(--grid); font-size: 13.5px; }
 .kv:last-child { border-bottom: none; }
@@ -534,10 +774,10 @@ input.box:focus, select.box:focus, textarea.box:focus { outline: none; border-co
 
 .spark { width: 100%; height: 110px; display: block; }
 pre.term { white-space: pre-wrap; font-size: 12px; margin: 0; color: var(--sub); }
-pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: #000; border: 1px solid var(--grid); border-radius: 3px; padding: 12px; }
+pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: var(--track); border: 1px solid var(--grid); border-radius: 3px; padding: 12px; }
 
 /* legacy .nav/.logo aliases kept for simple pages */
-.nav { display: flex; gap: 10px; align-items: center; padding: 8px 14px; background: #000; border-bottom: 1px solid rgba(255,160,40,0.4); position: sticky; top: 0; z-index: 20; }
+.nav { display: flex; gap: 10px; align-items: center; padding: 8px 14px; background: var(--bg); border-bottom: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); position: sticky; top: 0; z-index: 20; }
 .nav .logo { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--text); font-size: 13px; }
 .nav .logo:hover { text-decoration: none; }
 .nav .logo-mark { color: var(--amber); }
@@ -547,14 +787,14 @@ pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: #
 /* ---------- reader dialog ---------- */
 .dlg-back {
   position: fixed; inset: 0; z-index: 100;
-  background: rgba(0, 0, 0, 0.72);
+  background: var(--scrim);
   display: flex; align-items: flex-start; justify-content: center;
   padding: 5vh 14px 5vh 14px; overflow-y: auto;
 }
 .dlg {
   width: 100%; max-width: 780px;
   background: var(--panel); border: 1px solid var(--amber); border-radius: 3px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 24px rgba(255, 160, 40, 0.12);
+  box-shadow: var(--shadow-xl), 0 0 24px color-mix(in srgb, var(--amber) 12%, transparent);
   padding: 16px 18px;
 }
 .dlg-head {
@@ -564,13 +804,18 @@ pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: #
 }
 .dlg-body { max-height: 56vh; max-height: 56dvh; overflow-y: auto; padding-right: 6px; }
 
-/* ---------- terminal scrollbars ---------- */
-* { scrollbar-width: thin; scrollbar-color: var(--grid) var(--bg); }
+/* ---------- terminal scrollbars ----------
+   The track is TRANSPARENT, not `--bg`. It used to paint the canvas colour
+   inside every panel body too, which put a grey gutter down the side of a
+   white desk; a transparent track simply inherits whatever surface it is in.
+   The thumb keeps a 2px transparent inset via background-clip so it reads as a
+   thin bar rather than a slab in both themes. */
+* { scrollbar-width: thin; scrollbar-color: var(--grid) transparent; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
-*::-webkit-scrollbar-track { background: var(--bg); }
-*::-webkit-scrollbar-thumb { background: var(--grid); border-radius: 5px; border: 2px solid var(--bg); }
-*::-webkit-scrollbar-thumb:hover { background: var(--amber); }
-*::-webkit-scrollbar-corner { background: var(--bg); }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--grid); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--amber); background-clip: padding-box; }
+*::-webkit-scrollbar-corner { background: transparent; }
 
 /* ---------- terminal shell (mockup-aligned; independent homage, not affiliated) ---------- */
 body:has(.term-root) { padding-bottom: 0; }
@@ -590,7 +835,7 @@ body:has(.term-root) { padding-bottom: 0; }
 .term-cmdbar { flex: 0 0 auto; height: var(--term-cmd-h); padding: 0 12px; gap: 10px; }
 .term-cmdbar .cmd-input { color: var(--sec); font-size: 13px; letter-spacing: 0.04em; }
 /* The floating .ai-fab is hidden on the terminal (see body:has(.term-root)
-   rule), so its 96px reservation below is dead space — give it back. */
+   rule), so its 96px reservation below is dead space â€” give it back. */
 body:has(.term-root) .cmdbar { padding-right: 12px; }
 /* segmented BBG echo: securities yellow, functions amber, flags dim */
 .cmd-field { position: relative; flex: 1; display: flex; align-items: center; min-width: 120px; }
@@ -601,25 +846,30 @@ body:has(.term-root) .cmdbar { padding-right: 12px; }
 .cmd-echo .echo-dim { color: var(--faint); }
 .cmd-ph { color: var(--faint); text-transform: none; letter-spacing: 0; }
 .cmd-live { position: relative; z-index: 1; width: 100%; background: transparent; color: transparent !important; caret-color: var(--amber); }
-.cmd-live::selection { background: rgba(255,160,40,0.35); }
+.cmd-live::selection { background: color-mix(in srgb, var(--amber) 35%, transparent); }
 /* GO flash: green = action key, red = cancel/stop */
 .term-cmdbar { transition: border-bottom-color 0.15s ease; }
 .term-cmdbar.go-ok { border-bottom-color: var(--green); }
 .term-cmdbar.go-err { border-bottom-color: var(--red); }
-/* autocomplete active row: solid amber like BBG menu highlight */
-.sug-row.active { background: var(--amber); box-shadow: none; }
-.sug-row.active .sug-sym, .sug-row.active .sug-sym.fn { color: #000; }
-.sug-row.active .sug-name { color: #000; }
-.sug-row.active .sug-meta { color: rgba(0,0,0,0.65); }
+/* autocomplete active row: solid amber like BBG menu highlight. The row is a
+   FILL, so its ink comes from the fill tier — hardcoded `rgba(0,0,0,.65)`
+   here was 3.4:1 against the light theme's deep amber and read as mud. */
+.sug-row.active { background: var(--amber-hi); box-shadow: none; }
+.sug-row.active .sug-sym, .sug-row.active .sug-sym.fn { color: var(--on-fill); }
+.sug-row.active .sug-name { color: var(--on-fill); }
+.sug-row.active .sug-meta { color: color-mix(in srgb, var(--on-fill) 72%, transparent); }
 /* directory rows: white outline hover like BBG clickable areas */
 .term-cmdbar .cmd-input::placeholder { color: var(--faint); text-transform: none; letter-spacing: 0; }
 .term-cmdbar .cmd-right { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--sub); white-space: nowrap; flex: 0 1 auto; min-width: 0; }
 .term-cmdbar .cmd-right .cmd-clock { white-space: nowrap; }
-.term-cmdbar .fn-tag { background: transparent; border: 1px solid rgba(255,160,40,0.4); color: var(--amber); padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 400; letter-spacing: 0.08em; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
+.term-cmdbar .fn-tag { background: transparent; border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); color: var(--amber); padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 400; letter-spacing: 0.08em; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
 .term-helpbox { padding-bottom: 6px; }
 
-/* ticker tape: 26px, grid rule, duration set inline (~4s per symbol) */
-.term-tape { flex: 0 0 auto; height: var(--term-tape-h); display: flex; align-items: center; background: #000; border-top: none; border-bottom: 1px solid var(--grid); overflow: hidden; position: relative; }
+/* ticker tape: 26px, grid rule, duration set inline (~4s per symbol).
+   The tape is a chrome BAND, not the canvas — on light it is the recessed
+   variant, so the amber score chip pinned to its left has something to sit in
+   instead of floating on the same value as the workspace behind it. */
+.term-tape { flex: 0 0 auto; height: var(--term-tape-h); display: flex; align-items: center; background: var(--chrome-2); border-top: none; border-bottom: 1px solid var(--grid); overflow: hidden; position: relative; }
 .term-tape .tape-track { display: flex; gap: 28px; white-space: nowrap; animation: tape-scroll 72s linear infinite; padding-right: 28px; flex: 0 0 auto; }
 /* scroll viewport: clips the marquee so items never paint over the OPEN chip */
 .tape-viewport { flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; align-self: stretch; }
@@ -637,11 +887,11 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .tape-score {
   flex: 0 0 auto; align-self: stretch; display: inline-flex; gap: 7px; align-items: center;
   font-family: var(--mono); font-size: 11px; white-space: nowrap;
-  background: rgba(255,160,40,0.12); border: none; border-right: 1px solid var(--grid);
+  background: color-mix(in srgb, var(--amber) 12%, transparent); border: none; border-right: 1px solid var(--grid);
   padding: 0 10px; cursor: pointer; color: var(--text);
 }
 .tape-score:disabled { cursor: default; }
-.tape-score:hover:enabled { background: rgba(255,160,40,0.22); }
+.tape-score:hover:enabled { background: color-mix(in srgb, var(--amber) 22%, transparent); }
 .tape-score:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .tape-score .sym { color: var(--amber); font-weight: 700; }
 .tape-score .up { color: var(--green); font-variant-numeric: tabular-nums; }
@@ -665,7 +915,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-grid { position: relative; }
 
 /* nested-flex tiling (4-up / 3-up-r / 3-up-l): outer row of columns, each
-   column stacks its own top/bottom panels — every quadrant resizes without
+   column stacks its own top/bottom panels â€” every quadrant resizes without
    moving the other side (one shared col + independent rowL/rowR). */
 .term-flex { flex: 1; min-height: 0; display: flex; align-items: stretch; padding: 6px; overflow: hidden; }
 .term-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -697,40 +947,40 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
   max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .desk-chip:hover { color: var(--amber); border-color: var(--amber); }
-.desk-chip.active { color: var(--amber); border-color: var(--amber); background: rgba(255,160,40,0.09); }
+.desk-chip.active { color: var(--amber); border-color: var(--amber); background: color-mix(in srgb, var(--amber) 9%, transparent); }
 .desk-chip:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
 
 /* panels: 28px panel2 header, internal scroll body */
-.term-panel { position: relative; background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; display: flex; flex-direction: column; min-width: 0; min-height: 0; max-width: 100%; flex: 1; overflow: hidden; }
-.term-panel.focused { border-color: var(--amber); box-shadow: 0 0 24px rgba(255,160,40,0.12); }
+.term-panel { position: relative; background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; display: flex; flex-direction: column; min-width: 0; min-height: 0; max-width: 100%; flex: 1; overflow: hidden; box-shadow: var(--panel-lift); }
+.term-panel.focused { border-color: var(--amber); box-shadow: 0 0 24px color-mix(in srgb, var(--amber) 12%, transparent); }
 .term-panel:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
-.term-panel-head { flex: 0 0 auto; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--panel-2); border-bottom: 1px solid var(--grid); cursor: grab; position: relative; user-select: none; }
+.term-panel-head { flex: 0 0 auto; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--panel-head); border-bottom: 1px solid var(--grid); cursor: grab; position: relative; user-select: none; }
 .term-panel-head:active { cursor: grabbing; }
 .term-panel-head .cmd-mark { color: var(--amber); font-size: 12px; }
 .term-panel-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .term-panel-sym { font-size: 11px; font-weight: 600; color: var(--sec); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .term-panel-sym.as-btn { background: none; border: none; font-family: var(--mono); cursor: pointer; padding: 2px 4px; margin: -2px -4px; border-radius: 2px; }
-.term-panel-sym.as-btn:hover { color: var(--amber); background: rgba(255,160,40,0.1); text-decoration: underline; }
+.term-panel-sym.as-btn:hover { color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); text-decoration: underline; }
 .term-panel-sym.as-btn:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
 .term-panel-sep { color: var(--faint); font-size: 11px; }
 .term-panel-sp { flex: 1; }
 .term-icon { background: transparent; border: none; border-radius: 2px; color: var(--sub); font-family: var(--mono); font-size: 11px; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
-.term-icon:hover { color: var(--amber); background: rgba(255,160,40,0.1); }
-.term-icon.danger:hover { color: var(--red); background: rgba(255,69,58,0.1); }
+.term-icon:hover { color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); }
+.term-icon.danger:hover { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
 .term-icon:focus-visible, .fkey:focus-visible, .ws-btn:focus-visible, .cmd-input:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
-.term-minirow { flex: 0 0 auto; display: flex; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--grid); background: #000; }
+.term-minirow { flex: 0 0 auto; display: flex; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--grid); background: var(--track); }
 .term-minirow input { flex: 1; background: transparent; border: none; outline: none; color: var(--sec); font-family: var(--mono); font-size: 12px; text-transform: uppercase; caret-color: var(--amber); }
 .term-minirow input::placeholder { color: var(--faint); }
 .term-mini-err { flex: 0 0 auto; padding: 4px 10px; font-size: 11px; color: var(--red); border-bottom: 1px solid var(--grid); }
 /* per-panel quick settings: collapsed strip below the body + expandable form */
-.term-panel-foot { flex: 0 0 auto; border-top: 1px solid var(--grid); background: #000; }
+.term-panel-foot { flex: 0 0 auto; border-top: 1px solid var(--grid); background: var(--track); }
 .term-settings-toggle {
   width: 100%; display: flex; gap: 8px; align-items: center;
   background: none; border: none; cursor: pointer; padding: 6px 10px;
   color: var(--sub); font-family: var(--mono); font-size: 10.5px; font-weight: 600;
   letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
 }
-.term-settings-toggle:hover { color: var(--amber); background: rgba(255,160,40,0.06); }
+.term-settings-toggle:hover { color: var(--amber); background: color-mix(in srgb, var(--amber) 6%, transparent); }
 .term-settings-toggle.open { color: var(--amber); }
 .term-settings-toggle:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .term-settings-sum { margin-left: auto; color: var(--faint); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
@@ -738,34 +988,34 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-panel-settings { padding: 10px 12px 12px 12px; border-top: 1px solid var(--grid); max-height: 46vh; max-height: 46dvh; overflow-y: auto; background: var(--panel); }
 .term-settings .box { width: 100%; }
 .term-settings .toolbar .btn { padding: 7px 14px; font-size: 12px; }
-.term-menu { position: absolute; top: 28px; right: 0; z-index: 30; background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; display: grid; min-width: 230px; box-shadow: 0 18px 50px rgba(0,0,0,0.7); }
+.term-menu { position: absolute; top: 28px; right: 0; z-index: 30; background: var(--panel); border: 1px solid color-mix(in srgb, var(--amber) 50%, transparent); border-radius: 3px; display: grid; min-width: 230px; box-shadow: var(--shadow-lg); }
 /* directory row menu: same look, fixed at the cursor */
-.dir-menu { position: fixed; z-index: 80; background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; display: grid; min-width: 230px; max-width: calc(100vw - 16px); box-shadow: 0 18px 50px rgba(0,0,0,0.7); }
+.dir-menu { position: fixed; z-index: 80; background: var(--panel); border: 1px solid color-mix(in srgb, var(--amber) 50%, transparent); border-radius: 3px; display: grid; min-width: 230px; max-width: calc(100vw - 16px); box-shadow: var(--shadow-lg); }
 .dir-menu button { background: none; border: none; text-align: left; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 10px 12px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dir-menu button:hover { background: rgba(255,160,40,0.12); color: var(--sec); }
+.dir-menu button:hover { background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--sec); }
 .dir-menu button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .term-menu button { background: none; border: none; text-align: left; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 10px 12px; cursor: pointer; }
-.term-menu button:hover { background: rgba(255,160,40,0.12); color: var(--sec); }
+.term-menu button:hover { background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--sec); }
 .term-menu button.danger:hover { color: var(--red); }
 .term-menu button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
-.term-expose { position: absolute; top: 34px; left: 10px; z-index: 5; font-size: 34px; font-weight: 700; color: rgba(255,160,40,0.9); background: rgba(0,0,0,0.6); border: 1px solid var(--amber); border-radius: 3px; padding: 0 12px; pointer-events: none; }
+.term-expose { position: absolute; top: 34px; left: 10px; z-index: 5; font-size: 34px; font-weight: 700; color: var(--overlay-fg); background: var(--overlay); border: 1px solid var(--amber-line-hard); border-radius: 3px; padding: 0 12px; pointer-events: none; }
 .term-panel-body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; container-type: inline-size; container-name: panel; }
 .term-panel-body:has(.nexus-fill), .term-panel-body:has(.frame-fill) { padding: 0; overflow: hidden; }
 .term-panel-body:has(.nexus-fill) .desk-fill, .term-panel-body:has(.frame-fill) .desk-fill { display: flex; flex-direction: column; height: 100%; }
 .nexus-fill { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
-.nexus-fill iframe { flex: 1; min-width: 0; min-height: 0; width: 100%; border: none; border-radius: 0; display: block; background: #000; }
+.nexus-fill iframe { flex: 1; min-width: 0; min-height: 0; width: 100%; border: none; border-radius: 0; display: block; background: var(--track); }
 .frame-fill { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; min-height: 0; padding: 10px 12px; }
-.frame-fill iframe { flex: 1; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: block; border: 1px solid var(--grid); border-radius: 3px; background: #000; }
+.frame-fill iframe { flex: 1; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: block; border: 1px solid var(--grid); border-radius: 3px; background: var(--track); }
 .desk-fill { min-height: 0; }
 .desk-fill .grid { gap: 8px; }
 .desk-head { margin-bottom: 4px; }
 
 /* in-panel typography: mh micro-headers, 12px right-aligned tables, stat cards */
-.term-panel-body .p-head { font-size: 11px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; color: var(--amber); border-bottom: 1px solid rgba(255,160,40,0.4); padding-bottom: 4px; margin: 0 0 8px 0; display: block; }
+.term-panel-body .p-head { font-size: 11px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; color: var(--amber); border-bottom: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); padding-bottom: 4px; margin: 0 0 8px 0; display: block; }
 .term-panel-body .p-head::before { content: none; }
 .term-panel-body .p-head a { font-size: 10px; }
 .term-panel-body table.plain, .desk-fill table.plain { font-size: 12px; }
-.term-panel-body table.plain th, .desk-fill table.plain th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--amber); border-bottom: 1px solid rgba(255,160,40,0.4); padding: 4px 6px; text-align: right; }
+.term-panel-body table.plain th, .desk-fill table.plain th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--amber); border-bottom: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); padding: 4px 6px; text-align: right; }
 .term-panel-body table.plain th:first-child, .desk-fill table.plain th:first-child,
 .term-panel-body table.plain td:first-child, .desk-fill table.plain td:first-child { text-align: left; }
 .term-panel-body table.plain td, .desk-fill table.plain td { font-size: 12px; padding: 4px 6px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -776,7 +1026,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-panel-body .cell .val, .desk-fill .cell .val { font-size: 16px; }
 .term-panel-body .badge, .desk-fill .badge { font-size: 10px; border-radius: 3px; }
 
-/* container-aware panels: desks adapt to PANEL width, not viewport width —
+/* container-aware panels: desks adapt to PANEL width, not viewport width â€”
    a 6-stat strip must collapse in a narrow 4-up tile even on a wide monitor */
 /* container-aware duo: side-by-side on wide desks, stacked in narrow
    terminal panels (fixes squeezed 2-col grids like the old DuPont view) */
@@ -805,10 +1055,10 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 }
 
 /* function-key bar: full-width flex, stacked k/l/c */
-.term-fkeys { flex: 0 0 auto; display: flex; border-top: 1px solid var(--grid); background: #000; overflow-x: auto; }
+.term-fkeys { flex: 0 0 auto; display: flex; border-top: 1px solid var(--grid); background: var(--chrome); overflow-x: auto; }
 .fkey { flex: 1; min-width: 96px; padding: 5px 8px; border: none; border-right: 1px solid var(--grid); background: transparent; cursor: pointer; display: flex; flex-direction: column; gap: 1px; text-align: left; font-family: var(--mono); }
 .fkey:last-child { border-right: none; }
-.fkey:hover { background: rgba(255,160,40,0.08); }
+.fkey:hover { background: color-mix(in srgb, var(--amber) 8%, transparent); }
 .fkey .k { font-size: 9px; color: var(--amber); font-weight: 700; letter-spacing: 0.04em; }
 .fkey .l { font-size: 10px; color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
 .fkey .c { font-size: 9px; color: var(--sub); white-space: nowrap; }
@@ -819,7 +1069,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .term-status .hl { color: var(--amber); }
 /* flex spacer between the left read-outs and the right action cluster.
    `flex: 1 1 0` grows to right-align the cluster when the bar fits, and
-   collapses to 0 when it doesn't — which is what makes the <=1023px
+   collapses to 0 when it doesn't â€” which is what makes the <=1023px
    horizontal scroll engage. */
 .term-status .term-status-spacer { flex: 1 1 0; min-width: 0; }
 .term-status .ws-switch { position: relative; display: inline-flex; }
@@ -837,8 +1087,8 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .set-drop {
   position: absolute; bottom: 150%; right: -8px; z-index: 60;
   width: min(400px, calc(100vw - 24px)); max-height: 62vh; max-height: 62dvh; overflow-y: auto;
-  background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px;
-  box-shadow: 0 18px 50px rgba(0,0,0,0.7); padding: 12px 14px; text-transform: none;
+  background: var(--panel); border: 1px solid color-mix(in srgb, var(--amber) 50%, transparent); border-radius: 3px;
+  box-shadow: var(--shadow-lg); padding: 12px 14px; text-transform: none;
 }
 .set-drop .p-head { margin-bottom: 10px; }
 /* status cells: always 3-up in the narrow drop-up (the global 6-col
@@ -849,7 +1099,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .set-drop .cell .sub { white-space: nowrap; }
 
 /* workspace switcher dropdown rows */
-.ws-drop { position: absolute; top: 110%; left: 0; z-index: 35; width: min(420px, 92vw); background: #000; border: 1px solid rgba(255,160,40,0.5); border-radius: 3px; box-shadow: 0 18px 50px rgba(0,0,0,0.7); max-height: 60vh; max-height: 60dvh; overflow-y: auto; padding-bottom: 6px; }
+.ws-drop { position: absolute; top: 110%; left: 0; z-index: 35; width: min(420px, 92vw); background: var(--panel); border: 1px solid color-mix(in srgb, var(--amber) 50%, transparent); border-radius: 3px; box-shadow: var(--shadow-lg); max-height: 60vh; max-height: 60dvh; overflow-y: auto; padding-bottom: 6px; }
 .ws-row { align-items: center; }
 .ws-load { display: flex; gap: 10px; align-items: baseline; background: none; border: none; cursor: pointer; font-family: var(--mono); flex: 1; text-align: left; padding: 2px 0; }
 .ws-ops { display: flex; gap: 4px; }
@@ -858,19 +1108,19 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 /* first-run guided tour: dim backdrop, amber spotlight ring, bottom card */
 .tour-backdrop {
   position: fixed; inset: 0; z-index: 90;
-  background: rgba(0, 0, 0, 0.62);
+  background: var(--scrim);
 }
 .tour-spot {
   position: relative; z-index: 95 !important;
   outline: 2px solid var(--amber) !important; outline-offset: -2px;
-  box-shadow: 0 0 32px rgba(255, 160, 40, 0.35) !important;
+  box-shadow: 0 0 32px color-mix(in srgb, var(--amber) 40%, transparent) !important;
   border-radius: 3px;
 }
 .tour-card {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(var(--term-status-h) + 14px); z-index: 96; width: min(600px, calc(100vw - 24px));
-  background: #000; border: 1px solid var(--amber); border-radius: 3px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 24px rgba(255, 160, 40, 0.25);
+  background: var(--panel); border: 1px solid var(--amber); border-radius: 3px;
+  box-shadow: var(--shadow-xl), 0 0 24px color-mix(in srgb, var(--amber) 25%, transparent);
   padding: 14px 16px;
 }
 .tour-title {
@@ -881,7 +1131,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .tour-dots { display: flex; gap: 6px; margin-bottom: 12px; }
 .tour-dot { width: 22px; height: 4px; border-radius: 2px; background: var(--grid); }
 .tour-dot.done { background: var(--amber-deep); }
-.tour-dot.active { background: var(--amber); box-shadow: 0 0 8px rgba(255,160,40,0.7); }
+.tour-dot.active { background: var(--amber); box-shadow: 0 0 8px color-mix(in srgb, var(--amber) 70%, transparent); }
 .tour-btns .btn { padding: 7px 14px; font-size: 12px; }
 @media (max-width: 639px) {
   .tour-card { bottom: 36px; padding: 12px; }
@@ -948,7 +1198,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
      Direct children stop shrinking so the row overflows rather than
      crushing labels. The spacer keeps `flex: 1 1 0`, so it grows to
      right-align the action cluster when the content FITS, and collapses to
-     zero when it doesn't — which is what turns the row into a scrollbar. */
+     zero when it doesn't â€” which is what turns the row into a scrollbar. */
   .term-status {
     overflow-x: auto; overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
@@ -962,15 +1212,15 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
   .term-status::after { content: ""; flex: 0 0 8px; }
 
   /* The bar scrolls with a hidden scrollbar, so from 1024px down the right
-     half — the workspace switcher, layout picker, AI and help controls, the
-     clock — sits off-screen with no affordance saying it is there. The
+     half â€” the workspace switcher, layout picker, AI and help controls, the
+     clock â€” sits off-screen with no affordance saying it is there. The
      low-value read-outs yield first (they are duplicated in the cmd bar and
      the tape), the controls never do. Measured: 1711px of content in a
      1020px bar. */
   .term-status .hide-md { display: none; }
   /* The desk switcher is the one control that grows with the user's own
      workspace, so it is the one control that gets a ceiling. It stays fully
-     usable — it scrolls within its own box. */
+     usable â€” it scrolls within its own box. */
   .term-status .desk-chips { max-width: 260px; overflow-x: auto; }
 }
 /* The clock is the last read-out to go, at the narrowest desktop widths. */
@@ -979,10 +1229,10 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
    scrollbar plus hidden content reads as a terminal that has simply run out of
    room, which is what the user reported. */
 @media (max-width: 1100px) {
-  .term-status { scrollbar-width: thin; scrollbar-color: rgba(255, 160, 40, 0.4) transparent; }
+  .term-status { scrollbar-width: thin; scrollbar-color: var(--amber-line) transparent; }
   .term-status::-webkit-scrollbar { height: 2px; }
   .term-status::-webkit-scrollbar-track { background: transparent; }
-  .term-status::-webkit-scrollbar-thumb { background: rgba(255, 160, 40, 0.4); border-radius: 1px; }
+  .term-status::-webkit-scrollbar-thumb { background: var(--amber-line); border-radius: 1px; }
 }
 
 /* === PHONE (<=767px): the terminal is now a first-class surface === */
@@ -1017,7 +1267,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 
 /* === TOUCH (coarse pointer) ==============================================
    The shell is dense by design (DESIGN.md), but 9px dividers and 24px icons
-   are unusable by finger. Widen the HIT AREA only — never the visual line or
+   are unusable by finger. Widen the HIT AREA only â€” never the visual line or
    the layout box, so the tiling math (which hardcodes the 9px gutter) and the
    dense grid are both preserved. `pointer:coarse` keeps precise dividers on
    desktop, where 9px is a feature. */
@@ -1036,7 +1286,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
   }
   .term-flex-v::before, .term-split-v::before { left: -18px; right: -18px; top: 0; bottom: 0; }
   .term-flex-h::before, .term-split-h::before { top: -18px; bottom: -18px; left: 0; right: 0; }
-  /* …but the band must not swallow the panel header's controls, which sit
+  /* â€¦but the band must not swallow the panel header's controls, which sit
      within 18px of the divider on the narrow column. */
   .term-panel-head > * { position: relative; z-index: 2; }
 
@@ -1052,8 +1302,8 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 
 /* Android/Chrome force a page zoom when a focused input's font-size is under
    16px. Inside this 100dvh + overflow:hidden shell that zoom shatters the
-   whole layout, so every control is bumped on touch pointers only — desktop
-   keeps its 12–13.5px density. `.cmd-echo` mirrors `.cmd-input` and must move
+   whole layout, so every control is bumped on touch pointers only â€” desktop
+   keeps its 12â€“13.5px density. `.cmd-echo` mirrors `.cmd-input` and must move
    with it or the two overlays desync. */
 @media (pointer: coarse) {
   input, select, textarea { font-size: 16px; }

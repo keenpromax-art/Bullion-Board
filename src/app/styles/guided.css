@@ -41,13 +41,21 @@
   /* ink */
   --g-text: #0d1117;
   --g-text-2: #4a5462;
-  --g-text-3: #8b95a3;
+  /* Was #8b95a3 — 3.03:1 on a card, below AA for body text, and this tier
+     carries eyebrows, statuses, empty-state copy and footnote rows. Every
+     value here is measured against all four light surfaces; this is the
+     darkest that still reads a clear step below --g-text-2 (7.68:1). */
+  --g-text-3: #616a78;
 
-  /* direction — the ONLY place red/green appear */
-  --g-pos: #00a15c;
-  --g-pos-soft: rgba(0, 161, 92, 0.10);
-  --g-neg: #d92d3c;
-  --g-neg-soft: rgba(217, 45, 60, 0.10);
+  /* Direction — the ONLY place red/green appear.
+     Same split as the terminal's accent: --g-pos/--g-neg are the TEXT tier and
+     --g-heat-up/--g-heat-down below are the FILL tier. #00a15c measured 3.36:1
+     on a card, so a 19px heat number in it was failing; the vivid green moves
+     to the heat ramp where it is a background and near-white ink sits on it. */
+  --g-pos: #08703d;
+  --g-pos-soft: rgba(8, 112, 61, 0.10);
+  --g-neg: #c1121f;
+  --g-neg-soft: rgba(193, 18, 31, 0.09);
 
   /* brand accent — deliberately NOT the terminal amber. One accent, used
      sparingly for identity and focus, never for direction. */
@@ -111,7 +119,9 @@
 
   --g-text: #f2f4f7;
   --g-text-2: #a3adba;
-  --g-text-3: #6b7684;
+  /* Was #6b7684 at 4.00:1 on a card — below AA, and below the terminal's own
+     --faint floor of 5.7:1 that DESIGN.md holds the dimmest tier to. */
+  --g-text-3: #828d9b;
 
   --g-pos: #16c784;
   --g-pos-soft: rgba(22, 199, 132, 0.12);

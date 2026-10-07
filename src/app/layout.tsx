@@ -45,7 +45,7 @@ if(v!=="light"&&v!=="dark"&&v!=="system")return;
 var r=v==="system"?(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"):v;
 var d=document.documentElement;d.dataset.theme=r;
 var m=document.querySelector('meta[name="theme-color"]');
-if(m)m.setAttribute("content",r==="dark"?"#030304":"#e9e9e6");
+if(m)m.setAttribute("content",r==="dark"?"#030304":"#dfe3ea");
 }catch(e){}})();`;
 
 // The Guided experience provider wraps the whole app so `data-exp` / `data-theme`

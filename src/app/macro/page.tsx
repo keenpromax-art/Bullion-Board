@@ -89,13 +89,13 @@ function IndicatorTooltip({ series, event, anchor }: { series: string; event: st
       maxWidth: 380, minWidth: 280, background: "var(--panel-2)", border: "1px solid var(--amber)",
       borderRadius: 3, padding: "10px 12px", fontFamily: "var(--mono)", fontSize: 12,
       lineHeight: 1.55, color: "var(--sub)", pointerEvents: "none",
-      boxShadow: "0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px color-mix(in srgb, var(--amber) 15%, transparent)",
+      boxShadow: "var(--shadow)",
     }}>
       <div style={{ color: "var(--amber)", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{title}</div>
-      <div style={{ marginBottom: 5 }}><span style={{ color: "#666" }}>WHAT: </span>{what}</div>
-      <div style={{ marginBottom: 5 }}><span style={{ color: "#666" }}>WHY IT MATTERS: </span>{why}</div>
-      {freq && <div style={{ marginBottom: 3 }}><span style={{ color: "#666" }}>CADENCE: </span>{freq}</div>}
-      <div style={{ color: "#555", fontSize: 10, marginTop: 4 }}>SOURCE: {source}</div>
+      <div style={{ marginBottom: 5 }}><span style={{ color: "var(--faint)" }}>WHAT: </span>{what}</div>
+      <div style={{ marginBottom: 5 }}><span style={{ color: "var(--faint)" }}>WHY IT MATTERS: </span>{why}</div>
+      {freq && <div style={{ marginBottom: 3 }}><span style={{ color: "var(--faint)" }}>CADENCE: </span>{freq}</div>}
+      <div style={{ color: "var(--faint)", fontSize: 10, marginTop: 4 }}>SOURCE: {source}</div>
     </div>
   );
 }

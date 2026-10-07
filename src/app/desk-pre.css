@@ -23,15 +23,15 @@
 .pre-mast {
   position: relative; display: grid; gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto; align-items: start;
-  background: var(--track); border: 1px solid var(--grid); border-top: 2px solid var(--amber);
+  background: var(--masthead); border: 1px solid var(--grid); border-top: 2px solid var(--amber);
   border-radius: 3px; padding: 14px 16px 12px;
 }
 .pre-mast::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 3px;
-  box-shadow: inset 0 -1px 0 rgba(255, 160, 40, 0.22);
+  box-shadow: inset 0 -1px 0 var(--amber-line-soft);
 }
 .pre-func { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.pre-fn-tag { background: var(--amber); color: #000; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 2px; }
+.pre-fn-tag { background: var(--amber-hi); color: var(--on-fill); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 2px; }
 .pre-fn-desk { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; color: var(--amber); text-transform: uppercase; }
 .pre-title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
 .pre-title-name { font-size: 34px; font-weight: 700; color: var(--sec); letter-spacing: -0.6px; line-height: 1; overflow-wrap: anywhere; }
@@ -67,8 +67,8 @@
   letter-spacing: 0.08em; padding: 5px 11px; cursor: pointer; text-transform: uppercase;
 }
 .pre-seg button:last-child { border-right: none; }
-.pre-seg button:hover { color: var(--amber); background: rgba(255, 160, 40, 0.08); }
-.pre-seg button.on { background: var(--amber); color: #000; }
+.pre-seg button:hover { color: var(--amber); background: color-mix(in srgb, var(--amber) 8%, transparent); }
+.pre-seg button.on { background: var(--amber-hi); color: var(--on-fill); }
 .pre-seg button:focus-visible { outline: 2px solid var(--sec); outline-offset: -2px; }
 .pre-rail-track { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
 .pre-chip {
@@ -78,9 +78,9 @@
   display: grid; gap: 3px; align-content: start;
   transition: border-color 0.12s ease, background 0.12s ease;
 }
-.pre-chip:hover { border-color: var(--amber); background: rgba(255, 160, 40, 0.07); }
+.pre-chip:hover { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 7%, transparent); }
 .pre-chip:focus-visible { outline: 2px solid var(--amber); outline-offset: -1px; }
-.pre-chip.on { border-color: var(--amber); background: rgba(255, 160, 40, 0.1); box-shadow: inset 3px 0 0 var(--amber), 0 0 22px rgba(255, 160, 40, 0.1); }
+.pre-chip.on { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); box-shadow: inset 3px 0 0 var(--amber), 0 0 22px color-mix(in srgb, var(--amber) 10%, transparent); }
 .pre-chip-top { display: flex; align-items: center; gap: 6px; }
 .pre-chip-name { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; color: var(--amber); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pre-chip.on .pre-chip-name { color: var(--sec); }
@@ -88,8 +88,8 @@
 .pre-chip-sub { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .pre-chip-tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .pre-tag { font-size: 8.5px; letter-spacing: 0.1em; padding: 0 4px; border-radius: 2px; border: 1px solid var(--grid); color: var(--faint); }
-.pre-tag.fit { color: var(--green); border-color: rgba(0, 214, 100, 0.5); }
-.pre-tag.tape { color: var(--amber); border-color: rgba(255, 160, 40, 0.5); }
+.pre-tag.fit { color: var(--green); border-color: color-mix(in srgb, var(--green) 50%, transparent); }
+.pre-tag.tape { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 50%, transparent); }
 .pre-chip.dead { opacity: 0.55; }
 .pre-chip.dead .pre-chip-px { color: var(--faint); }
 .pre-rail-note { font-size: 10.5px; color: var(--faint); letter-spacing: 0.02em; }
@@ -101,18 +101,18 @@
 .pre-nav {
   position: sticky; top: var(--pre-nav-top, 36px); z-index: 15;
   display: flex; align-items: stretch; overflow-x: auto; scrollbar-width: thin;
-  scrollbar-color: rgba(255, 160, 40, 0.34) transparent;
-  background: var(--track); border: 1px solid var(--grid); border-radius: 3px;
+  scrollbar-color: var(--amber-line) transparent;
+  background: var(--masthead); border: 1px solid var(--grid); border-radius: 3px;
   /* A wide, soft shadow darkens the paragraph sliding under the bar and makes
      the cut read as damaged text. Keep it tight so it reads as a bar edge. */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--shadow);
 }
 /* The rail scrolls when the nine sections do not fit, so say so: a 2px amber
    thumb on an otherwise hidden track. Hiding the scrollbar entirely (it used
    to be `none`) left 400-800px of navigation reachable only by guessing. */
 .pre-nav::-webkit-scrollbar { height: 2px; }
 .pre-nav::-webkit-scrollbar-track { background: transparent; }
-.pre-nav::-webkit-scrollbar-thumb { background: rgba(255, 160, 40, 0.34); border-radius: 1px; }
+.pre-nav::-webkit-scrollbar-thumb { background: var(--amber-line); border-radius: 1px; }
 .pre-nav-btn {
   flex: 0 0 auto; display: flex; align-items: baseline; gap: 7px; white-space: nowrap;
   background: transparent; border: none; border-right: 1px solid var(--grid);
@@ -121,11 +121,11 @@
   box-shadow: inset 0 -2px 0 transparent;
 }
 .pre-nav-btn:last-of-type { border-right: none; }
-.pre-nav-btn:hover { color: var(--text); background: rgba(255, 160, 40, 0.07); }
+.pre-nav-btn:hover { color: var(--text); background: color-mix(in srgb, var(--amber) 7%, transparent); }
 .pre-nav-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .pre-nav-btn .n { color: var(--amber-deep); font-weight: 700; }
 .pre-nav-btn .st { color: var(--faint); font-weight: 400; letter-spacing: 0.02em; }
-.pre-nav-btn.on { color: var(--amber); background: rgba(255, 160, 40, 0.09); box-shadow: inset 0 -2px 0 var(--amber); }
+.pre-nav-btn.on { color: var(--amber); background: color-mix(in srgb, var(--amber) 9%, transparent); box-shadow: inset 0 -2px 0 var(--amber); }
 .pre-nav-btn.on .n { color: var(--amber); }
 .pre-nav-btn.on .st { color: var(--sub); }
 
@@ -180,7 +180,7 @@
     border-top: 1px solid var(--grid); padding: 10px 0 0; max-width: none;
   }
 }
-.pre-act { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; border-left: 2px solid var(--amber); padding: 8px 0 8px 12px; background: rgba(255, 160, 40, 0.05); }
+.pre-act { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; border-left: 2px solid var(--amber); padding: 8px 0 8px 12px; background: color-mix(in srgb, var(--amber) 5%, transparent); }
 .pre-act-t { font-size: 14px; font-weight: 800; letter-spacing: 0.02em; }
 .pre-act-s { font-size: 11px; color: var(--sub); letter-spacing: 0.04em; }
 .pre-figure-xl { font-size: 38px; font-weight: 800; letter-spacing: -1.2px; line-height: 1.02; font-variant-numeric: tabular-nums; }
@@ -195,7 +195,7 @@
 .pre-meter-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .pre-meter-l { font-size: 9.5px; letter-spacing: 0.12em; color: var(--faint); text-transform: uppercase; }
 .pre-meter-v { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.pre-meter-bar { position: relative; height: 5px; margin-top: 6px; background: #000; border: 1px solid var(--grid); border-radius: 1px; overflow: hidden; }
+.pre-meter-bar { position: relative; height: 5px; margin-top: 6px; background: var(--track); border: 1px solid var(--grid); border-radius: 1px; overflow: hidden; }
 .pre-meter-fill { position: absolute; inset: 0 auto 0 0; background: var(--amber); }
 .pre-meter-fill.ok { background: var(--green); }
 .pre-meter-fill.bad { background: var(--red); }
@@ -206,9 +206,9 @@
 .pre-step { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; scroll-margin-top: 88px; }
 .pre-step-rail { display: grid; grid-template-rows: auto 1fr; justify-items: center; }
 .pre-step-n { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--grid); border-radius: 2px; background: var(--panel-2); font-size: 11px; font-weight: 700; color: var(--sub); font-variant-numeric: tabular-nums; }
-.pre-step.ok .pre-step-n { border-color: rgba(0, 214, 100, 0.55); color: var(--green); }
-.pre-step.fail .pre-step-n { border-color: rgba(255, 69, 58, 0.55); color: var(--red); }
-.pre-step.note .pre-step-n { border-color: rgba(255, 160, 40, 0.55); color: var(--amber); }
+.pre-step.ok .pre-step-n { border-color: color-mix(in srgb, var(--green) 55%, transparent); color: var(--green); }
+.pre-step.fail .pre-step-n { border-color: color-mix(in srgb, var(--red) 55%, transparent); color: var(--red); }
+.pre-step.note .pre-step-n { border-color: color-mix(in srgb, var(--amber) 55%, transparent); color: var(--amber); }
 .pre-step-line { width: 1px; background: var(--grid); margin: 4px 0; min-height: 10px; }
 .pre-step:last-child .pre-step-line { display: none; }
 .pre-step-b { padding-bottom: 15px; min-width: 0; }
@@ -237,7 +237,7 @@
 .pre-bar i.pos { background: var(--green); }
 .pre-bar i.neg { background: var(--red); }
 .pre-bar i.flat { background: var(--faint); left: 50%; width: 3px !important; transform: translateX(-50%); }
-.pre-leg-note { font-size: 10.5px; color: var(--faint); line-height: 1.55; padding: 6px 10px 8px 10px; border-bottom: 1px solid var(--grid); background: rgba(255, 160, 40, 0.04); }
+.pre-leg-note { font-size: 10.5px; color: var(--faint); line-height: 1.55; padding: 6px 10px 8px 10px; border-bottom: 1px solid var(--grid); background: color-mix(in srgb, var(--amber) 4%, transparent); }
 .pre-st { font-size: 10px; letter-spacing: 0.06em; white-space: nowrap; }
 .pre-st.live { color: var(--green); }
 .pre-st.prior { color: var(--amber); }
@@ -250,8 +250,8 @@
 .pre-factors { display: grid; gap: 6px; }
 .pre-factor { display: grid; grid-template-columns: 112px minmax(0, 1fr) 150px 62px; gap: 12px; align-items: center; background: none; border: 1px solid transparent; border-radius: 2px; padding: 7px 9px; cursor: pointer; font-family: var(--mono); text-align: left; color: var(--sub); width: 100%; }
 .pre-factor .pre-bar-cell { width: 100%; margin-left: 0; }
-.pre-factor:hover { border-color: var(--grid); background: rgba(255, 160, 40, 0.05); }
-.pre-factor.on { border-color: var(--amber); background: rgba(255, 160, 40, 0.09); color: var(--text); }
+.pre-factor:hover { border-color: var(--grid); background: color-mix(in srgb, var(--amber) 5%, transparent); }
+.pre-factor.on { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 9%, transparent); color: var(--text); }
 .pre-factor:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
 .pre-factor-n { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .pre-factor-w { font-size: 11px; color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; }
@@ -262,22 +262,22 @@
 .pre-tape { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 8px; }
 .pre-tape-card { background: var(--panel-2); border: 1px solid var(--grid); border-radius: 3px; padding: 8px 10px 9px; display: grid; gap: 5px; }
 .pre-tape-card.shut { border-style: dashed; }
-.pre-tape-card.rejected { border-color: rgba(255, 69, 58, 0.5); }
+.pre-tape-card.rejected { border-color: color-mix(in srgb, var(--red) 50%, transparent); }
 .pre-tc-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .pre-tc-k { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--amber); }
 .pre-tc-px { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pre-tc-chg { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
-.pre-tc-axis { position: relative; display: block; height: 12px; width: 100%; background: #000; border: 1px solid var(--grid); border-radius: 1px; }
+.pre-tc-axis { position: relative; display: block; height: 12px; width: 100%; background: var(--track); border: 1px solid var(--grid); border-radius: 1px; }
 .pre-tc-axis .zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--grid); }
-.pre-tc-axis .band { position: absolute; top: 3px; bottom: 3px; background: rgba(255, 160, 40, 0.28); }
+.pre-tc-axis .band { position: absolute; top: 3px; bottom: 3px; background: color-mix(in srgb, var(--amber) 28%, transparent); }
 .pre-tc-axis .mark { position: absolute; top: 1px; bottom: 1px; width: 3px; border-radius: 1px; }
 .pre-tc-axis-legend { display: flex; justify-content: space-between; font-size: 8.5px; letter-spacing: 0.06em; color: var(--faint); margin-top: -1px; }
 .pre-tc-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 9.5px; color: var(--faint); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
 
 /* ---------- breadth ---------- */
 .pre-ad { display: grid; gap: 6px; }
-.pre-ad-bar { display: flex; height: 20px; border: 1px solid var(--grid); border-radius: 2px; overflow: hidden; background: #000; }
-.pre-ad-bar span { display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: #04040a; min-width: 0; overflow: hidden; white-space: nowrap; }
+.pre-ad-bar { display: flex; height: 20px; border: 1px solid var(--grid); border-radius: 2px; overflow: hidden; background: var(--track); }
+.pre-ad-bar span { display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: var(--on-dir); min-width: 0; overflow: hidden; white-space: nowrap; }
 .pre-ad-bar .a { background: var(--green); }
 .pre-ad-bar .d { background: var(--red); }
 .pre-ad-bar .u { background: var(--grid); color: var(--sub); }
@@ -286,11 +286,11 @@
    rgba() over the panel colour — no gradients, per DESIGN.md. */
 .pre-heat { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
 .pre-heat-cell { border: 1px solid var(--grid); border-radius: 2px; padding: 7px 9px 8px; display: grid; gap: 2px; position: relative; background: var(--panel-2); }
-.pre-heat-cell.t-up-strong { background: rgba(0, 214, 100, 0.16); border-color: rgba(0, 214, 100, 0.4); }
-.pre-heat-cell.t-up { background: rgba(0, 214, 100, 0.08); }
-.pre-heat-cell.t-down-strong { background: rgba(255, 69, 58, 0.16); border-color: rgba(255, 69, 58, 0.4); }
-.pre-heat-cell.t-down { background: rgba(255, 69, 58, 0.08); }
-.pre-heat-cell.on { border-color: var(--amber); box-shadow: inset 0 0 0 1px rgba(255, 160, 40, 0.5); }
+.pre-heat-cell.t-up-strong { background: color-mix(in srgb, var(--green) 16%, transparent); border-color: color-mix(in srgb, var(--green) 40%, transparent); }
+.pre-heat-cell.t-up { background: color-mix(in srgb, var(--green) 8%, transparent); }
+.pre-heat-cell.t-down-strong { background: color-mix(in srgb, var(--red) 16%, transparent); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.pre-heat-cell.t-down { background: color-mix(in srgb, var(--red) 8%, transparent); }
+.pre-heat-cell.on { border-color: var(--amber); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 50%, transparent); }
 .pre-heat-cell.on::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--amber); }
 .pre-heat-n { font-size: 10px; letter-spacing: 0.08em; color: var(--sub); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pre-heat-v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
@@ -298,7 +298,7 @@
 .pre-movers { display: grid; gap: 3px; }
 .pre-mover { display: grid; grid-template-columns: minmax(72px, 96px) 62px minmax(60px, 1fr); gap: 10px; align-items: center; font-size: 12px; padding: 3px 0; }
 .pre-mover .sec { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pre-mover-bar { height: 9px; background: #000; border: 1px solid var(--grid); border-radius: 1px; overflow: hidden; }
+.pre-mover-bar { height: 9px; background: var(--track); border: 1px solid var(--grid); border-radius: 1px; overflow: hidden; }
 .pre-mover-bar i { display: block; height: 100%; }
 .pre-mover-bar i.pos { background: var(--green); }
 .pre-mover-bar i.neg { background: var(--red); }
@@ -315,7 +315,7 @@
    belongs to. */
 .pre-tl-nodes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .pre-tl-node { background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; padding: 7px 9px 8px; display: grid; gap: 2px; min-width: 0; }
-.pre-tl-node.now { border-color: var(--amber); background: rgba(255, 160, 40, 0.07); }
+.pre-tl-node.now { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 7%, transparent); }
 .pre-tl-l { font-size: 9.5px; letter-spacing: 0.12em; color: var(--faint); text-transform: uppercase; }
 .pre-tl-v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
 .pre-tl-s { font-size: 9.5px; color: var(--faint); line-height: 1.4; }
@@ -338,7 +338,7 @@
 
 .pre-tn-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 .pre-tn { background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; padding: 7px 8px 8px; display: grid; gap: 3px; align-content: start; min-width: 0; }
-.pre-tn.close { border-color: rgba(255, 160, 40, 0.55); background: rgba(255, 160, 40, 0.07); }
+.pre-tn.close { border-color: color-mix(in srgb, var(--amber) 55%, transparent); background: color-mix(in srgb, var(--amber) 7%, transparent); }
 /* A mark past the bell recedes by DASHED BORDER and a dimmed label — never by
    `opacity` on the whole card, which multiplies into the text colour and drops
    a 10px line to roughly 2:1 against the panel. That is how a dash ends up
@@ -358,8 +358,8 @@
 .pre-tn-s b { color: var(--text); font-weight: 600; }
 /* The band bar sits on pure black so the amber fan reads as light on dark; it
    is the one element in the card that legitimately sits below the panel. */
-.pre-tn-bar { position: relative; display: block; height: 8px; background: #000; border: 1px solid var(--grid); border-radius: 1px; margin: 2px 0; }
-.pre-tn-bar i { position: absolute; top: 0; bottom: 0; background: rgba(255, 160, 40, 0.3); }
+.pre-tn-bar { position: relative; display: block; height: 8px; background: var(--track); border: 1px solid var(--grid); border-radius: 1px; margin: 2px 0; }
+.pre-tn-bar i { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--amber) 30%, transparent); }
 .pre-tn-bar b { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--amber); }
 
 @media (max-width: 1180px) { .pre-tn-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -379,7 +379,7 @@
 /* ---------- ledger ---------- */
 .pre-ledger { display: grid; gap: 4px; }
 .pre-led-row { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 8px; align-items: start; font-size: 11.5px; line-height: 1.55; padding: 5px 8px; background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; }
-.pre-led-row.sev { border-color: rgba(255, 69, 58, 0.45); }
+.pre-led-row.sev { border-color: color-mix(in srgb, var(--red) 45%, transparent); }
 .pre-led-row.sev .pre-led-dot { background: var(--red); }
 .pre-led-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); margin-top: 5px; }
 .pre-led-row.quiet .pre-led-dot { background: var(--faint); }
@@ -387,8 +387,8 @@
 /* ---------- slots ---------- */
 .pre-slots { display: flex; gap: 4px; flex-wrap: wrap; }
 .pre-slot { font-size: 10px; letter-spacing: 0.06em; border: 1px solid var(--grid); border-radius: 2px; padding: 2px 6px; color: var(--faint); }
-.pre-slot.on { border-color: var(--amber); color: var(--amber); background: rgba(255, 160, 40, 0.1); }
-.pre-slot.past { color: var(--sub); border-color: rgba(255, 160, 40, 0.25); }
+.pre-slot.on { border-color: var(--amber); color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); }
+.pre-slot.past { color: var(--sub); border-color: color-mix(in srgb, var(--amber) 25%, transparent); }
 
 /* ---------- prose blocks ---------- */
 .pre-card { background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; padding: 12px 14px 13px; display: grid; gap: 8px; }
@@ -412,7 +412,7 @@
 /* ---------- loading / empty ---------- */
 .pre-load { display: grid; gap: 8px; }
 .pre-load-row { height: 12px; background: var(--panel-2); border: 1px solid var(--grid); border-radius: 2px; position: relative; overflow: hidden; }
-.pre-load-row::after { content: ""; position: absolute; inset: 0 auto 0 -40%; width: 40%; background: rgba(255, 160, 40, 0.12); animation: pre-sweep 1.15s ease-in-out infinite; }
+.pre-load-row::after { content: ""; position: absolute; inset: 0 auto 0 -40%; width: 40%; background: color-mix(in srgb, var(--amber) 12%, transparent); animation: pre-sweep 1.15s ease-in-out infinite; }
 .pre-load-row.w40 { width: 40%; }
 .pre-load-row.w70 { width: 70%; }
 @keyframes pre-sweep { to { left: 110%; } }
@@ -475,3 +475,52 @@
   .pre-heat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pre-tl-nodes { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ===========================================================================
+   LIGHT-THEME FINISHES
+   ---------------------------------------------------------------------------
+   Every colour this desk paints is already a token, so the palette follows
+   the theme automatically. What does NOT follow is elevation: a shadow is
+   invisible on a black canvas and load-bearing on a white one, and without
+   it a wall of #ffffff cards on a #ffffff panel collapses into one flat
+   sheet — which is exactly what this desk looked like in light mode.
+
+   So the raised and recessed surfaces get named here, once, instead of a
+   shadow on every rule. The masthead and the section rail already carry the
+   warm tint from --masthead; this only adds the lift.
+   =========================================================================== */
+:root[data-theme="light"] .pre-mast,
+:root[data-theme="light"] .pre-rail,
+:root[data-theme="light"] .pre-hero,
+:root[data-theme="light"] .pre-card,
+:root[data-theme="light"] .pre-chip,
+:root[data-theme="light"] .pre-meter,
+:root[data-theme="light"] .pre-tape-card,
+:root[data-theme="light"] .pre-heat-cell,
+:root[data-theme="light"] .pre-tl-node,
+:root[data-theme="light"] .pre-tn,
+:root[data-theme="light"] .pre-spec-card,
+:root[data-theme="light"] .pre-led-row,
+:root[data-theme="light"] .pre-nav { box-shadow: var(--panel-lift); }
+
+/* The heat cells tint themselves with 8-16% of green or red over the panel.
+   Over white those washes are much weaker than over black, so the STRONG
+   tier doubles its weight and the weak tier lifts with it — the lopsidedness
+   of the session still has to be legible before a number is read. */
+:root[data-theme="light"] .pre-heat-cell.t-up-strong { background: color-mix(in srgb, var(--green) 22%, var(--panel)); border-color: color-mix(in srgb, var(--green) 52%, transparent); }
+:root[data-theme="light"] .pre-heat-cell.t-up { background: color-mix(in srgb, var(--green) 13%, var(--panel)); }
+:root[data-theme="light"] .pre-heat-cell.t-down-strong { background: color-mix(in srgb, var(--red) 20%, var(--panel)); border-color: color-mix(in srgb, var(--red) 52%, transparent); }
+:root[data-theme="light"] .pre-heat-cell.t-down { background: color-mix(in srgb, var(--red) 12%, var(--panel)); }
+
+/* The advance/decline bar prints its percentage INSIDE the fill, so the fill
+   and the ink have to invert together — which --on-dir does, because the fill
+   is vivid on dark and deep on light. */
+:root[data-theme="light"] .pre-ad-bar .a,
+:root[data-theme="light"] .pre-ad-bar .d { color: var(--on-dir); }
+
+/* The intraday fan bar and the overnight-tape axis are INSETS, so on light
+   they want the darker --track, not the panel tint the cards above use. */
+:root[data-theme="light"] .pre-tn-bar,
+:root[data-theme="light"] .pre-tc-axis,
+:root[data-theme="light"] .pre-meter-bar,
+:root[data-theme="light"] .pre-ad-bar { background: var(--track); }

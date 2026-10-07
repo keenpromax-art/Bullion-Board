@@ -139,6 +139,12 @@ export function LineChart({ series, height = 140, yFmt = (v: number) => v.toFixe
               {tseries.map((s) => {
                 const v = s.values[hover];
                 if (v === null || v === undefined || !isFinite(v)) return null;
+                // The black ring is deliberate and theme-INDEPENDENT: its job is
+                // to separate this dot from the polyline passing under it, not
+                // from the canvas. Tokenising it would be wrong in both
+                // directions — `--track` gives a light ring on a light chart and
+                // `--text` gives a white ring on a dark one, and in each case the
+                // dot dissolves into the line it is meant to be lifted off.
                 return <circle key={s.label} cx={xOf(hover)} cy={yOf(v)} r="4.5" fill={s.color} stroke="#000" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />;
               })}
             </g>
