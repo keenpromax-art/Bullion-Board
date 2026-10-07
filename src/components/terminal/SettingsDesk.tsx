@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { store } from "@/lib/store";
-import { DEFAULT_MODEL, FREE_MODELS } from "@/lib/ai";
+import { DEFAULT_MODEL } from "@/lib/ai";
+import { useFreeModels } from "@/lib/useFreeModels";
 
 export const SETTINGS_CHANGED_EVENT = "iss:settings-changed";
 
@@ -21,6 +22,7 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
   const [fkey, setFkey] = useState("");
   const [saved, setSaved] = useState("");
   const [server, setServer] = useState<{ hasServerKey: boolean; model: string } | null>(null);
+  const { models: free, live, loading: modelsLoading } = useFreeModels();
   const [fserver, setFserver] = useState<{ hasServerKey: boolean } | null>(null);
   const [explTrigger, setExplTrigger] = useState<"hover+click" | "click" | "off">("click");
   const [explAI, setExplAI] = useState(true);
@@ -31,7 +33,7 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
       const m = store.getORModel();
       setKey(store.getORKey());
       setModel(m);
-      if (!FREE_MODELS.some((x) => x.id === m)) setCustomModel(m);
+      if (!free.some((x) => x.id === m)) setCustomModel(m);
       setFkey(store.getFredKey());
       setExplTrigger(store.getExplainTrigger());
       setExplAI(store.getExplainAI());
@@ -103,7 +105,7 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
       <label style={{ display: "grid", gap: 6, fontSize: 11, color: "var(--sub)" }}>
         MODEL
         <select
-          className="box" value={FREE_MODELS.some((x) => x.id === model) ? model : "__custom"}
+          className="box" value={free.some((x) => x.id === model) ? model : "__custom"}
           onChange={(e) => {
             if (e.target.value === "__custom") {
               setModel(customModel.trim() || DEFAULT_MODEL);
@@ -114,11 +116,11 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
           }}
           aria-label="Model"
         >
-          {FREE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.name} — {m.id}</option>)}
+          {free.map((m) => <option key={m.id} value={m.id}>{m.name} — {m.id}</option>)}
           <option value="__custom">CUSTOM…</option>
         </select>
       </label>
-      {(!FREE_MODELS.some((x) => x.id === model) || customModel) && (
+      {(!free.some((x) => x.id === model) || customModel) && (
         <label style={{ display: "grid", gap: 6, fontSize: 11, color: "var(--sub)" }}>
           CUSTOM MODEL ID
           <input
@@ -130,6 +132,10 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
       )}
       <div className="muted" style={{ fontSize: 11 }}>
         EFFECTIVE: <span style={{ color: "var(--text)" }}>{(customModel.trim() || model).toUpperCase()}</span>
+      </div>
+      <div className="faint" style={{ fontSize: 10.5 }}>
+        {free.length} FREE MODELS · {live ? "LIVE FROM OPENROUTER" : modelsLoading ? "LOADING CATALOGUE…" : "OFFLINE SNAPSHOT"}
+        {live ? " · REFRESHED DAILY" : ""}
       </div>
 
       <label style={{ display: "grid", gap: 6, fontSize: 11, color: "var(--sub)" }}>

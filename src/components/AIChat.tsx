@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { streamChat, FREE_MODELS, DEFAULT_MODEL, aiSystem, type ChatMessage } from "@/lib/ai";
+import { streamChat, DEFAULT_MODEL, aiSystem, type ChatMessage } from "@/lib/ai";
+import { useFreeModels } from "@/lib/useFreeModels";
 import { store } from "@/lib/store";
 import { MODULE_MAP } from "@/lib/modules";
 
@@ -72,6 +73,7 @@ export default function AIChat() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [model, setModel] = useState(DEFAULT_MODEL);
+const { models: freeModels } = useFreeModels();
   const [ticker, setTicker] = useState("RELIANCE.NS");
   const abort = useRef<AbortController | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -209,7 +211,7 @@ export default function AIChat() {
               onChange={(e) => { setModel(e.target.value); store.setORModel(e.target.value); }}
               aria-label="Model"
             >
-              {FREE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              {freeModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
             <button className="ghost" style={{ padding: "4px 10px" }} onClick={newChat} title="New session">+</button>
             <button className="ghost" style={{ padding: "4px 10px" }} onClick={() => setOpen(false)}>✕</button>

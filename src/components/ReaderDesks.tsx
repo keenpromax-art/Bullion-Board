@@ -353,6 +353,39 @@ function DocumentsDesk({ symbol }: { symbol: string }) {
   // Resolved once: the read-out below used to call this per JSX node, which both
   // repeated the scan and defeated narrowing on `pdf` (string | null).
   const opened = useMemo(() => (open ? filings.find((f) => f.id === open) ?? null : null), [filings, open]);
+  const [brief, setBrief] = useState("");
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [briefErr, setBriefErr] = useState("");
+
+  async function readTheRecord() {
+    if (briefBusy) return;
+    setBriefBusy(true); setBriefErr(""); setBrief("");
+    try {
+      // Only the SUBSTANTIVE filings go in. Feeding the model a page of Reg-30
+      // one-liners alongside the real prose is how a summariser produces a
+      // confident paragraph about nothing; the prompt also tells it to say so
+      // when a filing is boilerplate, but not sending the boilerplate is cheaper
+      // and more reliable than asking it to ignore it.
+      const src = commentary.length
+        ? commentary
+        : filings.filter((f) => f.text).slice(0, 6);
+      if (!src.length) throw new Error("NO FILED TEXT IN THIS WINDOW TO READ");
+      const corpus = src
+        .map((f) => `--- ${docDate(f.ts)} · ${f.headline} ---\n${f.text}`)
+        .join("\n\n")
+        .slice(0, 6000);
+      const txt = await chatComplete(
+        [
+          { role: "system", content: aiSystem.filingBrief() },
+          { role: "user", content: `SECURITY: ${d?.name ?? symbol} (${d?.base ?? symbol})\nFILINGS READ: ${src.length}, NEWEST ${docDate(src[0]!.ts)}\n\n${corpus}` },
+        ],
+        { apiKey: store.getORKey(), model: store.getORModel() }
+      );
+      setBrief(txt);
+    } catch (e: any) {
+      setBriefErr(e?.message ?? "READ UNAVAILABLE");
+    } finally { setBriefBusy(false); }
+  }
 
   if (loading && !d) {
     return (
@@ -526,6 +559,17 @@ function DocumentsDesk({ symbol }: { symbol: string }) {
 
       <div className="panel">
         <p className="p-head">Management commentary — the issuer's own filed prose, ranked by substance</p>
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <button className="cai-btn" style={{ marginTop: 0 }} onClick={readTheRecord} disabled={briefBusy}>
+            {briefBusy ? "READING…" : "◈ AI BRIEF ON THE RECORD"}
+          </button>
+          {brief && <span className="faint" style={{ fontSize: 10.5 }}>GROUNDED IN {commentary.length || 6} FILED TEXTS · NOT ADVICE</span>}
+        </div>
+        {briefBusy && <p className="cai-busy">READING {commentary.length || 6} FILED TEXTS…</p>}
+        {!briefBusy && briefErr && <p className="cai-err">{briefErr}</p>}
+        {!briefBusy && brief && (
+          <pre className="ai" style={{ marginTop: 4 }}>{brief}</pre>
+        )}
         {commentary.length === 0 ? (
           <p className="muted" style={{ fontSize: 12.5, lineHeight: 1.65 }}>
             NO SUBSTANTIVE FILED TEXT IN THIS WINDOW. MOST ISSUERS ATTACH THE DOCUMENT AND FILE ONE LINE OF

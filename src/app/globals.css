@@ -845,6 +845,45 @@ pre.ai { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: v
   .doc-txt { font-size: 12px; }
 }
 
+/* ---------- AI chart commentary ----------
+   The opt-in button plus its read-out, mounted under every time-series chart in
+   the kit. Sized as a strip, not a panel: it annotates a chart rather than
+   competing with it, and inside a 4-up workspace tile there is no room for
+   anything else. */
+.cai-btn {
+  margin-top: 8px; padding: 3px 9px; cursor: pointer;
+  background: transparent; border: 1px solid var(--amber-line);
+  border-radius: 2px; color: var(--amber);
+  font-family: var(--mono); font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.cai-btn:hover { background: color-mix(in srgb, var(--amber) 12%, transparent); border-color: var(--amber); }
+.cai-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+.cai-btn:disabled { opacity: 0.55; cursor: progress; }
+.cai {
+  margin-top: 8px; padding: 7px 9px;
+  background: var(--panel-2); border: 1px solid var(--grid);
+  border-left: 2px solid var(--amber); border-radius: 3px;
+}
+.cai-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.cai-t { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: var(--amber); text-transform: uppercase; }
+.cai-x {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--faint); font-family: var(--mono); font-size: 11px; padding: 0 2px; line-height: 1;
+}
+.cai-x:hover { color: var(--amber); }
+.cai-x:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
+.cai-txt { margin: 0; font-size: 12px; line-height: 1.65; color: var(--text); }
+.cai-busy, .cai-err { margin: 0; font-size: 11.5px; line-height: 1.6; color: var(--faint); }
+.cai-err { color: var(--red); }
+.cai-err + .cai-btn { margin-top: 7px; }
+/* Provenance. This is the caveat that earns the strip its credibility: the
+   figures are ours, the phrasing is the model's. */
+.cai-foot { margin: 6px 0 0; font-size: 9px; letter-spacing: 0.06em; color: var(--faint); line-height: 1.5; }
+@container panel (max-width: 460px) {
+  .cai-txt { font-size: 11.5px; }
+}
+
 /* ---------- reader dialog ---------- */
 .dlg-back {
   position: fixed; inset: 0; z-index: 100;

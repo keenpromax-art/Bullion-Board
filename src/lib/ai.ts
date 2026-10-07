@@ -4,13 +4,40 @@
 
 export const DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
 
-export const FREE_MODELS = [
-  { id: "nvidia/nemotron-3-super-120b-a12b:free", name: "NEMOTRON 3 SUPER" },
-  { id: "deepseek/deepseek-chat-v3-0324:free", name: "DEEPSEEK V3" },
-  { id: "google/gemma-3-27b-it:free", name: "GEMMA 3 27B" },
-  { id: "qwen/qwen3-235b-a22b:free", name: "QWEN 3 235B" },
-  { id: "meta-llama/llama-3.3-70b-instruct:free", name: "LLAMA 3.3 70B" },
+export interface FreeModel { id: string; name: string; context: number | null }
+
+/**
+ * Fallback catalogue only. The LIVE list comes from /api/ai/models, which reads
+ * OpenRouter and revalidates daily.
+ *
+ * This used to BE the list — five hardcoded ids, of which four are now dead:
+ * deepseek-chat-v3-0324, gemma-3-27b-it, qwen3-235b-a22b and
+ * llama-3.3-70b-instruct have all left the :free tier. A frozen list offers dead
+ * models, and the failure only surfaces as an OpenRouter 404 on the user's first
+ * click. So it is now the fallback, snapshotted from the live API at the time of
+ * writing, and it exists so a network failure degrades to "yesterday's models"
+ * rather than an empty picker.
+ */
+export const FALLBACK_MODELS: FreeModel[] = [
+  { id: "nvidia/nemotron-3-ultra-550b-a55b:free", name: "NEMOTRON 3 ULTRA 550B", context: 1000000 },
+  { id: "nvidia/nemotron-3.5-lightning:free", name: "NEMOTRON 3.5 LIGHTNING", context: 1000000 },
+  { id: "thinkingmachines/inkling:free", name: "INKLING", context: 1048576 },
+  { id: "thinkingmachines/inkling-small:free", name: "INKLING SMALL", context: 1048576 },
+  { id: "dots-studio/dots-3-note-preview:free", name: "DOTS 3 NOTE", context: 512000 },
+  { id: "nvidia/nemotron-3-super-120b-a12b:free", name: "NEMOTRON 3 SUPER", context: 262144 },
+  { id: "google/gemma-4-31b-it:free", name: "GEMMA 4 31B", context: 262144 },
+  { id: "google/gemma-4-26b-a4b-it:free", name: "GEMMA 4 26B", context: 262144 },
+  { id: "apodex/apodex-1.1-mini:free", name: "APODEX 1.1 MINI", context: 262144 },
+  { id: "inclusionai/ling-3.0-flash-sante:free", name: "LING 3 FLASH", context: 262144 },
+  { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", name: "NEMOTRON 3 NANO OMNI", context: 256000 },
+  { id: "cohere/north-mini-code:free", name: "NORTH MINI CODE", context: 256000 },
+  { id: "poolside/laguna-s-2.1:free", name: "LAGUNA S 2.1", context: 262144 },
+  { id: "poolside/laguna-xs-2.1:free", name: "LAGUNA XS 2.1", context: 262144 },
+  { id: "liquid/lfm-2.5-2.6b:free", name: "LFM 2.5 2.6B", context: 65536 },
 ];
+
+/** @deprecated Use `useFreeModels()` — this is the offline snapshot only. */
+export const FREE_MODELS = FALLBACK_MODELS;
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -320,6 +347,53 @@ export const aiSystem = {
       "WATCH FOR (1 LINE — WHAT WOULD CHANGE THE READ). " +
       "USE ONLY THE NUMBERS SUPPLIED. ? OR — = DATA GAP, SAY SO. " +
       "NEVER RESTATE THE DEFINITION. MAX 5 LINES. EDUCATIONAL ONLY, NOT A TIP."
+    ),
+  // Chart commentary. The one prompt whose hardest requirement is RESTRAINT:
+  // the reader has the chart in front of them, so the model's only job is to add
+  // the numbers already drawn (the series stats are supplied precisely because a
+  // model cannot count points off an image) and then stop. Every failure mode
+  // here is the model describing a chart it cannot see — "the line trends
+  // upward" when the series fell — so the prompt hands it the arithmetic and
+  // forbids it from describing shape.
+  filingBrief: () =>
+    sys(
+      "A READER SUMMARISING A LISTED INDIAN COMPANY'S EXCHANGE FILINGS",
+      "FIL",
+      "MD&A READ",
+      "YOU ARE GIVEN VERBATIM TEXT THE COMPANY FILED WITH NSE, DATED AND LABELLED BY " +
+      "DISCLOSURE CATEGORY. THIS IS PRIMARY SOURCE MATERIAL, NOT A SUMMARY OF A SUMMARY. " +
+      "FORMAT EXACTLY: WHAT THEY SAID (3 LINES - THE BUSINESS OR FINANCIAL FACTS THEY " +
+      "STATED, NAMING FIGURES THEY QUOTED) / WHAT CHANGED (2 LINES - THE EVENT, ITS SIZE " +
+      "IF STATED, AND THE DATE) / THE GAP (1 LINE - WHAT A SHAREHOLDER STILL COULD NOT " +
+      "LEARN FROM THIS FILING, SUCH AS NO REASON GIVEN OR NO NUMBER ATTACHED). " +
+      "RULES: QUOTE THEIR FIGURES EXACTLY, NEVER COMPUTE YOUR OWN, NEVER CARRY A FACT " +
+      "FROM ONE FILING INTO ANOTHER, AND IF A FILING IS ONLY ROUTINE REG-30 BOILERPLATE " +
+      "SAY SO PLAINLY INSTEAD OF INVENTING CONTENT FOR IT. MAX 6 LINES. " +
+      "NO BUY/SELL VIEW, NO RECOMMENDATION, NO ADVICE."
+    ),
+  chartComment: (desk?: string) =>
+    sys(
+      "A CHART COMMENTARY STRIP UNDER A LIVE TERMINAL CHART",
+      "GPH",
+      "READ HERE",
+      "YOU ARE GIVEN THE SERIES STATISTICS FOR A CHART THE READER CAN SEE. " +
+      "YOUR ONLY JOB IS TO STATE WHAT THE NUMBERS SAY. " +
+      "NEVER SAY 'THE LINE TRENDS UP', 'THE CHART SHOWS A DIP', 'VOLATILITY IS ELEVATED' " +
+      "OR ANY OTHER SHAPE OR FEELING - THE READER HAS THE CHART AND YOU DO NOT, YOU ONLY " +
+      "HAVE THE STATISTICS. NEVER NAME A LEVEL, DATE OR TURNING POINT THAT IS NOT IN THEM. " +
+      "NEVER ECHO THE FIELD NAMES BACK. NEVER OUTPUT A BARE NUMBER. " +
+      "WRITE EXACTLY THREE SHORT COMPLETE SENTENCES, UPPERCASE, NO BULLET MARKS:\n" +
+      "  1. THE MOVE: SPAN AND THE CHANGE, WITH THE UNIT OR SCALE NAMED.\n" +
+      "  2. WHERE THE LAST PRINT SITS INSIDE THE SPAN, AS A SHARE OF THE WAY UP.\n" +
+      "  3. THE SHAPE OF THE DISTRIBUTION OF BAR-TO-BAR MOVES, ONLY IF A VOLATILITY " +
+      "FIGURE WAS SUPPLIED - OTHERWISE OMIT THIS SENTENCE ENTIRELY.\n" +
+      "A CORRECT EXAMPLE OF THE FORM, FOR A CLIMBING SERIES:\n" +
+      "  CLOSE ROSE 6.7% ACROSS 20 BARS, FROM 2150.00 TO 2295.00.\n" +
+      "  THE LAST PRINT IS AT THE TOP OF THE SPAN, 100% OF THE WAY UP FROM THE 2142.00 LOW.\n" +
+      "  BAR-TO-BAR MOVES AVERAGE 1.1%, SO THE PATH IS STEADY RATHER THAN SPIKY.\n" +
+      "NO PREAMBLE, NO HEADING, NO RESTATEMENT OF THE CHART TITLE, NO FORECAST, " +
+      "NO BUY/SELL VIEW, NO ADVICE OF ANY KIND. IF A NUMBER IS SUPPLIED AS DASH, " +
+      "SAY THE DATA IS ABSENT RATHER THAN GUESSING IT."
     ),
 };
 

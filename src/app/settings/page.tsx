@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { store } from "@/lib/store";
 import { DEFAULT_MODEL } from "@/lib/ai";
+import { useFreeModels } from "@/lib/useFreeModels";
 import { downloadBackup, parseBackup, restoreBackup } from "@/lib/backup";
 import { CommandBar, StatusBar } from "@/components/TerminalChrome";
 import { EXPERIENCES, THEME_OPTIONS, useExperience } from "../experiences/ExperienceProvider";
@@ -12,6 +13,7 @@ export default function SettingsPage() {
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [saved, setSaved] = useState("");
   const [server, setServer] = useState<{ hasServerKey: boolean; model: string } | null>(null);
+  const { models: free, live, loading: modelsLoading } = useFreeModels();
   const [fkey, setFkey] = useState("");
   const [fsaved, setFsaved] = useState("");
   const [fserver, setFserver] = useState<{ hasServerKey: boolean } | null>(null);
@@ -135,8 +137,19 @@ export default function SettingsPage() {
               <input className="box" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-or-… (BLANK = USE SERVER DEFAULT)" type="password" />
             </label>
             <label style={{ display: "grid", gap: 6, fontSize: 12, color: "var(--sub)" }}>MODEL
-              <input className="box" value={model} onChange={(e) => setModel(e.target.value)} />
+              <select className="box" value={free.some((x) => x.id === model) ? model : "__custom"} onChange={(e) => setModel(e.target.value === "__custom" ? "" : e.target.value)}>
+                {free.map((m) => <option key={m.id} value={m.id}>{m.name} — {m.id}</option>)}
+                <option value="__custom">CUSTOM…</option>
+              </select>
             </label>
+            {!free.some((x) => x.id === model) && (
+              <label style={{ display: "grid", gap: 6, fontSize: 12, color: "var(--sub)" }}>CUSTOM MODEL ID
+                <input className="box" value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. openai/gpt-4o-mini" spellCheck={false} />
+              </label>
+            )}
+            <div className="faint" style={{ fontSize: 10.5 }}>
+              {free.length} FREE MODELS AVAILABLE · {live ? "LIVE FROM OPENROUTER, REFRESHED DAILY" : modelsLoading ? "LOADING CATALOGUE…" : "OFFLINE SNAPSHOT"}
+            </div>
             <div className="toolbar">
               <button className="btn" onClick={() => { store.setORKey(key); store.setORModel(model); setSaved("SAVED ✓"); }}>SAVE OVERRIDE</button>
               <button className="ghost" onClick={() => { store.setORKey(""); setKey(""); setSaved("CLEARED — SERVER DEFAULT ACTIVE"); }}>USE SERVER DEFAULT</button>

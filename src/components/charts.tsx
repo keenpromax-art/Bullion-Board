@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChartAI } from "@/components/ChartAI";
 
 // Shared terminal chart kit — pure SVG, no dependencies.
 // Amber-on-black, tabular numerals, square panels.
@@ -90,12 +91,17 @@ export function ChartPanel({ title, right, children }: { title: string; right?: 
   );
 }
 
-export function LineChart({ series, height = 140, yFmt = (v: number) => v.toFixed(0), xLabels, dates }: {
+export function LineChart({ series, height = 140, yFmt = (v: number) => v.toFixed(0), xLabels, dates, symbol, desk, label }: {
   series: Array<{ label: string; color: string; values: (number | null)[]; dashed?: boolean }>;
   height?: number;
   yFmt?: (v: number) => string;
   xLabels?: [string, string, string];
   dates?: string[];
+  /** Optional AI-read context. Omitted by most callers — ChartAI falls back to
+   *  the active ticker, so these only matter where a chart spans two symbols. */
+  symbol?: string;
+  desk?: string;
+  label?: string;
 }) {
   const all = series.flatMap((s) => s.values).filter((v): v is number => v !== null && isFinite(v));
   if (!all.length) return <p className="muted">NO SERIES.</p>;
@@ -171,13 +177,14 @@ export function LineChart({ series, height = 140, yFmt = (v: number) => v.toFixe
           return <span key={s.label} className="badge" style={{ color: s.color }}>■ {s.label} {lv === null ? "—" : yFmt(lv)}</span>;
         })}
       </div>
+      <ChartAI series={tseries.map((s) => ({ label: s.label, values: s.values }))} symbol={symbol} desk={desk} label={label ?? "price series"} />
     </div>
   );
 }
 
-export function AreaChart({ values, height = 120, color = "var(--sec)", fill = "color-mix(in srgb, var(--amber) 12%, transparent)", fmt = (v: number) => v.toLocaleString("en-IN", { maximumFractionDigits: 1 }), label = "VALUE", dates }: {
+export function AreaChart({ values, height = 120, color = "var(--sec)", fill = "color-mix(in srgb, var(--amber) 12%, transparent)", fmt = (v: number) => v.toLocaleString("en-IN", { maximumFractionDigits: 1 }), label = "VALUE", dates, symbol, desk }: {
   values: (number | null)[]; height?: number; color?: string; fill?: string; fmt?: (v: number) => string;
-  label?: string; dates?: string[];
+  label?: string; dates?: string[]; symbol?: string; desk?: string;
 }) {
   const tl = trimLead([values], values.map((_, i) => i));
   const vals = tl.vals[0];
@@ -217,12 +224,14 @@ export function AreaChart({ values, height = 120, color = "var(--sec)", fill = "
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5 }} className="faint">
         <span>LO {fmt(mn)}</span><span>LAST {fmt(f[f.length - 1])}</span><span>HI {fmt(mx)}</span>
       </div>
+      <ChartAI series={[{ label, values }]} symbol={symbol} desk={desk} label={label} />
     </div>
   );
 }
 
-export function BarChart({ values, labels, height = 120, posColor = "var(--green)", negColor = "var(--red)" }: {
+export function BarChart({ values, labels, height = 120, posColor = "var(--green)", negColor = "var(--red)", symbol, desk }: {
   values: (number | null)[]; labels?: string[]; height?: number; posColor?: string; negColor?: string;
+  symbol?: string; desk?: string;
 }) {
   const f = values.filter((v): v is number => v !== null && isFinite(v));
   if (!f.length) return <p className="muted">NO SERIES.</p>;
@@ -266,13 +275,14 @@ export function BarChart({ values, labels, height = 120, posColor = "var(--green
           <span>{tlabels[0]}</span><span>{tlabels[Math.floor(tlabels.length / 2)]}</span><span>{tlabels[tlabels.length - 1]}</span>
         </div>
       )}
+      <ChartAI series={[{ label: "bars", values }]} symbol={symbol} desk={desk} label="bar series" />
     </div>
   );
 }
 
-export function GroupedBars({ series, periods, height = 150, fmt = (v: number) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 }) }: {
+export function GroupedBars({ series, periods, height = 150, fmt = (v: number) => v.toLocaleString("en-IN", { maximumFractionDigits: 0 }), symbol, desk }: {
   series: Array<{ label: string; color: string; values: (number | null)[] }>;
-  periods?: string[]; height?: number; fmt?: (v: number) => string;
+  periods?: string[]; height?: number; fmt?: (v: number) => string; symbol?: string; desk?: string;
 }) {
   const all = series.flatMap((s) => s.values).filter((v): v is number => v !== null && isFinite(v));
   if (!all.length) return <p className="muted">NO SERIES.</p>;
@@ -329,6 +339,7 @@ export function GroupedBars({ series, periods, height = 150, fmt = (v: number) =
           return <span key={s.label} className="badge" style={{ color: s.color }}>■ {s.label} {lv === null ? "—" : fmt(lv)}</span>;
         })}
       </div>
+      <ChartAI series={tseries.map((s) => ({ label: s.label, values: s.values }))} symbol={symbol} desk={desk} label="grouped series" />
     </div>
   );
 }
