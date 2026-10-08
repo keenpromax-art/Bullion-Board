@@ -241,9 +241,9 @@ export function NbSmaDesk() {
         <>
           <Cells items={[
             { l: "SCANNED", v: String(data.count), s: `OF ${data.universe}` },
-            { l: "AT CROSS", v: String((counts["AT BULLISH CROSS"] ?? 0) + (counts["AT BEARISH CROSS"] ?? 0)), s: "≤3D" },
-            { l: "POST", v: String((counts["POST BULLISH CROSS"] ?? 0) + (counts["POST BEARISH CROSS"] ?? 0)), s: "4-20D" },
-            { l: "APPROACH", v: String((counts["APPROACHING BULLISH CROSS"] ?? 0) + (counts["APPROACHING BEARISH CROSS"] ?? 0)), s: "≤2%" },
+            { l: "AT CROSS", v: String((counts["AT BULLISH CROSS"] ?? 0) + (counts["AT BEARISH CROSS"] ?? 0)), s: `${counts["AT BULLISH CROSS"] ?? 0} UP / ${counts["AT BEARISH CROSS"] ?? 0} DN` },
+            { l: "POST", v: String((counts["POST BULLISH CROSS"] ?? 0) + (counts["POST BEARISH CROSS"] ?? 0)), s: `${counts["POST BULLISH CROSS"] ?? 0} UP / ${counts["POST BEARISH CROSS"] ?? 0} DN` },
+            { l: "APPROACH", v: String((counts["APPROACHING BULLISH CROSS"] ?? 0) + (counts["APPROACHING BEARISH CROSS"] ?? 0)), s: `${counts["APPROACHING BULLISH CROSS"] ?? 0} UP / ${counts["APPROACHING BEARISH CROSS"] ?? 0} DN` },
             { l: "BULL SHARE", v: `${fmt(rows.filter((r) => r.signal === "BULLISH").length / Math.max(rows.length, 1) * 100, 0)}%`, s: "OF ACTIONABLE" },
           ]} />
           {/* SKIPPED, NAMED. The notebook prints this block and so does the desk:
@@ -292,7 +292,8 @@ export function NbSmaDesk() {
               </table>
             </div>
             <p className="faint" style={{ fontSize: 10.5 }}>
-              SMA = SIMPLE MEAN 50/200 · SHOWING {rows.length} ACTIONABLE OF {allRows.length} READINGS
+              SMA = SIMPLE MEAN 50/200 · THE NOTEBOOK&apos;S PROXIMITY BRANCHES ARE INVERTED AND ARE CORRECTED HERE: 50 ABOVE 200 IS
+              BULLISH, SO IT READS APPROACHING BULLISH, NOT BEARISH · SHOWING {rows.length} ACTIONABLE OF {allRows.length} READINGS
               {skips ? ` · ${skips.count} SKIPPED, SEE ABOVE` : ""} · NEUTRAL ROWS HIDDEN ON SCREEN BUT INCLUDED IN THE CSV
             </p>
           </div>

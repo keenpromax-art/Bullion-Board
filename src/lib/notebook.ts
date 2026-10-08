@@ -132,7 +132,23 @@ export function classifySmaCross(
   let status: CrossStatus = "NEUTRAL";
   if (daysSince !== null && daysSince <= atDays) status = bullNow ? "AT BULLISH CROSS" : "AT BEARISH CROSS";
   else if (daysSince !== null && daysSince > postMin && daysSince <= postMax) status = bullNow ? "POST BULLISH CROSS" : "POST BEARISH CROSS";
-  else if (Math.abs(diffPct) <= proxPct) status = !bullNow ? "APPROACHING BULLISH CROSS" : "APPROACHING BEARISH CROSS";
+  /**
+   * Proximity is directional, and the notebook's two branches are swapped.
+   *
+   * `analyze_ticker` reads:
+   *   if   last_sma50 <  last_sma200: "Approaching Bullish Cross"
+   *   elif last_sma50 >  last_sma200: "Approaching Bearish Cross"
+   *
+   * which names a name that is ABOVE its 200 as approaching a BEARISH cross. The
+   * 50 is already the higher average - that is the bullish side of the pair, so
+   * within 2% of the 200 it is close to a bullish cross, not a bearish one. The
+   * port reproduced the inversion because it looked like a faithful copy.
+   *
+   * Direction now follows `bullNow`, the same ordering that decides the AT and
+   * POST statuses, so one name cannot read "AT BULLISH CROSS" on the cross test
+   * and "APPROACHING BEARISH CROSS" on the proximity test.
+   */
+  else if (Math.abs(diffPct) <= proxPct) status = bullNow ? "APPROACHING BULLISH CROSS" : "APPROACHING BEARISH CROSS";
   const signal = status.includes("BULLISH") ? "BULLISH" : status.includes("BEARISH") ? "BEARISH" : status === "NEUTRAL" ? "NEUTRAL" : "—";
   return { s50, s200, diffPct, daysSince, status, signal };
 }
