@@ -151,6 +151,34 @@
 .pre-hero-l { padding: 16px 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
 .pre-hero-r { border-left: 1px solid var(--grid); background: var(--track); padding: 16px 18px; display: grid; gap: 12px; align-content: start; }
 @media (max-width: 1080px) { .pre-hero { grid-template-columns: minmax(0, 1fr); } .pre-hero-r { border-left: none; border-top: 1px solid var(--grid); } }
+
+/* The published call as ONE row, in the same six columns the accuracy
+   scorecard's session log prints. It spans the hero because it belongs to
+   neither the call column nor the gauge column — it is the header of both.
+   Without it a reader who has just read "EDGE -0.580 / FORECAST -0.45% /
+   GAP DOWN" in the log has nowhere on the live desk that says the same thing
+   about the next session. */
+.pre-callline {
+  grid-column: 1 / -1;
+  display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap;
+  padding: 9px 18px; background: var(--track); border-bottom: 1px solid var(--grid);
+}
+.pre-cl-k {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--faint);
+}
+.pre-cl-v {
+  font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--text); letter-spacing: 0.02em;
+}
+.pre-cl-call { letter-spacing: 0.08em; text-transform: uppercase; }
+/* The note is last and deliberately the faintest thing on the strip: it tells
+   a reader how to read the row, and must never compete with the call. */
+.pre-cl-note {
+  margin-left: auto; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--faint); white-space: nowrap;
+}
+@media (max-width: 1080px) { .pre-cl-note { margin-left: 0; white-space: normal; } }
 .pre-kicker { font-size: 10px; letter-spacing: 0.18em; color: var(--faint); text-transform: uppercase; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pre-verdict { font-size: 40px; font-weight: 800; line-height: 0.98; letter-spacing: -1.2px; }
 .pre-verdict.sm { font-size: 25px; letter-spacing: -0.6px; }

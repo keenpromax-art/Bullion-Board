@@ -5,7 +5,8 @@ import {
   PRE_OPEN_LEGS, REGIME_MEASURED, STALE_SHARE_WARN, TARGET_SESSION_LABEL, VIX_THRESHOLD,
   buildConfirm, buildLegVote, buildScore, gapBand, gapState, istDateFromUnix, istHHMMFromUnix,
   istMinutes, istNow, istStamp, nearestSlot, openingTarget, breadthKeyForTarget,
-  pctChange, readMode, round2, sessionPhase, targetLegOverlap, targetSession,
+  pctChange, predictedSessionDate, readMode, round2, sessionDateLabel, sessionPhase,
+  targetLegOverlap, targetSession,
   vixCondition, vixRegime,
 } from "@/lib/opening";
 import type { GapState, LegSpec, LegVote, OpeningTarget, SessionPhase } from "@/lib/opening";
@@ -359,11 +360,20 @@ const PHASE_LABEL: Record<SessionPhase, string> = {
   POST_CLOSE: "POST-CLOSE — INDIAN CASH SETTLED, TAPES ARE LAST-PRINT",
 };
 
-/** Which cash session the published call is actually about. */
+/**
+ * Which cash session the published call is actually about.
+ *
+ * The wording names the DATE, not a relative adverb. "NEXT SESSION" cannot be
+ * pinned to a day — on a Friday evening the reader has to work out for
+ * themselves whether it means Saturday (there is none) or Monday — and it
+ * could not be lined up against the accuracy scorecard's session log, which is
+ * keyed by date. `sessionLabel` is the same "FRI 09 OCT" the log prints.
+ */
 function predictionTarget(
   phase: SessionPhase,
   t: OpeningTarget,
-  sess: ReturnType<typeof targetSession>
+  sess: ReturnType<typeof targetSession>,
+  sessionLabel: string
 ): string {
   if (t.mode === "TAPE_CHECK") {
     // A global market has no 09:15 IST bell. Naming one would be the desk
@@ -372,10 +382,9 @@ function predictionTarget(
       ? `${t.label} — SHUT FOR THE WEEKEND`
       : `${t.label} — OWN SESSION ${sess.istLabel}`;
   }
-  const when = phase === "OVERNIGHT" || phase === "PRE_OPEN" || phase === "OPENING_WINDOW"
-    ? "TODAY 09:15 IST OPEN"
-    : "NEXT SESSION 09:15 IST OPEN";
-  return `${t.label} — ${when}`;
+  void phase;
+  const day = sessionLabel && sessionLabel !== "—" ? sessionLabel : "NEXT SESSION";
+  return `${t.label} — ${day} 09:15 IST OPEN`;
 }
 
 export async function GET(req: NextRequest) {
@@ -551,7 +560,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       fetchedAtIST: istStamp(),
-      phase, phaseLabel: PHASE_LABEL[phase], target: predictionTarget(phase, t, sess),
+      phase, phaseLabel: PHASE_LABEL[phase], target: predictionTarget(phase, t, sess, sessionDateLabel(predictedSessionDate(phase, now))),
+      // The calendar day the call is about, so the target string is a date and
+      // not an adjective. The scorecard's session log is keyed the same way.
+      sessionDate: predictedSessionDate(phase, now),
+      sessionDateLabel: sessionDateLabel(predictedSessionDate(phase, now)),
       currentSlot: nearestSlot(), slots: CAPTURE_SLOTS,
       decisionMinuteIST: `${String(Math.floor(DECISION_MIN / 60)).padStart(2, "0")}:${String(DECISION_MIN % 60).padStart(2, "0")}`,
       market: {

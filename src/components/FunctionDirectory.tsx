@@ -26,10 +26,16 @@ function readFavs(): string[] {
 }
 
 // Function directory: terminal-style grouped menu (category columns, numbered
-// rows) + favorite tiles on top. Clicking a row/tile opens its desk directly
-// for the active ticker. Group collapse persists in localStorage
-// (bb.dir.collapsed). Star (★) toggles a favorite — favorites persist in
-// localStorage (iss.favorites) and sync across panels via `storage`.
+// rows) + a favorites section on top.
+//
+// The favorites MECHANISM (iss.favorites in localStorage, the star on every
+// row, the star in a panel header) has always been here. What was missing was
+// any reason to find it: the section rendered only when it was non-empty, so a
+// reader with zero favorites saw no section, no count, and no hint that the
+// small ☆ on each row did anything. So the section is now ALWAYS drawn, with an
+// empty state that names the gesture, the header carries the count, and MARK
+// mode turns row-clicks into favorite toggles so a whole shortlist can be
+// pinned without opening each desk on the way there.
 export default function FunctionDirectory({
   ticker,
   modules,
@@ -46,6 +52,8 @@ export default function FunctionDirectory({
   const router = useRouter();
   const [favs, setFavs] = useState<string[]>(() => readFavs());
   const [favsOnly, setFavsOnly] = useState(false);
+  /** Row-clicks mark favorites instead of opening desks. */
+  const [marking, setMarking] = useState(false);
   const [ctx, setCtx] = useState<{ id: string; x: number; y: number } | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>(() => {
     try {
@@ -65,6 +73,23 @@ export default function FunctionDirectory({
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  // ESC leaves MARK mode from anywhere, including the context menu.
+  useEffect(() => {
+    if (!marking) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMarking(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [marking]);
+
+  // MARK mode is a local gesture, not a view — leaving it when the directory
+  // is filtered to favorites-only keeps the two controls from disagreeing
+  // about what the list means.
+  useEffect(() => {
+    if (favsOnly && marking) setMarking(false);
+  }, [favsOnly, marking]);
 
   // Custom row menu replaces the browser menu inside terminal panels.
   useEffect(() => {
@@ -172,22 +197,38 @@ export default function FunctionDirectory({
         Function menu — {counts}
         <span className="faint" style={{ fontWeight: 400 }}>
           {" "}
-          · {onPickHere ? "CLICK A ROW TO OPEN IN FOCUSED PANEL" : "CLICK A ROW TO OPEN ITS DESK"}{onPickHere ? " · RIGHT-CLICK FOR OPTIONS" : ""}
+          {marking
+            ? "· MARKING MODE — CLICK A ROW TO TOGGLE ITS FAVORITE · ESC TO EXIT"
+            : `· ${onPickHere ? "CLICK A ROW TO OPEN IN FOCUSED PANEL" : "CLICK A ROW TO OPEN ITS DESK"}${onPickHere ? " · RIGHT-CLICK FOR OPTIONS" : ""}`}
         </span>
         <span style={{ flex: 1 }} />
         <button
           className={`ghost fav-filter${favsOnly ? " active" : ""}`}
           onClick={() => setFavsOnly((v) => !v)}
           aria-pressed={favsOnly}
+          disabled={!favs.length}
           title={favsOnly ? "SHOW ALL FUNCTIONS" : "SHOW FAVORITES ONLY"}
         >
           {favsOnly ? "★ FAVS" : "☆ FAVS"}
+          <span className="fav-count">{favs.length}</span>
+        </button>
+        <button
+          className={`ghost fav-mark${marking ? " active" : ""}`}
+          onClick={() => setMarking((v) => !v)}
+          aria-pressed={marking}
+          title="MARK MODE — ROW CLICKS TOGGLE THE FAVORITE INSTEAD OF OPENING THE DESK. USE IT TO PIN A SHORTLIST WITHOUT OPENING EVERY DESK ON THE WAY."
+        >
+          {marking ? "★ MARKING" : "☆ MARK"}
         </button>
       </p>
 
-      {favMods.length > 0 && (
-        <div className="fav-wrap" aria-label="Favorite functions">
-          <p className="fav-head">{onPickHere ? "★ FAVORITES — CLICK A TILE TO OPEN IN FOCUSED PANEL" : "★ FAVORITES — CLICK A TILE TO OPEN"}</p>
+      {/* Always rendered. A section that only exists once it is populated is
+          invisible exactly when the reader most needs to discover it. */}
+      <div className={`fav-wrap${favMods.length ? "" : " is-empty"}`} aria-label="Favorite functions">
+        <p className="fav-head">
+          ★ FAVORITES — {favMods.length ? `${favMods.length} MARKED · ${onPickHere ? "CLICK A TILE TO OPEN IN FOCUSED PANEL" : "CLICK A TILE TO OPEN"}` : "NONE MARKED YET"}
+        </p>
+        {favMods.length ? (
           <div className="fav-tiles">
             {favMods.map(({ id, resolved }) => (
               <div
@@ -221,8 +262,15 @@ export default function FunctionDirectory({
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="fav-empty">
+            <span className="fav-empty-star">☆</span>
+            {marking
+              ? "CLICK ANY ROW BELOW TO PIN IT HERE."
+              : <>CLICK THE <span className="fav-empty-star">☆</span> ON ANY ROW BELOW TO PIN IT HERE — OR HIT <span className="fav-empty-key">☆ MARK</span> AND CLICK ROWS DIRECTLY.</>}
+          </p>
+        )}
+      </div>
 
       <div className="bbmenu" role="menu" aria-label="Function menu by category">
         {groups.map(({ cat, rows }) => {
@@ -249,7 +297,7 @@ export default function FunctionDirectory({
                         key={m.id}
                         role="menuitem"
                         tabIndex={0}
-                        onClick={() => open(m)}
+                        onClick={() => (marking ? toggleFav(m.id) : open(m))}
                         onContextMenu={onPickHere ? (e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -262,11 +310,16 @@ export default function FunctionDirectory({
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            open(m);
+                            if (marking) toggleFav(m.id);
+                            else open(m);
                           }
                         }}
-                        title={`${code} — ${m.label.toUpperCase()} · ${m.description}`}
-                        className={`bbrow${isFav ? " fav" : ""}`}
+                        title={
+                          marking
+                            ? `★/☆ TOGGLE FAVORITE — ${code} ${m.label.toUpperCase()}`
+                            : `${code} — ${m.label.toUpperCase()} · ${m.description}`
+                        }
+                        className={`bbrow${isFav ? " fav" : ""}${marking ? " marking" : ""}`}
                       >
                         <button
                           className={`fav-star${isFav ? " active" : ""}`}
@@ -275,8 +328,8 @@ export default function FunctionDirectory({
                             toggleFav(m.id);
                           }}
                           onKeyDown={(e) => e.stopPropagation()}
-                          title={isFav ? `REMOVE ${code} FROM FAVORITES` : `MAKE ${code} A FAVORITE TILE`}
-                          aria-label={isFav ? `Remove ${m.label} from favorites` : `Make ${m.label} a favorite`}
+                          title={isFav ? `REMOVE ${code} FROM FAVORITES` : `MARK ${code} AS A FAVORITE`}
+                          aria-label={isFav ? `Remove ${m.label} from favorites` : `Mark ${m.label} as a favorite`}
                           aria-pressed={isFav}
                           tabIndex={-1}
                         >
@@ -285,7 +338,7 @@ export default function FunctionDirectory({
                         <span className="bbnum">{String(i + 1).padStart(2, "0")}</span>
                         <span className="bbcode">{code}</span>
                         <span className="bblabel">{m.label}</span>
-                        <span className="bbarrow">›</span>
+                        <span className="bbarrow">{marking ? (isFav ? "★" : "☆") : "›"}</span>
                       </div>
                     );
                   })}
@@ -296,7 +349,7 @@ export default function FunctionDirectory({
         })}
       </div>
       {visible.length === 0 && (
-        <p className="muted">{favsOnly ? "NO FAVORITES MATCH — STAR A ROW TO PIN IT HERE." : "NO FUNCTIONS MATCH — CLEAR THE FILTER."}</p>
+        <p className="muted">{favsOnly ? "NO FAVORITES MARKED — HIT ☆ MARK, OR CLICK THE ☆ ON ANY ROW BELOW." : "NO FUNCTIONS MATCH — CLEAR THE FILTER."}</p>
       )}
       {ctx && ctxMod && onPickHere && (
         <div className="dir-menu" role="menu" aria-label={`Actions for ${ctxMod.label}`} style={{ left: ctx.x, top: ctx.y }}>

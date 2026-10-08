@@ -86,6 +86,10 @@ export interface MarketWire {
 }
 export interface OpeningSnap {
   fetchedAtIST?: string; phase?: string; phaseLabel?: string; target?: string;
+  /** ISO date of the session this call is ABOUT — "NEXT SESSION" resolved. */
+  sessionDate?: string;
+  /** "FRI 09 OCT". Pairs with sessionDate the way the scorecard log keys. */
+  sessionDateLabel?: string;
   currentSlot?: string; slots?: string[]; decisionMinuteIST?: string;
   market?: MarketWire;
   index?: IndexWire;
@@ -722,6 +726,32 @@ export function DecisionPanel({ snap, density }: { snap: OpeningSnap; density: D
   const hasForecast = f?.expectedGapPct !== null && f?.expectedGapPct !== undefined;
   return (
     <div className="pre-hero">
+      {/* The live call in the SAME six columns the accuracy scorecard's session
+          log prints — DATE · EDGE · FORECAST · COV · CALL · REGIME. Without it
+          the two surfaces cannot be read against each other: the log says
+          "-0.580 / -0.45% / GAP DOWN" for a past day, and the hero had no way
+          to show the same shape for the next session. */}
+      <div className="pre-callline" aria-label="The published call for the target session">
+        <span className="pre-cl-k">SESSION</span>
+        <span className="pre-cl-v">{snap.sessionDateLabel ?? "—"}</span>
+        <span className="pre-cl-k">EDGE</span>
+        <span className={`pre-cl-v ${toneClass(p?.edge ?? null)}`}>
+          {p?.edge === null || p?.edge === undefined ? "—" : `${(p.edge > 0 ? "+" : "")}${f3(p.edge)}`}
+        </span>
+        <span className="pre-cl-k">FORECAST</span>
+        <span className={`pre-cl-v ${toneClass(f?.expectedGapPct ?? null)}`}>
+          {hasForecast ? `${(f!.expectedGapPct! >= 0 ? "+" : "")}${f!.expectedGapPct!.toFixed(2)}%` : "—"}
+        </span>
+        <span className="pre-cl-k">COV</span>
+        <span className="pre-cl-v">{p?.coverage !== undefined ? fpct(p.coverage * 100) : "—"}</span>
+        <span className="pre-cl-k">CALL</span>
+        <span className={`pre-cl-v pre-cl-call ${VERDICT_CLS[v]}`}>{VERDICT_TEXT[v]}</span>
+        <span className="pre-cl-k">REGIME</span>
+        <span className="pre-cl-v">{p?.regime ?? "—"}</span>
+        <span className="pre-cl-note">
+          SAME ROW SHAPE AS THE SCORECARD SESSION LOG — ADD DATE · EDGE · OUTCOME TO IT AFTER THE BELL
+        </span>
+      </div>
       <div className="pre-hero-l">
         <div className="pre-kicker">
           <span>{snap.target ?? "—"}</span>

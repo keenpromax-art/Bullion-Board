@@ -523,6 +523,47 @@ a:hover { text-decoration: underline; }
 .fndir-panel .bbrow.fav .bbcode { color: var(--sec); }
 button.ghost.fav-filter { padding: 3px 8px; font-size: 10.5px; }
 button.ghost.fav-filter.active { border-color: var(--amber); color: var(--amber); background: color-mix(in srgb, var(--amber) 9%, transparent); }
+button.ghost.fav-filter:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* The count rides the FAVS button so the reader can see the shortlist is
+   populated without expanding the section. */
+.fav-count {
+  margin-left: 6px; padding: 0 4px; border-radius: 2px; font-size: 9.5px;
+  font-variant-numeric: tabular-nums; color: var(--faint);
+  background: color-mix(in srgb, var(--sub) 14%, transparent);
+}
+button.ghost.fav-filter.active .fav-count { color: var(--amber); background: color-mix(in srgb, var(--amber) 16%, transparent); }
+
+button.ghost.fav-mark { padding: 3px 8px; font-size: 10.5px; }
+button.ghost.fav-mark.active {
+  border-color: var(--sec); color: var(--on-fill);
+  background: var(--sec-hi);
+}
+
+/* MARK mode: the row chevron becomes the favorite state, so the gesture is
+   visible on every row without hovering for a tooltip. */
+.fndir-panel .bbrow.marking { cursor: pointer; }
+.fndir-panel .bbrow.marking .bbarrow { color: var(--faint); font-size: 12px; }
+.fndir-panel .bbrow.marking:hover { background: color-mix(in srgb, var(--amber) 10%, transparent); }
+.fndir-panel .bbrow.marking.fav { background: color-mix(in srgb, var(--amber) 6%, transparent); }
+.fndir-panel .bbrow.marking.fav .bbarrow { color: var(--amber); }
+.fndir-panel .bbrow.marking .fav-star { color: var(--faint); }
+
+/* The empty favorites section is a real panel, not a whisper: it is the only
+   thing that tells a reader with no favorites that starring exists at all. */
+.fav-wrap.is-empty {
+  background: color-mix(in srgb, var(--amber) 4%, transparent);
+  border-bottom: 1px dashed var(--amber-line);
+}
+.fav-empty {
+  margin: 0; padding: 7px 10px; font-size: 11px; line-height: 1.6;
+  color: var(--sub); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.fav-empty-star { color: var(--amber); font-size: 13px; padding: 0 1px; }
+.fav-empty-key {
+  padding: 1px 5px; border: 1px solid var(--amber-line); border-radius: 2px;
+  color: var(--amber); font-weight: 700;
+}
 .term-icon.fav { color: var(--faint); }
 .term-icon.fav:hover { color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); }
 .term-icon.fav.active { color: var(--amber); }

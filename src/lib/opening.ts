@@ -112,6 +112,45 @@ export function sessionPhase(d: Date = istNow()): SessionPhase {
   return "POST_CLOSE";
 }
 
+/**
+ * The calendar date the published call is actually ABOUT.
+ *
+ * The desk only ever said "TODAY 09:15 IST OPEN" or "NEXT SESSION 09:15 IST
+ * OPEN", so "tomorrow" was never a date the reader could pin down — and the
+ * accuracy scorecard's session log is keyed by DATE, which made the two
+ * surfaces impossible to line up. This resolves the target session to an actual
+ * calendar day, rolling forward over Sat/Sun.
+ *
+ * There is deliberately NO exchange holiday calendar here: NSE holidays are not
+ * published as machine data this module can read, and guessing one would mean
+ * the desk confidently naming a session that does not exist. A holiday morning
+ * therefore reads as the next weekday, which is a defensible answer rather
+ * than a fabricated one.
+ */
+export function predictedSessionDate(phase: SessionPhase, now: Date = istNow()): string {
+  const isToday = phase === "OVERNIGHT" || phase === "PRE_OPEN" || phase === "OPENING_WINDOW";
+  const d = new Date(now.getTime() + IST_OFFSET_SEC * 1000);
+  if (!isToday) d.setUTCDate(d.getUTCDate() + 1);
+  // Roll off the weekend. At most two hops, so a Saturday rolls to Monday.
+  for (let guard = 0; guard < 3; guard++) {
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) break;
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+/** "FRI 09 OCT" — the short form the hero and the session log both use. */
+const MONTH_ABBR = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const DOW_ABBR = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+export function sessionDateLabel(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
+  if (!m) return "—";
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return `${DOW_ABBR[d.getUTCDay()]} ${m[3]} ${MONTH_ABBR[Number(m[2]) - 1]}`;
+}
+
 export function nearestSlot(hhmm: string = istHHMM()): string {
   const [h, m] = hhmm.split(":").map(Number);
   const target = h * 60 + m;
