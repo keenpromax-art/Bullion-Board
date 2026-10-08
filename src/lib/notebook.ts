@@ -150,17 +150,32 @@ export function rangeTable(
   return windows.map((w) => {
     if (bars.length < w) return { window: w, n: bars.length, avgSwing: null, avgUp: null, avgDown: null, projLow: null, projHigh: null };
     const seg = bars.slice(-w);
+    /**
+     * THE CLOSE IMMEDIATELY BEFORE THE WINDOW IS THE FIRST RETURN'S BASE.
+     *
+     * The notebook computes `pct_change()` over the WHOLE frame and only then
+     * tails it, so the first row of a w-bar window already carries a real
+     * return - measured against the close that sits just outside the window.
+     * This port seeded the first row's base with its OWN close, which made that
+     * return zero, and a zero is neither up nor down, so it was dropped from
+     * both averages. Every window therefore ran on w-1 observations instead of
+     * w: 29 rather than 30 on the 30-bar row, 259 rather than 260 on the 260-week
+     * row. Small, but it is a silent deviation from a notebook this desk is
+     * labelled a port of, and it biased every projected range.
+     *
+     * With no bar before the window - the earliest window on a short history -
+     * it falls back to the old behaviour, which is the only thing available.
+     */
+    const before = bars.length > w ? bars[bars.length - w - 1] : null;
     const swings: number[] = [], ups: number[] = [], dns: number[] = [];
-    let prev = seg[0].close;
     for (let i = 0; i < seg.length; i++) {
       const b = seg[i];
       if (b.low > 0) swings.push(((b.high - b.low) / b.low) * 100);
-      const base = i === 0 ? prev : seg[i - 1].close;
+      const base = i === 0 ? (before ? before.close : seg[0].close) : seg[i - 1].close;
       if (base > 0) {
         const r = ((b.close - base) / base) * 100;
         if (r > 0) ups.push(r); else if (r < 0) dns.push(Math.abs(r));
       }
-      prev = b.close;
     }
     const avgSwing = mean(swings), avgUp = mean(ups), avgDown = mean(dns);
     return {

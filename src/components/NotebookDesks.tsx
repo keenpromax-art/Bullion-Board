@@ -582,10 +582,17 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
   useEffect(() => { load(); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol]);
   const ltp = bars.length ? bars[bars.length - 1].close : NaN;
-  const { daily, weekly, monthly } = useMemo(() => {
-    if (bars.length < 30) return { daily: [], weekly: [], monthly: [] };
+  const { daily, weekly, monthly, wkCount, moCount } = useMemo(() => {
+    // No bar-count gate here. `rangeTable` already nulls out any window the
+    // history cannot fill, so a short history should render the windows it CAN
+    // support and dash the rest. The old `if (bars.length < 30) return {...empty}`
+    // meant a recent IPO - the case with the least history and the most need for
+    // an answer - showed a completely blank desk with no LTP and no explanation,
+    // which is the opposite of what the notebook does: it renders each timeframe
+    // independently and prints "Not enough daily data." where one is short.
     const wk: typeof bars = [];
     const mo: typeof bars = [];
+    if (bars.length < 2) return { daily: [], weekly: [], monthly: [], wkCount: 0, moCount: 0 };
     const byW = new Map<string, typeof bars>();
     const byM = new Map<string, typeof bars>();
     for (const b of bars) {
@@ -607,6 +614,8 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
       daily: rangeTable(bars, [30, 60, 150, 300, 600, 1000], ltp),
       weekly: rangeTable(wk, [12, 26, 52, 104, 156, 260], ltp),
       monthly: rangeTable(mo, [3, 6, 12, 24, 36, 60], ltp),
+      wkCount: wk.length,
+      moCount: mo.length,
     };
   }, [bars, ltp]);
   const Tbl = ({ rows, tf }: { rows: ReturnType<typeof rangeTable>; tf: string }) => (
@@ -633,7 +642,9 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
       <Head id="81" sub={`VOL RANGE DASHBOARD · ${symbol} · LTP ₹${isFinite(ltp) ? ltp.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"} · 5Y DAILY`} />
       {loading && <p className="muted">LOADING 5Y TAPE FOR {symbol}…</p>}
       {err && <p className="neg">ERR: {err} <button className="ghost" onClick={load}>RETRY</button></p>}
-      {bars.length > 30 && (
+      {/* Gated on whether anything was actually computed, not on a bar count, so a
+          short history still gets its LTP and whichever windows it can fill. */}
+      {bars.length > 1 && (
         <>
           <Cells items={[
             { l: "LTP ₹", v: isFinite(ltp) ? ltp.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—", s: `${bars.length} BARS` },
@@ -641,10 +652,44 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
             { l: "W52 RANGE ₹", v: weekly[2]?.projLow && weekly[2]?.projHigh ? `${Math.round(weekly[2].projLow as number).toLocaleString("en-IN")}↔${Math.round(weekly[2].projHigh as number).toLocaleString("en-IN")}` : "—", s: "52W PROJ" },
             { l: "M12 RANGE ₹", v: monthly[2]?.projLow && monthly[2]?.projHigh ? `${Math.round(monthly[2].projLow as number).toLocaleString("en-IN")}↔${Math.round(monthly[2].projHigh as number).toLocaleString("en-IN")}` : "—", s: "12M PROJ" },
           ]} />
-          <div className="panel"><p className="p-head">Daily windows</p><Tbl rows={daily} tf="D" /></div>
-          <div className="panel"><p className="p-head">Weekly windows (W-FRI)</p><Tbl rows={weekly} tf="W" /></div>
-          <div className="panel"><p className="p-head">Monthly windows (ME)</p><Tbl rows={monthly} tf="M" /></div>
-          <p className="faint" style={{ fontSize: 10.5 }}>SWING = (H-L)/L% · UP/DN = MEAN OF SIGNED DAYS ONLY · PROJ ANCHORED TO SPOT LTP</p>
+          <div className="panel">
+            <p className="p-head">Daily windows</p>
+            {daily.some((r) => r.projLow !== null) ? <Tbl rows={daily} tf="D" /> : <p className="muted">NOT ENOUGH DAILY DATA — {bars.length} BARS.</p>}
+          </div>
+          <div className="panel">
+            {/* The notebook resamples W-FRI; this buckets ISO weeks (Monday-start).
+                For Mon-Fri trading those are the SAME grouping, but the code did
+                not say so and the old label claimed a resample it never performed. */}
+            <p className="p-head">Weekly windows · ISO weeks (Mon-start — same bucketing as W-FRI on a Mon–Fri exchange)</p>
+            {weekly.some((r) => r.projLow !== null) ? <Tbl rows={weekly} tf="W" /> : <p className="muted">NOT ENOUGH WEEKLY DATA — {wkCount} WEEKS FROM {bars.length} BARS.</p>}
+          </div>
+          <div className="panel">
+            <p className="p-head">Monthly windows (month end)</p>
+            {monthly.some((r) => r.projLow !== null) ? <Tbl rows={monthly} tf="M" /> : <p className="muted">NOT ENOUGH MONTHLY DATA — {moCount} MONTHS FROM {bars.length} BARS.</p>}
+          </div>
+          <div className="toolbar">
+            <button
+              className="ghost"
+              onClick={() =>
+                downloadCSV(
+                  `volrange_${symbol.replace(/[^A-Z0-9]/gi, "_").toUpperCase()}.csv`,
+                  ["TIMEFRAME", "WINDOW", "BARS_USED", "AVG_SWING_PCT", "AVG_UP_PCT", "AVG_DOWN_PCT", "PROJ_LOW", "PROJ_HIGH"],
+                  [
+                    ...daily.map((r) => ["D", r.window, r.n, r.avgSwing, r.avgUp, r.avgDown, r.projLow, r.projHigh]),
+                    ...weekly.map((r) => ["W", r.window, r.n, r.avgSwing, r.avgUp, r.avgDown, r.projLow, r.projHigh]),
+                    ...monthly.map((r) => ["M", r.window, r.n, r.avgSwing, r.avgUp, r.avgDown, r.projLow, r.projHigh]),
+                  ]
+                )
+              }
+            >
+              ⤓ CSV ALL WINDOWS
+            </button>
+          </div>
+          <p className="faint" style={{ fontSize: 10.5 }}>
+            SWING = (H-L)/L% · UP/DN = MEAN OF SIGNED BARS ONLY, THE FIRST ONE MEASURED AGAINST
+            THE CLOSE OUTSIDE THE WINDOW · PROJ ANCHORED TO SPOT LTP · A DASHED WINDOW MEANS
+            THE HISTORY CANNOT FILL IT, NOT THAT THE MOVE WAS ZERO
+          </p>
         </>
       )}
     </div>
