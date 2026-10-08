@@ -837,12 +837,36 @@ export function NbSectorDesk() {
   const { data, err, loading, reload } = useNb("sector", "");
   const secs: any[] = data?.sectors ?? [];
   const leaders: any[] = data?.leaders ?? [];
+  const skipped = data?.skipped as { count: number; reasons: Record<string, number>; sample: Array<{ sym: string; reason: string }> } | undefined;
+  const skips = skipped && skipped.count > 0 ? skipped : null;
+  // A sector whose 1M mean rests on fewer names than its membership implies is a
+  // different claim from one averaging a full slate, and the board used to show
+  // both identically.
+  const thinSectors = secs.filter((s) => s.count > 0 && s.n1m < s.count);
   return (
     <div className="grid" style={{ gap: 10 }}>
-      <Head id="82" sub="SECTOR SCANNER · 208 SYMS / 19 SECTORS (NB MAP VERBATIM) · 1D/1W/1M MEANS" />
-      <div className="toolbar"><button className="ghost" onClick={reload}>↻ RETRY</button><span className="faint" style={{ fontSize: 10.5 }}>FETCHED {data?.fetched ?? "—"}/{data?.universe ?? "—"}</span></div>
+      <Head id="82" sub={`SECTOR SCANNER · ${data?.universe ?? "—"} SYMS / ${data?.sectorCount ?? "—"} SECTORS (NB MAP VERBATIM) · 1D/1W/1M MEANS`} />
+      <div className="toolbar"><button className="ghost" onClick={reload}>↻ RETRY</button><span className="faint" style={{ fontSize: 10.5 }}>FETCHED {data?.fetched ?? "—"}/{data?.universe ?? "—"} · MAP HOLDS {data?.sectorsTotal ?? "—"} NAMES</span></div>
       {loading && <p className="muted">AGGREGATING SECTORS…</p>}
       {err && <p className="neg">ERR: {err} <button className="ghost" onClick={reload}>RETRY</button></p>}
+      {skips && (
+        <div className="panel">
+          <p className="p-head">Skipped — {skips.count} of {data.universe} mapped names returned no tape</p>
+          <table className="plain">
+            <thead><tr><th>REASON</th><th style={{ textAlign: "right" }}>SYMS</th></tr></thead>
+            <tbody>
+              {Object.entries(skips.reasons).sort((a, b) => b[1] - a[1]).map(([reason, n]) => (
+                <tr key={reason}><td>{reason}</td><td style={{ textAlign: "right" }}><strong>{n}</strong></td></tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="faint" style={{ fontSize: 10.5 }}>
+            SAMPLE: {skips.sample.map((s) => s.sym).join(", ")}
+            {" · "}THE NOTEBOOK BUILDS A ROW FOR EVERY COLUMN OF ITS FRAME AND LETS safe_ret RETURN NaN, SO A
+            MISSING NAME STILL COUNTS TOWARD N. THESE ARE THE ONES THAT COULD NOT BE FETCHED AT ALL.
+          </p>
+        </div>
+      )}
       {secs.length > 0 && (
         <>
           <div className="panel">
@@ -853,20 +877,26 @@ export function NbSectorDesk() {
             <p className="p-head">Sector board</p>
             <div className="scrollx" style={{ maxHeight: 380, overflowY: "auto" }}>
               <table className="plain">
-                <thead><tr><th>SECTOR</th><th style={{ textAlign: "right" }}>N</th><th style={{ textAlign: "right" }}>1D%</th><th style={{ textAlign: "right" }}>1W%</th><th style={{ textAlign: "right" }}>1M%</th></tr></thead>
+                <thead><tr><th>SECTOR</th><th style={{ textAlign: "right" }}>N</th><th style={{ textAlign: "right" }}>1D% (n)</th><th style={{ textAlign: "right" }}>1W% (n)</th><th style={{ textAlign: "right" }}>1M% (n)</th></tr></thead>
                 <tbody>
                   {secs.map((s) => (
                     <tr key={s.name}>
                       <td><strong>{s.name}</strong></td>
                       <td style={{ textAlign: "right" }} className="faint">{s.count}</td>
-                      <td style={{ textAlign: "right" }} className={(s.d1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(s.d1)}</td>
-                      <td style={{ textAlign: "right" }} className={(s.w1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(s.w1)}</td>
-                      <td style={{ textAlign: "right" }} className={(s.m1 ?? 0) >= 0 ? "pos" : "neg"}><strong>{(s.m1 ?? 0) >= 0 ? "+" : ""}{fmt(s.m1)}</strong></td>
+                      <td style={{ textAlign: "right" }} className={(s.d1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(s.d1)}{s.n1d < s.count ? <span className="warn"> ·{s.n1d}</span> : null}</td>
+                      <td style={{ textAlign: "right" }} className={(s.w1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(s.w1)}{s.n1w < s.count ? <span className="warn"> ·{s.n1w}</span> : null}</td>
+                      <td style={{ textAlign: "right" }} className={(s.m1 ?? 0) >= 0 ? "pos" : "neg"}><strong>{(s.m1 ?? 0) >= 0 ? "+" : ""}{fmt(s.m1)}</strong>{s.n1m < s.count ? <span className="warn"> ·{s.n1m}</span> : null}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <p className="faint" style={{ fontSize: 10.5 }}>
+              N = NAMES MAPPED TO THE SECTOR, WHICH IS NOT THE NUMBER BEHIND EACH MEAN · AN AMBER
+              ·n IS HOW MANY OF THOSE NAMES ACTUALLY PRODUCED THAT READING, SO A SECTOR CAN SHOW A
+              CONFIDENT MEAN BESIDE A COUNT THAT IMPLIES FAR MORE NAMES THAN WERE AVERAGED ·
+              {thinSectors.length > 0 ? ` ${thinSectors.length} SECTOR(S) HAVE A SHORT 1M BASE` : " EVERY SECTOR HAS A FULL 1M BASE"}
+            </p>
           </div>
           <div className="panel">
             <p className="p-head">Top 10 by 1M%</p>

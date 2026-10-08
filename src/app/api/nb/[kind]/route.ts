@@ -730,35 +730,82 @@ async function kindMovers(sp: URLSearchParams) {
 
 async function kindSector() {
   const syms = Object.keys(NB_SECTOR_MAP);
+  const skipped: { sym: string; reason: string }[] = [];
   const rets = await mapPool(syms, 12, async (s) => {
+    const bare = s.replace(".NS", "");
     try {
       const bars = await fetchHistory(s, "3mo", "1d");
-      if (bars.length < 25) return null;
+      if (!bars.length) {
+        skipped.push({ sym: bare, reason: "NO BARS RETURNED" });
+        return null;
+      }
       const c = bars.map((b) => b.close);
+      /**
+       * NO WHOLE-TICKER BAR GATE. The notebook gates PER WINDOW and never drops a
+       * ticker from the frame:
+       *
+       *   def safe_ret(series, n):
+       *     c = series.dropna()
+       *     if len(c) < n + 1: return np.nan
+       *     return ((c.iloc[-1] / c.iloc[-1 - n]) - 1) * 100
+       *
+       * `records` is built for every column of `close`, so a short history still
+       * becomes a row - and still counts toward `groupby(...).count()`, even
+       * where all three of its returns are NaN. Only the per-window values go
+       * missing.
+       *
+       * This port dropped any ticker with under 25 bars from the frame entirely.
+       * That shrank the sector Count AND removed those names from the mean,
+       * while the notebook reports the count over all names mapped to the sector
+       * and averages over whatever has data. A sector could therefore show a
+       * confident mean drawn from a handful of names beside a Count implying a
+       * much larger membership.
+       */
       const sr = (n: number) => (c.length > n && c[c.length - 1 - n] > 0 ? ((c[c.length - 1] / c[c.length - 1 - n]) - 1) * 100 : null);
-      return { s, d1: sr(1), w1: sr(5), m1: sr(21) };
-    } catch { return null; }
+      return { s, d1: sr(1), w1: sr(5), m1: sr(21), bars: c.length, price: c[c.length - 1] };
+    } catch (e: unknown) {
+      skipped.push({ sym: bare, reason: `FEED ERROR - ${String((e as Error)?.message ?? e).slice(0, 60)}` });
+      return null;
+    }
   });
-  const bySec = new Map<string, { d: number[]; w: number[]; m: number[]; n: number }>();
+  const bySec = new Map<string, { d: number[]; w: number[]; m: number[]; n: number; thin: number }>();
   for (const r of rets) {
     const sec = NB_SECTOR_MAP[r.s];
-    if (!bySec.has(sec)) bySec.set(sec, { d: [], w: [], m: [], n: 0 });
+    if (!bySec.has(sec)) bySec.set(sec, { d: [], w: [], m: [], n: 0, thin: 0 });
     const g = bySec.get(sec)!;
-    g.n++;
+    // Count is over EVERY name mapped to the sector, exactly as the notebook's
+    // groupby().count() is - it does not mean "names with a usable reading".
+    g.n += 1;
     if (r.d1 !== null && isFinite(r.d1)) g.d.push(r.d1);
     if (r.w1 !== null && isFinite(r.w1)) g.w.push(r.w1);
     if (r.m1 !== null && isFinite(r.m1)) g.m.push(r.m1);
+    // A name that cannot produce the 1M reading is the one most likely to distort
+    // the month figure, so it is counted separately rather than averaged away.
+    if (r.m1 === null || !isFinite(r.m1)) g.thin += 1;
   }
   const sectors = [...bySec.entries()].map(([name, g]) => ({
     name, count: g.n,
+    // The denominator behind each mean. Count is membership; this is evidence.
+    n1d: g.d.length, n1w: g.w.length, n1m: g.m.length, thin: g.thin,
     d1: r2(mean(g.d)), w1: r2(mean(g.w)), m1: r2(mean(g.m)),
   })).sort((a, b) => (b.m1 ?? -Infinity) - (a.m1 ?? -Infinity));
   const leaders = rets
     .filter((r) => r.m1 !== null && isFinite(r.m1 as number))
     .sort((a, b) => (b.m1 as number) - (a.m1 as number))
     .slice(0, 10)
-    .map((r) => ({ sym: r.s.replace(".NS", ""), sec: NB_SECTOR_MAP[r.s], d1: r2(r.d1), w1: r2(r.w1), m1: r2(r.m1) }));
-  return { universe: syms.length, fetched: rets.length, sectors, leaders };
+    .map((r) => ({ sym: r.s.replace(".NS", ""), sec: NB_SECTOR_MAP[r.s], d1: r2(r.d1), w1: r2(r.w1), m1: r2(r.m1), price: r2(r.price) }));
+  return {
+    universe: syms.length, requested: syms.length, sectorsTotal: syms.length,
+    fetched: rets.length, sectorCount: sectors.length, sectors, leaders,
+    skipped: {
+      count: skipped.length,
+      reasons: skipped.reduce<Record<string, number>>((acc, s) => {
+        acc[s.reason] = (acc[s.reason] ?? 0) + 1;
+        return acc;
+      }, {}),
+      sample: skipped.slice(0, 12).sort((a, b) => a.sym.localeCompare(b.sym)),
+    },
+  };
 }
 
 function stripTags(s: string): string {
