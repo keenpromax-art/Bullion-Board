@@ -385,6 +385,11 @@ export function NbMoversDesk() {
   const { data, err, loading, reload } = useNb("movers", `universe=${u}&win=${w}`);
   const top: any[] = data?.top ?? [];
   const bot: any[] = data?.bottom ?? [];
+  const allRows: any[] = data?.all ?? [];
+  const skipped = data?.skipped as { count: number; reasons: Record<string, number>; sample: Array<{ sym: string; reason: string }> } | undefined;
+  const quar = data?.quarantined as { count: number; halted: number; stale: number; sample: Array<{ sym: string; reason: string; chg: number | null; spanDays: number | null }> } | undefined;
+  const skips = skipped && skipped.count > 0 ? skipped : null;
+  const qtn = quar && quar.count > 0 ? quar : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
       <Head id="80" sub={`MOVERS RANK · ${w} % — SPOT EQUITY (NB TITLES SAY OPTIONS, CODE IS SPOT)`} />
@@ -392,6 +397,19 @@ export function NbMoversDesk() {
         <Pills opts={["1D", "1W", "1M"]} val={w} set={setW} />
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
         <button className="ghost" onClick={reload}>↻ RETRY</button>
+        <button
+          className="ghost"
+          onClick={() =>
+            downloadCSV(
+              `movers_${w.toLowerCase()}_${u.toLowerCase()}.csv`,
+              ["TICKER", "LAST", "PREV_CLOSE", "CHG_PCT", "SPAN_CALENDAR_DAYS", "AS_OF"],
+              allRows.map((r: any) => [r.sym, r.price, r.prevClose, r.chg, r.spanDays, r.date])
+            )
+          }
+          title="Every symbol that produced a reading — the full ranked list, not just the 20 rows shown"
+        >
+          ⤓ CSV {allRows.length} ROWS
+        </button>
       </div>
       {loading && <p className="muted">RANKING {u === "FO" ? 209 : "FULL NSE"}…</p>}
       {err && <p className="neg">ERR: {err} <button className="ghost" onClick={reload}>RETRY</button></p>}
@@ -401,10 +419,10 @@ export function NbMoversDesk() {
           <div className="panel">
             <p className="p-head">Top 10 — {w}</p>
             <table className="plain">
-              <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th></tr></thead>
+              <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
               <tbody>
                 {top.map((r) => (
-                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className="pos">+{fmt(r.chg)}</td></tr>
+                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className="pos">+{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
                 ))}
               </tbody>
             </table>
@@ -412,17 +430,58 @@ export function NbMoversDesk() {
           <div className="panel">
             <p className="p-head">Bottom 10 — {w}</p>
             <table className="plain">
-              <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th></tr></thead>
+              <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
               <tbody>
                 {bot.map((r) => (
-                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className="neg">{fmt(r.chg)}</td></tr>
+                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className="neg">{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
       )}
-      <p className="faint" style={{ fontSize: 10.5 }}>1D = LAST/SECOND-LAST CLOSE · 1W = IL0C[-6] · 1M = ILOC[-22] · COUNT {data?.count ?? "—"}/{data?.universe ?? "—"}</p>
+      {/* QUARANTINE. The notebook forward-fills halted names, which lands them at
+          0.00% and quietly keeps them out of both lists. That is the right
+          outcome, but it is invisible: a name simply never appears. Here the same
+          names are removed from the ranking AND shown, with the reason and the
+          real elapsed span, so "why isn't my stock on this list" is answerable
+          without leaving the desk. */}
+      {qtn && (
+        <div className="panel">
+          <p className="p-head">Held back from the ranking — {qtn.count} names whose print is not a real {w} move</p>
+          <div className="cells" style={{ marginBottom: 8 }}>
+            <div className="cell"><div className="lbl">HALTED</div><div className="val" style={{ fontSize: 16 }}>{qtn.halted}</div><div className="sub">zero volume on the last print</div></div>
+            <div className="cell"><div className="lbl">STALE</div><div className="val" style={{ fontSize: 16 }}>{qtn.stale}</div><div className="sub">gaps wider than one session</div></div>
+            <div className="cell"><div className="lbl">SKIPPED</div><div className="val" style={{ fontSize: 16 }}>{skips?.count ?? 0}</div><div className="sub">no usable reading at all</div></div>
+          </div>
+          <table className="plain">
+            <thead><tr><th>SEC</th><th>REASON</th><th style={{ textAlign: "right" }}>WOULD-HAVE-BEEN %</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
+            <tbody>
+              {qtn.sample.map((q) => (
+                <tr key={q.sym}>
+                  <td><span className="sec">{q.sym}</span></td>
+                  <td style={{ fontSize: 11 }}>{q.reason}</td>
+                  <td style={{ textAlign: "right" }} className="faint">{q.chg === null ? "—" : `${q.chg > 0 ? "+" : ""}${q.chg}`}</td>
+                  <td style={{ textAlign: "right" }} className="faint">{q.spanDays ?? "—"}d</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {qtn.count > qtn.sample.length && (
+            <p className="faint" style={{ fontSize: 10.5 }}>+{qtn.count - qtn.sample.length} MORE NOT LISTED</p>
+          )}
+          {skips && (
+            <p className="faint" style={{ fontSize: 10.5 }}>
+              SKIPPED BREAKDOWN: {Object.entries(skips.reasons).map(([r, n]) => `${r} ${n}`).join(" · ")} ·
+              SAMPLE: {skips.sample.map((s) => s.sym).join(", ")}
+            </p>
+          )}
+        </div>
+      )}
+      <p className="faint" style={{ fontSize: 10.5 }}>
+        1D = LAST/SECOND-LAST CLOSE · 1W = ILOC[-6] · 1M = ILOC[-22] · COUNT {data?.count ?? "—"}/{data?.universe ?? "—"}
+        {qtn ? ` · ${qtn.count} HELD BACK, SEE ABOVE` : ""} · SPAN = REAL ELAPSED CALENDAR DAYS BEHIND THE NUMBER
+      </p>
     </div>
   );
 }

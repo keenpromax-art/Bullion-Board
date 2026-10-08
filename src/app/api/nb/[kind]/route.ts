@@ -324,28 +324,111 @@ async function kindMovers(sp: URLSearchParams) {
   const univ = univOf(sp.get("universe"));
   const win = (sp.get("win") || "1D").toUpperCase();
   const range = win === "1M" || win === "1W" ? "2mo" : "5d";
-  const rows = await mapPool(univ, 10, async (sym) => {
+
+  /**
+   * THE HALT GAP — the one place this port was quietly wrong, and the reason the
+   * notebook forward-fills.
+   *
+   * The notebook calls `yf.download(tickers, period="5d")`, which returns a frame
+   * indexed on the UNION of every ticker's dates, then `.ffill()`. A stock halted
+   * for two sessions therefore gets its last real price carried across the
+   * missing rows and reads 0.00% — so it can never appear in a top-10 gainers
+   * list. That ffill is load-bearing.
+   *
+   * This desk fetches PER SYMBOL, so there is no union and nothing to fill. If
+   * Yahoo returns Monday then Friday for a halted name, `bars[last-1]` against
+   * `bars[last-2]` is a FOUR-DAY move wearing a one-day label, and it sorts into
+   * the top 10 exactly like a genuine mover. Two of those in a list of ten is a
+   * screener lying about what it measured.
+   *
+   * Both cases are now detected rather than assumed away:
+   *   - a calendar gap wider than a normal non-trading stretch is STALE, and the
+   *     real span in days is reported so the row is auditable
+   *   - a zero-volume print is HALTED
+   * Stale and halted names are excluded from the ranking — the same effect
+   * ffill had, by giving them a truthful 0% — but they are COUNTED and SHOWN
+   * rather than vanishing, because "why is this name missing" is a question the
+   * desk should answer before it is asked.
+   */
+  const lookback = win === "1W" ? 6 : win === "1M" ? 22 : 2;
+  const skips: { sym: string; reason: string }[] = [];
+  const quarantined: { sym: string; reason: string; chg: number | null; spanDays: number | null }[] = [];
+
+  const scanned = await mapPool(univ, 10, async (sym) => {
+    const bare = sym.replace(".NS", "");
     try {
       const bars = await fetchHistory(sym, range, "1d");
-      const c = bars.map((b) => b.close);
-      const last = c[c.length - 1];
-      const chg = (ref: number) => (ref > 0 ? ((last - ref) / ref) * 100 : null);
-      if (win === "1W") {
-        if (c.length < 6) return null;
-        return { sym: sym.replace(".NS", ""), price: r2(last), chg: r2(chg(c[c.length - 6])) };
+      if (bars.length < lookback) {
+        skips.push({ sym: bare, reason: `ONLY ${bars.length} BARS — NEED ${lookback}` });
+        return null;
       }
-      if (win === "1M") {
-        if (c.length < 22) return null;
-        return { sym: sym.replace(".NS", ""), price: r2(last), chg: r2(chg(c[c.length - 22])) };
+      const lastBar = bars[bars.length - 1];
+      const refBar = bars[bars.length - lookback];
+      const last = lastBar.close;
+      const ref = refBar.close;
+      const chg = ref > 0 ? ((last - ref) / ref) * 100 : null;
+
+      // Real elapsed calendar days behind this "1D" number.
+      const spanDays = Math.round(
+        (Date.parse(lastBar.date) - Date.parse(refBar.date)) / 86400000
+      );
+
+      if (chg === null) {
+        skips.push({ sym: bare, reason: "ZERO OR MISSING REFERENCE CLOSE" });
+        return null;
       }
-      if (c.length < 2) return null;
-      return { sym: sym.replace(".NS", ""), price: r2(last), chg: r2(chg(c[c.length - 2])) };
-    } catch { return null; }
+      if (lastBar.volume === 0) {
+        quarantined.push({ sym: bare, reason: "HALTED — NO VOLUME ON THE LAST PRINT", chg: r2(chg), spanDays });
+        return null;
+      }
+      // A normal non-trading stretch is a weekend plus at most a few holidays.
+      // 1W and 1M legitimately span longer, so only 1D is gap-checked.
+      if (win === "1D" && spanDays > 5) {
+        quarantined.push({ sym: bare, reason: `STALE — LAST TWO PRINTS ARE ${spanDays} CALENDAR DAYS APART`, chg: r2(chg), spanDays });
+        return null;
+      }
+      return { sym: bare, price: r2(last), chg: r2(chg), spanDays, prevClose: r2(ref), date: lastBar.date };
+    } catch (e: any) {
+      skips.push({ sym: bare, reason: `FEED ERROR — ${String(e?.message ?? e).slice(0, 60)}` });
+      return null;
+    }
   });
-  const ok = rows.filter((r) => r.chg !== null);
-  const top = [...ok].sort((a, b) => (b.chg as number) - (a.chg as number)).slice(0, 10);
-  const bot = [...ok].sort((a, b) => (a.chg as number) - (b.chg as number)).slice(0, 10);
-  return { win, universe: univ.length, count: ok.length, top, bottom: bot };
+
+  const ok = scanned.filter((r): r is NonNullable<typeof r> => r !== null && r.chg !== null);
+  const byChg = [...ok].sort((a, b) => (b.chg as number) - (a.chg as number));
+  const top = win === "1D" ? byChg.slice(0, 10) : byChg.slice(0, 5);
+  const bottom = win === "1D" ? [...byChg].reverse().slice(0, 10) : [...byChg].reverse().slice(0, 5);
+
+  const skipReasons: Record<string, number> = {};
+  const bucket = (r: string) =>
+    /^ONLY \d+ BARS/.test(r) ? "INSUFFICIENT BARS"
+      : /ZERO OR MISSING/.test(r) ? "ZERO OR MISSING REFERENCE CLOSE"
+        : "FEED ERROR";
+  for (const s of skips) skipReasons[bucket(s.reason)] = (skipReasons[bucket(s.reason)] ?? 0) + 1;
+
+  return {
+    win,
+    universe: univ.length,
+    count: ok.length,
+    top,
+    bottom,
+    /**
+     * Everything the ranking is drawn from, not just the 20 rows on screen, so a
+     * download can be audited rather than trusted.
+     */
+    all: ok,
+    skipped: {
+      count: skips.length,
+      reasons: skipReasons,
+      sample: skips.slice(0, 12).sort((a, b) => a.sym.localeCompare(b.sym)),
+    },
+    quarantined: {
+      count: quarantined.length,
+      halted: quarantined.filter((q) => q.reason.startsWith("HALTED")).length,
+      stale: quarantined.filter((q) => q.reason.startsWith("STALE")).length,
+      sample: quarantined.slice(0, 12).sort((a, b) => a.sym.localeCompare(b.sym)),
+    },
+  };
 }
 
 async function kindSector() {
