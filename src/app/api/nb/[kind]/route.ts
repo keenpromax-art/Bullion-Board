@@ -30,9 +30,24 @@ async function mapPool<T, R>(arr: T[], n: number, fn: (x: T) => Promise<R | null
   return out.filter((x): x is R => x !== null);
 }
 
+/**
+ * NO CAP. The notebook scans its whole UNIVERSE - every name in the list - and a
+ * screener that quietly truncates the list cannot honestly report what it
+ * covered.
+ *
+ * The pairs mode of the correlation scanner used to take `univOf(u, 150)`,
+ * scanning 150 of the 209 and calling the result "universe: 150". That number
+ * then became the denominator of every rate the desk showed, so 150 unnamed
+ * names looked like 59 names that simply had no negative correlation. The cap
+ * is gone; the argument is kept so a call site cannot reintroduce one silently,
+ * and it now THROWS rather than returning a short list.
+ */
 function univOf(u: string | null, cap = 0): string[] {
   const base = (u || "FO").toUpperCase() === "ALL" ? WATCHLIST : NB_FO209;
-  return cap > 0 ? base.slice(0, cap) : base;
+  if (cap > 0 && base.length > cap) {
+    throw new Error(`UNIVERSE CAP REJECTED: ${base.length} REQUESTED, CAP ${cap} — EVERY DESK SCANS THE WHOLE LIST`);
+  }
+  return base;
 }
 
 const r2 = (v: number | null) => (v === null || !isFinite(v as number) ? null : Math.round((v as number) * 100) / 100);
@@ -224,26 +239,75 @@ async function kindCorr(sp: URLSearchParams) {
       .slice(0, 25);
     return { mode, target: tSym, count: rows.length, rows };
   }
-  // pairs: all-pairs negative filter (cell 4, Pearson, ffill-ish via dropna)
-  const univ = univOf(sp.get("universe"), 150);
-  const series = await mapPool(univ, 12, async (s) => {
+  /**
+   * ALL 209, AND EVERY PAIR OF THEM.
+   *
+   * `pearson` here is positional, so it has the same defect the optimizer's
+   * covariance had: two tickers with different gaps in their tape are compared
+   * on row offsets rather than on shared dates. For a NEGATIVE-correlation
+   * screen that is the dangerous direction - misalignment mixes two different
+   * market sessions and can manufacture a negative number that never happened.
+   * Pairing on shared dates, with a minimum overlap, and reporting the pairs
+   * that had too little in common rather than scoring them.
+   *
+   * C(209,2) = 21,661 pairs, all computed. The 100-row display cap stays, the
+   * full sorted set is counted, and the pair overlap floor is reported.
+   */
+  const univ = univOf(sp.get("universe"));
+  const skipped: { sym: string; reason: string }[] = [];
+  const keyed = await mapPool<string, { s: string; byDate: Map<string, number> } | null>(univ, 12, async (s) => {
+    const bare = s.replace(".NS", "");
     try {
       const bars = await fetchHistory(s, "1y", "1d");
-      if (bars.length < 150) return null;
-      const closes = bars.map((b) => b.close);
-      // ffill limit 3 approx: drop leading NaNs (fetchHistory never emits nulls)
-      return { s, rets: pctChange(closes).filter(isFinite) };
-    } catch { return null; }
+      if (bars.length < 60) {
+        skipped.push({ sym: bare, reason: bars.length ? `ONLY ${bars.length} BARS - NEED 60` : "NO BARS RETURNED" });
+        return null;
+      }
+      const byDate = new Map<string, number>();
+      for (let i = 1; i < bars.length; i++) {
+        const p = bars[i - 1].close, c = bars[i].close;
+        if (p > 0 && isFinite(c)) byDate.set(bars[i].date, c / p - 1);
+      }
+      return { s, byDate };
+    } catch (e: unknown) {
+      skipped.push({ sym: bare, reason: `FEED ERROR - ${String((e as Error)?.message ?? e).slice(0, 60)}` });
+      return null;
+    }
   });
-  const pairs: { a: string; b: string; corr: number }[] = [];
+  const series = keyed.filter(Boolean) as Array<{ s: string; byDate: Map<string, number> }>;
+  const MIN_OVERLAP = 60;
+  const pairs: { a: string; b: string; corr: number; n: number }[] = [];
+  let tooThin = 0;
   for (let i = 0; i < series.length; i++) {
     for (let j = i + 1; j < series.length; j++) {
-      const c = pearson(series[i].rets, series[j].rets);
-      if (isFinite(c) && c < 0) pairs.push({ a: series[i].s.replace(".NS", ""), b: series[j].s.replace(".NS", ""), corr: Math.round(c * 10000) / 10000 });
+      const a: number[] = [], b: number[] = [];
+      for (const [d, v] of series[i].byDate) {
+        const w = series[j].byDate.get(d);
+        if (w !== undefined) { a.push(v); b.push(w); }
+      }
+      if (a.length < MIN_OVERLAP) { tooThin += 1; continue; }
+      const c = pearson(a, b);
+      if (c !== null && isFinite(c) && c < 0) {
+        pairs.push({ a: series[i].s.replace(".NS", ""), b: series[j].s.replace(".NS", ""), corr: Math.round(c * 10000) / 10000, n: a.length });
+      }
     }
   }
   pairs.sort((x, y) => x.corr - y.corr);
-  return { mode: "pairs", universe: univ.length, kept: series.length, count: pairs.length, rows: pairs.slice(0, 100) };
+  return {
+    mode: "pairs", universe: univ.length, requested: univ.length, kept: series.length,
+    pairsTested: (series.length * (series.length - 1)) / 2, tooThin, minOverlap: MIN_OVERLAP,
+    count: pairs.length, rows: pairs.slice(0, 100),
+    skipped: {
+      count: skipped.length,
+      reasons: skipped.reduce<Record<string, number>>((acc, s) => {
+        const k = /^ONLY \d+ BARS/.test(s.reason) ? "INSUFFICIENT HISTORY - UNDER 60 DAILY BARS"
+          : /^NO BARS/.test(s.reason) ? "NO BARS RETURNED" : "FEED ERROR";
+        acc[k] = (acc[k] ?? 0) + 1;
+        return acc;
+      }, {}),
+      sample: skipped.slice(0, 12).sort((a, b) => a.sym.localeCompare(b.sym)),
+    },
+  };
 }
 
 async function kindOptimizer(sp: URLSearchParams) {
@@ -742,9 +806,13 @@ async function kindTerminal(sp: URLSearchParams) {
   // Beta is only meaningful against a live NIFTY tape. When this is false every
   // BETA cell is a missing reading, not a low beta, and the desk must say so.
   const betaTape = niftyRets.length >= 30;
-  const requested = list.slice(0, 209);
+  // The whole filtered list. It was `.slice(0, 209)`, which was harmless while the
+  // FO list held exactly 209 but would silently drop names the moment the
+  // universe grew - and would drop them without saying so, since the count came
+  // from the truncated list.
+  const requested = list;
   const settled = await mapPool<string, { sym: string; reason: string } | { row: TermRow }>(
-    requested, 12, async (sym) => {
+    requested, 10, async (sym) => {
     try {
       const [d, m] = await Promise.all([
         fetchHistory(sym, "1y", "1d"),

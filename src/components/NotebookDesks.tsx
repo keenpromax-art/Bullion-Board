@@ -111,7 +111,7 @@ export function NbSeasonDesk() {
   const skips = skipped && skipped.count > 0 ? skipped : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
-      <Head id="76" sub={`SEASONALITY SCANNER · NEXT-MONTH ${data?.monthName?.toUpperCase() ?? ""} (M${data?.targetMonth ?? "—"}) · SHARPE-RANKED · ${data?.universe ?? "—"} REQUESTED`} />
+      <Head id="76" sub={`SEASONALITY SCANNER · NEXT-MONTH ${data?.monthName?.toUpperCase() ?? ""} (M${data?.targetMonth ?? "—"}) · SHARPE-RANKED · ALL ${data?.universe ?? "—"} F&O NAMES REQUESTED`} />
       <div className="toolbar">
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
         <button className="ghost" onClick={reload}>↻ RETRY</button>
@@ -128,7 +128,7 @@ export function NbSeasonDesk() {
         >
           ⤓ CSV {rows.length} ROWS
         </button>
-        <span className="faint" style={{ fontSize: 10.5 }}>209 F&O DEFAULT · ALL = FULL NSE (SLOW)</span>
+        <span className="faint" style={{ fontSize: 10.5 }}>ALL {data?.universe ?? "—"} F&O NAMES, NO CAP · "ALL" = FULL NSE WATCHLIST (SLOW)</span>
       </div>
       {loading && <p className="muted">SCANNING 10Y MONTHLY TAPE…</p>}
       {err && <p className="neg">ERR: {err} <button className="ghost" onClick={reload}>RETRY</button></p>}
@@ -216,7 +216,7 @@ export function NbSmaDesk() {
   const skips = skipped && skipped.count > 0 ? skipped : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
-      <Head id="77" sub="SMA 50/200 CROSSOVER SCREENER · 2Y DAILY · AT≤3D / POST 4-20D / 2% PROXIMITY" />
+      <Head id="77" sub={`SMA 50/200 CROSSOVER SCREENER · 2Y DAILY · ALL ${data?.universe ?? "—"} F&O NAMES REQUESTED · AT≤3D / POST 4-20D / 2% PROXIMITY`} />
       <div className="toolbar">
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
         <button className="ghost" onClick={reload}>↻ RETRY</button>
@@ -328,7 +328,7 @@ export function NbCorrDesk() {
       {!loading && !err && rows.length === 0 && <p className="muted">NO NEGATIVE PAIRS — UNIVERSE CO-MOVES.</p>}
       {rows.length > 0 && (
         <div className="panel">
-          <p className="p-head">{mode === "PAIRS" ? `Negative pairs — ${data.kept}/${data.universe} kept · ${data.count} pairs` : `Most inverse to ${data.target}`}</p>
+          <p className="p-head">{mode === "PAIRS" ? `Negative pairs — ${data.kept}/${data.requested} kept · ${data.count} pairs` : `Most inverse to ${data.target}`}</p>
           <div className="scrollx" style={{ maxHeight: 440, overflowY: "auto" }}>
             <table className="plain">
               <thead><tr>{mode === "PAIRS" ? <><th>LEG A</th><th>LEG B</th></> : <><th>RANK</th><th>TICKER</th></>}<th style={{ textAlign: "right" }}>PEARSON</th></tr></thead>
@@ -342,7 +342,10 @@ export function NbCorrDesk() {
               </tbody>
             </table>
           </div>
-          <p className="faint" style={{ fontSize: 10.5 }}>RET = DAILY % · PEARSON · PAIRS CAPPED 150 (CELLS 4/11 PARITY) · SINGLE SHOWS TOP-25, HEAD-3 IS THE HEDGE</p>
+          <p className="faint" style={{ fontSize: 10.5 }}>RET = DAILY % · PEARSON COMPUTED ON SHARED TRADING DAYS ONLY, A PAIR NEEDS {data.minOverlap}+ OVERLAPPING
+              SESSIONS OR IT IS NOT SCORED ({data.tooThin} PAIRS DROPPED FOR BEING TOO THIN) · ALL {data.pairsTested?.toLocaleString("en-IN") ?? "—"}
+              COMBINATIONS OF {data.kept} KEPT NAMES WERE TESTED — SHOWING THE {data.count} MOST NEGATIVE · NO CAP ON THE
+              UNIVERSE · SINGLE SHOWS TOP-25, HEAD-3 IS THE HEDGE</p>
         </div>
       )}
     </div>
