@@ -1019,17 +1019,22 @@ export function NbTerminalDesk() {
   const csv = () =>
     downloadCSV(
       `nse_terminal_${data?.seaName?.toLowerCase() ?? "month"}_${u.toLowerCase()}.csv`,
-      ["MOM_RANK", "TICKER", "SECTOR", "LTP", "D1_PCT", "W1_PCT", "M1_PCT", "M3_PCT", "M6_PCT",
-        "NB_RSI_14", "HV20_ANN_PCT", "ATR_14", "BB_POS_PCT", "STOCH_K", "STOCH_D", "Z20",
-        "ABOVE_SMA50", "ABOVE_SMA200", "GOLDEN_CROSS", "MACD_BULL", "DD_CUR_PCT", "DD_MAX_PCT",
-        "SHARPE", "SORTINO", "BETA_1Y", "MOM_RANK", "MOM_RAW", "VOL_RATIO_20", "SIG_COUNT_6",
-        "STRADDLE_PROXY_PCT", "EXPECTED_MOVE_PCT", "SEA_AVG_PCT", "SEA_WIN_PCT", "SEA_YEARS", "BARS"],
+      ["RANK_SUM", "TICKER", "SECTOR", "LTP", "D1_PCT", "W1_PCT", "M1_PCT", "M3_PCT", "M6_PCT", "Y1_PCT",
+        "NB_RSI_14", "HV20_ANN_PCT", "ATR_14", "BB_POS_PCT", "BB_WIDTH_PCT", "STOCH_K", "STOCH_D", "Z20",
+        "ABOVE_SMA20", "ABOVE_SMA50", "ABOVE_SMA200", "GOLDEN_CROSS", "MACD_BULL", "MACD_HIST",
+        "PCT_FROM_52W_HIGH", "PCT_FROM_52W_LOW", "DD_CUR_PCT", "DD_MAX_PCT",
+        "SHARPE", "SORTINO", "CALMAR", "BETA_1Y", "VOL_RATIO_20", "SIG_COUNT_6",
+        "STRADDLE_PROXY_PCT", "EXPECTED_MOVE_PCT",
+        "SEA_AVG_PCT", "SEA_WIN_PCT", "SEA_SHARPE", "SEA_MAX_PCT", "SEA_MIN_PCT", "SEA_YEARS", "BARS"],
       rows.map((r: any) => [
-        r.mom, r.sym, r.sec, r.ltp, r.d1, r.w1, r.m1, r.m3, r.m6,
-        r.rsi, r.hv, r.atr, r.bbPos, r.stochK, r.stochD, r.z,
-        r.a50, r.a200, r.golden, r.macdBull, r.dd?.cur ?? null, r.dd?.max ?? null,
-        r.sharpe, r.sortino, r.beta, r.mom, r.momRaw, r.vr, r.sig,
-        r.straddlePct, r.emPct, r.sea?.avg ?? null, r.sea?.wr ?? null, r.sea?.n ?? null, r.bars,
+        r.mom, r.sym, r.sec, r.ltp, r.d1, r.w1, r.m1, r.m3, r.m6, r.y1,
+        r.rsi, r.hv, r.atr, r.bbPos, r.bbWidth, r.stochK, r.stochD, r.z,
+        r.a20, r.a50, r.a200, r.golden, r.macdBull, r.macdHist,
+        r.h52, r.l52, r.dd?.cur ?? null, r.dd?.max ?? null,
+        r.sharpe, r.sortino, r.calmar, r.beta, r.vr, r.sig,
+        r.straddlePct, r.emPct,
+        r.sea?.avg ?? null, r.sea?.wr ?? null, r.sea?.sharpe ?? null,
+        r.sea?.max ?? null, r.sea?.min ?? null, r.sea?.n ?? null, r.bars,
       ])
     );
 
@@ -1088,7 +1093,7 @@ export function NbTerminalDesk() {
               <p className="p-head">Top momentum — MomScore cross-sectional rank (1M·20 + 3M·30 + 6M·35 + 1Y·15)</p>
               <div className="scrollx" style={{ maxHeight: 360, overflowY: "auto" }}>
                 <table className="plain">
-                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LTP ₹</th><th style={{ textAlign: "right" }}>1W%</th><th style={{ textAlign: "right" }}>3M%</th><th style={{ textAlign: "right" }}>6M%</th><th style={{ textAlign: "right" }}>NB-RSI</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>MOM</th><th style={{ textAlign: "right" }}>RAW</th><th style={{ textAlign: "right" }}>SIG/6</th></tr></thead>
+                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LTP ₹</th><th style={{ textAlign: "right" }}>1W%</th><th style={{ textAlign: "right" }}>3M%</th><th style={{ textAlign: "right" }}>6M%</th><th style={{ textAlign: "right" }}>1Y%</th><th style={{ textAlign: "right" }}>NB-RSI</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>MOM</th><th style={{ textAlign: "right" }}>SIG/6</th></tr></thead>
                   <tbody>
                     {top.map((r) => (
                       <tr key={r.sym}>
@@ -1097,10 +1102,10 @@ export function NbTerminalDesk() {
                         <td style={{ textAlign: "right" }} className={(r.w1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.w1)}</td>
                         <td style={{ textAlign: "right" }} className={(r.m3 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.m3)}</td>
                         <td style={{ textAlign: "right" }} className={(r.m6 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.m6)}</td>
+                        <td style={{ textAlign: "right" }} className={(r.y1 ?? 0) >= 0 ? "pos" : "neg"}>{r.y1 === null || r.y1 === undefined ? "—" : fmt(r.y1)}</td>
                         <td style={{ textAlign: "right" }}>{fmt(r.rsi, 1)}</td>
                         <td style={{ textAlign: "right" }}>{fmt(r.beta)}</td>
                         <td style={{ textAlign: "right" }}><strong>{fmt(r.mom, 1)}</strong></td>
-                        <td style={{ textAlign: "right" }} className="faint">{fmt(r.momRaw, 1)}</td>
                         <td style={{ textAlign: "right" }}>{r.sig}</td>
                       </tr>
                     ))}
@@ -1108,8 +1113,10 @@ export function NbTerminalDesk() {
                 </table>
               </div>
               <p className="faint" style={{ fontSize: 10.5 }}>
-                MOM = PERCENTILE RANK ACROSS THE {data.count} THAT ANSWERED (100 = BEST OF THIS TAPE, NOT BEST OF NSE) ·
-                RAW = UNRANKED WEIGHTED MOMENTUM · RF 6.5% IN SHARPE/SORTINO
+                MOM = SUM OF FOUR CROSS-SECTIONAL PERCENTILE RANKS: 1M×20 + 3M×30 + 6M×35 + 1Y×15, EACH RANK TAKEN
+                OVER ALL {data.count} THAT ANSWERED, CEILING 100 · A MISSING HORIZON RANKS 0 AND CONTRIBUTES NOTHING,
+                WHICH IS WHY {rows.filter((r: any) => r.y1 === null || r.y1 === undefined).length} ROWS SHOW — IN Y1 ·
+                A NAME CAN LEAD WITH A NEGATIVE 1M IF ITS LONGER HORIZONS DOMINATE · RF 6.5% IN SHARPE/SORTINO
               </p>
               {(data.momBase ?? 0) < 20 && (
                 <p className="warn" style={{ fontSize: 11.5, margin: "6px 0 0 0" }}>
@@ -1175,7 +1182,7 @@ export function NbTerminalDesk() {
               <p className="p-head">Technical state — oscillators and trend stack</p>
               <div className="scrollx" style={{ maxHeight: 440, overflowY: "auto" }}>
                 <table className="plain">
-                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>RSI</th><th style={{ textAlign: "right" }}>STOCH K</th><th style={{ textAlign: "right" }}>STOCH D</th><th style={{ textAlign: "right" }}>BB%</th><th style={{ textAlign: "right" }}>Z20</th><th style={{ textAlign: "right" }}>ATR</th><th style={{ textAlign: "right" }}>SMA50</th><th style={{ textAlign: "right" }}>SMA200</th><th style={{ textAlign: "right" }}>GOLD</th><th style={{ textAlign: "right" }}>MACD</th></tr></thead>
+                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>RSI</th><th style={{ textAlign: "right" }}>STOCH K</th><th style={{ textAlign: "right" }}>STOCH D</th><th style={{ textAlign: "right" }}>BB%</th><th style={{ textAlign: "right" }}>BBW%</th><th style={{ textAlign: "right" }}>Z20</th><th style={{ textAlign: "right" }}>ATR</th><th style={{ textAlign: "right" }}>SMA20</th><th style={{ textAlign: "right" }}>SMA50</th><th style={{ textAlign: "right" }}>SMA200</th><th style={{ textAlign: "right" }}>GOLD</th><th style={{ textAlign: "right" }}>MACD</th><th style={{ textAlign: "right" }}>MACD H</th></tr></thead>
                   <tbody>
                     {tech.map((r) => (
                       <tr key={r.sym}>
@@ -1184,20 +1191,24 @@ export function NbTerminalDesk() {
                         <td style={{ textAlign: "right" }}>{fmt(r.stochK, 1)}</td>
                         <td style={{ textAlign: "right" }}>{fmt(r.stochD, 1)}</td>
                         <td style={{ textAlign: "right" }}>{fmt(r.bbPos, 0)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.bbWidth, 1)}</td>
                         <td style={{ textAlign: "right" }}>{fmt(r.z, 2)}</td>
                         <td style={{ textAlign: "right" }}>{fmt(r.atr)}</td>
+                        <td style={{ textAlign: "right" }}><Flag v={r.a20} /></td>
                         <td style={{ textAlign: "right" }}><Flag v={r.a50} /></td>
                         <td style={{ textAlign: "right" }}><Flag v={r.a200} /></td>
                         <td style={{ textAlign: "right" }}><Flag v={r.golden} /></td>
                         <td style={{ textAlign: "right" }}><Flag v={r.macdBull} /></td>
+                        <td style={{ textAlign: "right" }} className={((r.macdHist ?? 0) >= 0) ? "pos" : "neg"}>{fmt(r.macdHist, 3)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               <p className="faint" style={{ fontSize: 10.5 }}>
-                BB% = POSITION IN THE 20D BAND (0 = LOWER, 100 = UPPER) · Z20 = SIGMA FROM 20D MEAN ·
-                STOCH D IS THE TRUE 3-PERIOD MEAN OF %K, NOT A COPY OF IT · SIG/6 COUNTS RSI 40-60, MACD,
+                BB% = POSITION IN THE 20D BAND (0 = LOWER, 100 = UPPER) · BBW% = BAND WIDTH AS % OF ITS MA, A
+                SQUEEZE INDICATOR · Z20 = SIGMA FROM 20D MEAN · MACD H = MACD LINE − SIGNAL, THE ACTUAL HISTOGRAM
+                · STOCH D IS THE TRUE 3-PERIOD MEAN OF %K, NOT A COPY OF IT · SIG/6 COUNTS RSI 40-60, MACD,
                 SMA50, SMA200, GOLDEN AND STOCH&gt;50
               </p>
             </div>
@@ -1208,7 +1219,7 @@ export function NbTerminalDesk() {
                 <p className="p-head">Risk stack — volatility, Sharpe, drawdown, volume</p>
                 <div className="scrollx" style={{ maxHeight: 380, overflowY: "auto" }}>
                   <table className="plain">
-                    <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>HV20%</th><th style={{ textAlign: "right" }}>SHARPE</th><th style={{ textAlign: "right" }}>SORTINO</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>DD NOW%</th><th style={{ textAlign: "right" }}>DD MAX%</th><th style={{ textAlign: "right" }}>VOL×20</th><th style={{ textAlign: "right" }}>BARS</th></tr></thead>
+                    <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>HV20%</th><th style={{ textAlign: "right" }}>SHARPE</th><th style={{ textAlign: "right" }}>SORTINO</th><th style={{ textAlign: "right" }}>CALMAR</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>DD NOW%</th><th style={{ textAlign: "right" }}>DD MAX%</th><th style={{ textAlign: "right" }}>% FROM 52W H</th><th style={{ textAlign: "right" }}>% FROM 52W L</th><th style={{ textAlign: "right" }}>VOL×20</th><th style={{ textAlign: "right" }}>BARS</th></tr></thead>
                     <tbody>
                       {risky.map((r) => (
                         <tr key={r.sym}>
@@ -1216,9 +1227,12 @@ export function NbTerminalDesk() {
                           <td style={{ textAlign: "right" }}><strong>{fmt(r.hv, 1)}</strong></td>
                           <td style={{ textAlign: "right" }}>{fmt(r.sharpe, 2)}</td>
                           <td style={{ textAlign: "right" }}>{fmt(r.sortino, 2)}</td>
+                          <td style={{ textAlign: "right" }}>{fmt(r.calmar, 2)}</td>
                           <td style={{ textAlign: "right" }}>{fmt(r.beta)}</td>
                           <td style={{ textAlign: "right" }} className="neg">{fmt(r.dd?.cur)}</td>
                           <td style={{ textAlign: "right" }} className="neg">{fmt(r.dd?.max)}</td>
+                          <td style={{ textAlign: "right" }} className="neg">{r.h52 === null ? "—" : fmt(r.h52)}</td>
+                          <td style={{ textAlign: "right" }} className="pos">{r.l52 === null ? "—" : fmt(r.l52)}</td>
                           <td style={{ textAlign: "right" }} className={((r.vr ?? 1) >= 1.5) ? "warn" : undefined}>{fmt(r.vr, 2)}</td>
                           <td style={{ textAlign: "right" }} className="faint">{r.bars}</td>
                         </tr>
@@ -1227,8 +1241,10 @@ export function NbTerminalDesk() {
                   </table>
                 </div>
                 <p className="faint" style={{ fontSize: 10.5 }}>
-                  SHARPE/SORTINO ANNUALISED AT √252 OVER DAILY EXCESS RETURNS, RF 6.5% · DD IS PEAK-TO-TRUNCH ON CLOSES ·
-                  VOL×20 IS TODAY'S VOLUME VS THE PRIOR 20D MEAN · A LOW BARS COUNT MEANS THE 200D READINGS ARE NOT AVAILABLE
+                  SHARPE/SORTINO ANNUALISED AT √252 OVER DAILY EXCESS RETURNS, RF 6.5% · SORTINO USES NEGATIVE DAYS
+                  ONLY, SO A NAME THAT NEVER FALLS REPORTS — RATHER THAN A FIGURE OFF A DEFINITION THAT DOES NOT HOLD ·
+                  CALMAR = ANNUALISED RETURN / MAX DRAWDOWN · 52W WINDOWS RUN ON min(len,252) BARS WITH
+                  MIN_PERIODS=20 · DD IS PEAK-TO-TRUNCH ON CLOSES · A LOW BARS COUNT MEANS THE 200D READINGS ARE NOT AVAILABLE
                 </p>
               </div>
               <div className="panel">

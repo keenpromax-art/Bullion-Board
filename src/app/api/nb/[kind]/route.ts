@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { fetchHistory } from "@/lib/yahoo";
 import { WATCHLIST } from "@/lib/watchlist";
 import { NB_FO209 } from "@/lib/nbFo";
@@ -6,7 +6,7 @@ import { NB_SECTOR_MAP } from "@/lib/nbSector";
 import {
   mean, stdSample, pearson, pctChange, seasonStats, classifySmaCross,
   nbRsiSimple, hvAnn, nbAtr, nbBB, nbStoch, nbZ, nbOptions, nbSignalCount,
-  nbBeta, nbMomScore, nbPctRank, safetyMetrics, maxSharpeWeights, rankPct,
+  safetyMetrics, maxSharpeWeights, rankPct,
 } from "@/lib/notebook";
 
 // Notebook scan APIs — one dynamic route backing desks 76-84.
@@ -849,21 +849,62 @@ type SeasonRow = { sym: string; ltp: number | null } & ReturnType<typeof seasonS
 type TermRow = {
   sym: string; sec: string; ltp: number | null;
   d1: number | null; w1: number | null; m1: number | null; m3: number | null; m6: number | null;
-  rsi: number | null; hv: number | null; atr: number | null; bbPos: number | null;
+  y1: number | null;
+  rsi: number | null; hv: number | null; atr: number | null;
+  bbPos: number | null; bbWidth: number | null;
   stochK: number | null; stochD: number | null; z: number | null;
-  a50: boolean | null; a200: boolean | null; golden: boolean | null; macdBull: boolean | null;
+  a20: boolean | null; a50: boolean | null; a200: boolean | null;
+  golden: boolean | null; macdBull: boolean | null; macdHist: number | null;
+  h52: number | null; l52: number | null;
   dd: { cur: number | null; max: number | null };
-  sharpe: number | null; sortino: number | null; beta: number | null;
-  momRaw: number | null; mom: number | null; vr: number | null; sig: number; bars: number;
+  sharpe: number | null; sortino: number | null; calmar: number | null; beta: number | null;
+  mom: number | null; vr: number | null; sig: number; bars: number;
   straddlePct: number | null; emPct: number | null;
-  sea: { avg: number | null; wr: number | null; n: number } | null;
+  sea: {
+    avg: number | null; wr: number | null; sharpe: number | null;
+    max: number | null; min: number | null; n: number;
+  } | null;
 };
+
+const TERM_SECTOR_MAP = buildTerminalSectorMap();
+
+/**
+ * THE TERMINAL CARRIES ITS OWN SECTOR MAP, AND IT IS NOT THE SECTOR DESK'S.
+ *
+ * v5's `SECTOR_MAP` has 209 keys against the sector cell's 208, and uses short
+ * labels: NBFC not "NBFC & Fin Services", IT not "IT & Technology", Auto not
+ * "Automobiles", Durables not "Consumer Durables", Others not "Miscellaneous".
+ * Membership differs by exactly one name - ETERNAL is "Others" here and absent
+ * from the sector cell entirely - which is why module 82 legitimately scans 208
+ * while this board scans 209.
+ *
+ * The port had both desks reading one shared map, so this board silently showed
+ * 208 names in "Miscellaneous" style buckets and dropped ETERNAL from the
+ * sector view of a universe that is otherwise all 209.
+ */
+function buildTerminalSectorMap(): Record<string, string> {
+  const SHORT: Record<string, string> = {
+    "NBFC & Fin Services": "NBFC", "Capital Markets": "Capital Mkts",
+    "IT & Technology": "IT", "Oil Gas & Petrochem": "Oil & Gas",
+    "Metals & Mining": "Metals", "Power & Renewables": "Power",
+    "Infra & Construction": "Infra", "Defence & Aerospace": "Defence",
+    "Pharma & Healthcare": "Pharma", "Automobiles": "Auto",
+    "FMCG & Consumer": "FMCG", "Cement & Building Mat": "Cement",
+    "Consumer Durables": "Durables", "Travel & Hospitality": "Travel",
+    "Miscellaneous": "Others",
+  };
+  const out: Record<string, string> = {};
+  for (const [sym, sec] of Object.entries(NB_SECTOR_MAP)) out[sym] = SHORT[sec] ?? sec;
+  // ETERNAL.NS is in the F&O universe and mapped to "Others" in v5.
+  if (NB_FO209.includes("ETERNAL.NS") && !out["ETERNAL.NS"]) out["ETERNAL.NS"] = "Others";
+  return out;
+}
 
 async function kindTerminal(sp: URLSearchParams) {
   const univ = univOf(sp.get("universe"));
   const q = (sp.get("q") || "").toUpperCase();
   const secF = sp.get("sector") || "";
-  const list = univ.filter((s) => (!q || s.includes(q)) && (!secF || (NB_SECTOR_MAP[s] ?? "Others") === secF));
+  const list = univ.filter((s) => (!q || s.includes(q)) && (!secF || (TERM_SECTOR_MAP[s] ?? "Others") === secF));
   // expiry: last Thursday of month
   const now = new Date();
   const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
@@ -872,14 +913,17 @@ async function kindTerminal(sp: URLSearchParams) {
   const daysToExpiry = Math.max(1, Math.round((dte.getTime() - now.getTime()) / 86400000) + 1);
   const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
   const nextMonthIdx = (new Date().getUTCMonth() + 1) % 12;
-  let niftyRets: number[] = [];
+  let niftyRets = new Map<string, number>();
   try {
     const nb = await fetchHistory("^NSEI", "1y", "1d");
-    niftyRets = pctChange(nb.map((b) => Math.log(b.close))).filter(isFinite);
+    const cl = nb.map((b) => b.close);
+    for (let i = 1; i < nb.length; i++) {
+      if (cl[i - 1] > 0 && isFinite(cl[i])) niftyRets.set(nb[i].date, Math.log(cl[i] / cl[i - 1]));
+    }
   } catch { /* fail-open */ }
   // Beta is only meaningful against a live NIFTY tape. When this is false every
   // BETA cell is a missing reading, not a low beta, and the desk must say so.
-  const betaTape = niftyRets.length >= 30;
+  const betaTape = niftyRets.size >= 30;
   // The whole filtered list. It was `.slice(0, 209)`, which was harmless while the
   // FO list held exactly 209 but would silently drop names the moment the
   // universe grew - and would drop them without saying so, since the count came
@@ -906,6 +950,11 @@ async function kindTerminal(sp: URLSearchParams) {
       const ltp = closes[closes.length - 1];
       const lr = pctChange(closes).filter(isFinite);
       const logR = pctChange(closes.map((c) => Math.log(Math.max(c, 1e-9)))).filter(isFinite);
+      // Date-keyed log returns, for pairing beta against NIFTY on shared days.
+      const lrByDate = new Map<string, number>();
+      for (let i = 1; i < d.length; i++) {
+        if (d[i - 1].close > 0 && isFinite(d[i].close)) lrByDate.set(d[i].date, Math.log(d[i].close / d[i - 1].close));
+      }
       const sr = (n: number) => (closes.length > n && closes[closes.length - 1 - n] > 0 ? ((ltp / closes[closes.length - 1 - n]) - 1) * 100 : null);
       const rsi = nbRsiSimple(closes);
       const hv = hvAnn(logR, 20);
@@ -915,6 +964,7 @@ async function kindTerminal(sp: URLSearchParams) {
       const z = nbZ(closes);
       const a50 = closes.length >= 50 ? ltp > mean(closes.slice(-50)) : null;
       const a200 = closes.length >= 200 ? ltp > mean(closes.slice(-200)) : null;
+      const a20 = closes.length >= 20 ? ltp > mean(closes.slice(-20)) : null;
       const s50 = closes.length >= 200 ? mean(closes.slice(-50)) : NaN;
       const s200 = closes.length >= 200 ? mean(closes.slice(-200)) : NaN;
       const golden = isFinite(s50) && isFinite(s200) ? (s50 as number) > (s200 as number) : null;
@@ -932,15 +982,56 @@ async function kindTerminal(sp: URLSearchParams) {
       const sigTail = ema(macdTail, 9);
       const macdBull = macdTail.length >= 9 && sigTail.length >= 9
         ? macdTail[macdTail.length - 1] > sigTail[sigTail.length - 1] : null;
+      const macdHist = macdTail.length >= 9 && sigTail.length >= 9
+        ? macdTail[macdTail.length - 1] - sigTail[sigTail.length - 1] : null;
+      // 52-week high/low distance. `min(len(s),252)` with min_periods=20, so a
+      // short history still produces a reading rather than going blank.
+      const w52 = Math.min(closes.length, 252);
+      const seg52 = closes.slice(-w52);
+      const h52 = seg52.length >= 20 ? Math.max(...seg52) : null;
+      const l52 = seg52.length >= 20 ? Math.min(...seg52) : null;
       const dd = (() => { let pk = -Infinity, cur = 0, mx = 0; for (const p of closes) { if (p > pk) pk = p; if (pk > 0) { cur = ((p - pk) / pk) * 100; mx = Math.min(mx, cur); } } return { cur: r2(cur), max: r2(mx) }; })();
       const ex = lr.map((x) => x - 0.065 / 252);
       const sd = stdSample(ex);
       const sharpe = sd > 0 ? (mean(ex) / sd) * Math.sqrt(252) : null;
       const neg = lr.filter((x) => x < 0);
-      const sdn = stdSample(neg.length > 1 ? neg : ex);
-      const sortino = sdn > 0 ? (mean(ex) / sdn) * Math.sqrt(252) : null;
-      const beta = nbBeta(logR, niftyRets);
-      const mom = nbMomScore(sr(21), sr(63), sr(126), closes.length > 252 ? sr(252) : null);
+      const sdn = neg.length > 1 ? stdSample(neg) : null;
+      // The notebook computes downside deviation over negative returns ONLY and
+      // returns NaN when there are none. This port fell back to total volatility,
+      // which manufactures a Sortino for a name that never fell - reported as a
+      // real reading off a definition that does not hold.
+      const sortino = sdn !== null && sdn > 0 ? (mean(ex) / sdn) * Math.sqrt(252) : null;
+      // Calmar: annualised return over max drawdown, same as the notebook.
+      const calmar = (() => {
+        if (closes.length < 20) return null;
+        const ann = Math.pow(closes[closes.length - 1] / closes[0], 252 / closes.length) - 1;
+        const mddAbs = Math.abs((dd.max as number) ?? 0);
+        return mddAbs > 0 ? ann / mddAbs : null;
+      })();
+      const beta = (() => {
+        if (!betaTape) return null;
+        // Paired ON THE SAME TRADING DAY, as the notebook's `pd.concat([sr, nifty],
+        // join="inner")` does. The previous port tail-aligned two return ARRAYS,
+        // so wherever one tape had a gap, row k of the stock and row k of NIFTY
+        // were different calendar days - the same misalignment corrected in the
+        // optimizer and correlation scans.
+        const pairs: number[] = [];
+        for (const [d, v] of lrByDate) {
+          const nv = niftyRets.get(d);
+          if (nv !== undefined && isFinite(nv)) pairs.push(v, nv);
+        }
+        const m = pairs.length / 2;
+        if (m < 30) return null;
+        const xs: number[] = [], ys: number[] = [];
+        for (let i = 0; i < pairs.length; i += 2) { xs.push(pairs[i]); ys.push(pairs[i + 1]); }
+        const mx = mean(xs), my = mean(ys);
+        let cov = 0, vy = 0;
+        for (let i = 0; i < m; i++) { cov += (xs[i] - mx) * (ys[i] - my); vy += (ys[i] - my) ** 2; }
+        return vy > 0 ? cov / (m - 1) / (vy / (m - 1)) : null;
+      })();
+      // MomScore is NOT computed here. It is a cross-sectional rank sum over the
+      // m1/m3/m6/y1 columns and needs every row to exist first, so it is built
+      // after the scan, below.
       const opt = nbOptions(ltp, hv, daysToExpiry);
       const sig = nbSignalCount({ rsi, macdBull, a50, a200, golden, stochK: st.k });
       const vr = vols.length >= 22 && mean(vols.slice(-21, -1)) > 0 ? vols[vols.length - 1] / (mean(vols.slice(-21, -1)) as number) : null;
@@ -953,14 +1044,30 @@ async function kindTerminal(sp: URLSearchParams) {
           if (p > 0) mf.push(((m[i].close / p) - 1) * 100);
         }
       }
-      const sea = mf.length >= 3 ? { avg: r2(mean(mf)), wr: r2((mf.filter((v) => v > 0).length / mf.length) * 100), n: mf.length } : null;
+      const sea = mf.length >= 3
+        ? {
+          avg: r2(mean(mf)),
+          wr: r2((mf.filter((v) => v > 0).length / mf.length) * 100),
+          sharpe: (() => {
+            const s = stdSample(mf);
+            return s !== null && s > 0 ? r3(mean(mf) / s) : null;
+          })(),
+          max: r2(Math.max(...mf)), min: r2(Math.min(...mf)), n: mf.length,
+        }
+        : null;
       return {
         row: {
-          sym: sym.replace(".NS", ""), sec: NB_SECTOR_MAP[sym] ?? "Others", ltp: r2(ltp),
+          sym: sym.replace(".NS", ""), sec: TERM_SECTOR_MAP[sym] ?? "Others", ltp: r2(ltp),
           d1: r2(sr(1)), w1: r2(sr(5)), m1: r2(sr(21)), m3: r2(sr(63)), m6: r2(sr(126)),
-          rsi: r2(rsi), hv: r2(hv), atr: r2(atr), bbPos: r2(bb.pos), stochK: r2(st.k), stochD: r2(st.dval),
-          z: r2(z), a50, a200, golden, macdBull, dd, sharpe: r3(sharpe), sortino: r3(sortino),
-          beta: r2(beta), momRaw: r2(mom), mom: null as number | null, vr: r2(vr), sig, bars: d.length,
+          y1: r2(sr(252)),
+          rsi: r2(rsi), hv: r2(hv), atr: r2(atr),
+          bbPos: r2(bb.pos), bbWidth: r2(bb.width),
+          stochK: r2(st.k), stochD: r2(st.dval), z: r2(z),
+          a20, a50, a200, golden, macdBull, macdHist: r3(macdHist),
+          h52: h52 !== null && ltp > 0 ? r2(((ltp - h52) / h52) * 100) : null,
+          l52: l52 !== null && ltp > 0 ? r2(((ltp - l52) / l52) * 100) : null,
+          dd, sharpe: r3(sharpe), sortino: r3(sortino), calmar: r3(calmar), beta: r2(beta),
+          mom: null as number | null, vr: r2(vr), sig, bars: d.length,
           straddlePct: r2(opt.straddlePct), emPct: r2(opt.emPct), sea,
         },
       };
@@ -968,10 +1075,51 @@ async function kindTerminal(sp: URLSearchParams) {
   });
   const misses = settled.filter((s): s is { sym: string; reason: string } => "reason" in s);
   const ok = settled.filter((s): s is { row: TermRow } => "row" in s).map((s) => s.row);
-  // MomScore is a cross-sectional rank in the notebook, not a per-ticker score.
-  // Rank across whoever actually answered, so 100 always means "best of the tape".
-  const ranks = nbPctRank(ok.map((r) => r.momRaw));
-  ok.forEach((r, i) => { r.mom = r2(ranks[i]); });
+  /**
+   * MOMSCORE IS A RANK SUM OVER THE RETURN COLUMNS, NOT A RANK OF A SCORE.
+   *
+   *   for col, w in [("1M%",.20),("3M%",.30),("6M%",.35),("1Y%",.15)]:
+   *       df[f"_r_{col}"] = df[col].rank(pct=True, na_option="bottom") * 100 * w
+   *   df["MomScore"] = df[["_r_1M%","_r_3M%","_r_6M%","_r_1Y%"]].sum(axis=1).round(1)
+   *
+   * Each horizon is percentile-ranked on its own, then weighted and summed. The
+   * weights land on RANKED horizons, not on raw returns.
+   *
+   * This port scored each ticker from its raw returns and then ranked that
+   * composite - two different operations, and the ordering differs. Ranking raw
+   * returns first is what makes the score cross-sectional and scale-free: a name
+   * whose 6M return is the best in the universe scores the full 0.35 regardless
+   * of whether that return is 40% or 4%.
+   *
+   * `na_option="bottom"` puts a missing horizon at percentile 0, so it
+   * contributes nothing rather than counting as neutral. A ticker without a 1Y
+   * reading simply loses the 0.15 - it is not penalised, and it is not excused.
+   */
+  const MOM_W: Array<[keyof TermRow, number]> = [["m1", 0.2], ["m3", 0.3], ["m6", 0.35], ["y1", 0.15]];
+  const momOf = (key: keyof TermRow) =>
+    ok.map((r) => {
+      const v = r[key];
+      return typeof v === "number" ? v : null;
+    });
+  // Percentile 0 for a missing reading, matching na_option="bottom".
+  const pctRankBottom = (xs: Array<number | null>): number[] => {
+    const pts = xs.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v !== null);
+    const out = xs.map(() => 0);
+    if (pts.length < 2) return out;
+    pts.sort((a, b) => a.v - b.v);
+    pts.forEach((p, r) => { out[p.i] = (r / (pts.length - 1)) * 100; });
+    return out;
+  };
+  const ranksBy = MOM_W.map(([k]) => pctRankBottom(momOf(k)));
+  ok.forEach((r, i) => {
+    // pctRankBottom already returns 0-100, matching pandas' rank(pct=True)*100.
+    // The notebook's `*100*w` therefore scales by the weight only here - the
+    // second *100 in the sum would have pushed the ceiling to 10,000, which is
+    // how this first landed reporting a "momentum score" of 9,918.
+    let sum = 0;
+    for (let k = 0; k < MOM_W.length; k++) sum += ranksBy[k][i] * MOM_W[k][1];
+    r.mom = r2(sum);
+  });
   const gain = ok.filter((r) => (r.w1 ?? 0) > 0).length;
   const reasons: Record<string, number> = {};
   for (const x of misses) reasons[x.reason.split("—")[0].trim()] = (reasons[x.reason.split("—")[0].trim()] ?? 0) + 1;

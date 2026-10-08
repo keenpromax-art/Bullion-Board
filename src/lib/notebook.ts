@@ -289,23 +289,6 @@ export function nbStoch(high: number[], low: number[], close: number[], k = 14, 
   return { k: last, dval: dv };
 }
 
-/**
- * Cross-sectional percentile rank, 0-100, in input order. Nulls stay null so a
- * ticker without a reading is never ranked against the ones that do have one.
- * The notebook scores MomScore this way across the whole universe, not per ticker.
- */
-export function nbPctRank(values: Array<number | null>): Array<number | null> {
-  const out: Array<number | null> = values.map(() => null);
-  const pts = values
-    .map((v, i) => ({ v, i }))
-    .filter((p): p is { v: number; i: number } => p.v !== null && isFinite(p.v));
-  if (pts.length === 0) return out;
-  pts.sort((a, b) => a.v - b.v);
-  const n = pts.length;
-  pts.forEach((p, r) => { out[p.i] = n === 1 ? 100 : (r / (n - 1)) * 100; });
-  return out;
-}
-
 export function nbZ(closes: number[], w = 20): number | null {
   if (closes.length < w) return null;
   const seg = closes.slice(-w);
@@ -357,26 +340,24 @@ export function nbSignalCount(o: { rsi: number | null; macdBull: boolean | null;
   return s;
 }
 
-export function nbBeta(stockLog: number[], niftyLog: number[]): number | null {
-  const n = Math.min(stockLog.length, niftyLog.length);
-  if (n < 30) return null;
-  const x = stockLog.slice(-n), y = niftyLog.slice(-n);
-  const mx = mean(x), my = mean(y);
-  let cov = 0, vy = 0;
-  for (let i = 0; i < n; i++) { cov += (x[i] - mx) * (y[i] - my); vy += (y[i] - my) ** 2; }
-  return vy > 0 ? cov / vy : null;
-}
-
-export function nbMomScore(r1: number | null, r3: number | null, r6: number | null, r12: number | null): number | null {
-  // Notebook ranks cross-sectionally; single-ticker fallback: weighted mean clipped 0-100.
-  const parts = [r1, r3, r6, r12];
-  if (parts.every((v) => v === null)) return null;
-  const w = [0.2, 0.3, 0.35, 0.15];
-  let s = 0, tw = 0;
-  parts.forEach((v, i) => { if (v !== null && isFinite(v)) { s += Math.max(-30, Math.min(30, v)) * w[i]; tw += w[i]; } });
-  if (!tw) return null;
-  return Math.max(0, Math.min(100, 50 + (s / tw) * 2));
-}
+/**
+ * REMOVED: nbBeta and nbMomScore.
+ *
+ * nbBeta tail-aligned two return arrays - `slice(-n)` against `slice(-n)` - so
+ * wherever one tape had a gap it paired different calendar days. The notebook
+ * does `pd.concat([stock, nifty], join="inner")`, which pairs shared dates. The
+ * terminal now pairs by date inline, and no other caller existed.
+ *
+ * nbMomScore never matched the notebook even when it did. The notebook ranks
+ * each horizon across the whole universe, weights the RANKS and sums them:
+ *
+ *   df[col].rank(pct=True, na_option="bottom") * 100 * w   # then sum
+ *
+ * This was a per-ticker weighted mean of raw returns, clipped to ±30 and
+ * rescaled to 0-100. Ranking the horizons is a different operation and the
+ * ordering it produces is different - which is why the board now builds MomScore
+ * from the ranked m1/m3/m6/y1 columns after the scan finishes.
+ */
 
 // ---- Cells 5/6: safety-first per-stock + max-Sharpe (bounded projected gradient) ----
 export interface SafetyStock {
