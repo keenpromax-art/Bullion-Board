@@ -691,11 +691,41 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
     const wk: typeof bars = [];
     const mo: typeof bars = [];
     if (bars.length < 2) return { daily: [], weekly: [], monthly: [], wkCount: 0, moCount: 0 };
+    /**
+     * ISO WEEK KEY, ANCHORED TO THE WEEK'S OWN MONDAY.
+     *
+     * The old key was `${year}-W${Math.floor((daysSinceEpoch + 4) / 7)}` - the
+     * bar's calendar year, glued to a continuous week counter that runs straight
+     * through New Year. The trading week Mon 29 Dec 2025 - Fri 2 Jan 2026 is one
+     * week to any exchange, but the three December bars keyed `2025-W2922` and
+     * the two January bars keyed `2026-W2922`, so it was counted TWICE: two
+     * partial weeks where there should be one full one.
+     *
+     * That is not a rounding artefact at the edge of the series. It happens once
+     * a year, for five years of history, and each split week lands a stub in the
+     * weekly window - a 1-day or 2-day "week" whose high/low and up/down moves
+     * describe a fraction of a session and are then averaged in with the real
+     * ones. The 260-week window silently ran on fewer genuine weeks than it
+     * claimed.
+     *
+     * ISO weeks start on Monday, and each belongs to the year of its Monday, so
+     * the key is derived from the Monday date rather than the bar date. This is
+     * also exactly what W-FRI buckets on a Monday-to-Friday exchange, so the
+     * grouping now matches the resample the notebook performs.
+     */
+    const isoWeekKey = (iso: string): string => {
+      const d = new Date(iso + "T00:00:00Z");
+      // Shift to the Thursday of this ISO week - the year that owns the week is
+      // the year containing that Thursday.
+      const day = (d.getUTCDay() + 6) % 7; // 0 = Monday
+      const thursday = new Date(d.getTime() + (3 - day) * 86400000);
+      return `${thursday.getUTCFullYear()}-W${String(thursday.getUTCMonth() + 1).padStart(2, "0")}-${String(thursday.getUTCDate()).padStart(2, "0")}`;
+    };
     const byW = new Map<string, typeof bars>();
     const byM = new Map<string, typeof bars>();
     for (const b of bars) {
       const d = new Date(b.date + "T00:00:00Z");
-      const wkey = `${d.getUTCFullYear()}-W${Math.floor((d.getTime() / 86400000 + 4) / 7)}`;
+      const wkey = isoWeekKey(b.date);
       const mkey = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
       if (!byW.has(wkey)) byW.set(wkey, []);
       byW.get(wkey)!.push(b);
@@ -719,11 +749,16 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
   const Tbl = ({ rows, tf }: { rows: ReturnType<typeof rangeTable>; tf: string }) => (
     <div className="scrollx">
       <table className="plain">
-        <thead><tr><th>{tf} WIN</th><th style={{ textAlign: "right" }}>SWING%</th><th style={{ textAlign: "right" }}>UP%</th><th style={{ textAlign: "right" }}>DN%</th><th style={{ textAlign: "right" }}>PROJ LOW ₹</th><th style={{ textAlign: "right" }}>PROJ HIGH ₹</th></tr></thead>
+        <thead><tr><th>{tf} WIN</th><th style={{ textAlign: "right" }}>BARS</th><th style={{ textAlign: "right" }}>SWING%</th><th style={{ textAlign: "right" }}>UP%</th><th style={{ textAlign: "right" }}>DN%</th><th style={{ textAlign: "right" }}>PROJ LOW ₹</th><th style={{ textAlign: "right" }}>PROJ HIGH ₹</th></tr></thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.window}>
               <td>{r.window}</td>
+              <td style={{ textAlign: "right" }} className="faint">
+                {r.n >= (r as { window: number }).window
+                  ? `${r.n}·${r.upN}/${r.downN}`
+                  : `${r.n} <${r.window}`}
+              </td>
               <td style={{ textAlign: "right" }}>{fmt(r.avgSwing)}</td>
               <td style={{ textAlign: "right" }} className="pos">{fmt(r.avgUp)}</td>
               <td style={{ textAlign: "right" }} className="neg">{fmt(r.avgDown)}</td>
@@ -758,7 +793,7 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
             {/* The notebook resamples W-FRI; this buckets ISO weeks (Monday-start).
                 For Mon-Fri trading those are the SAME grouping, but the code did
                 not say so and the old label claimed a resample it never performed. */}
-            <p className="p-head">Weekly windows · ISO weeks (Mon-start — same bucketing as W-FRI on a Mon–Fri exchange)</p>
+            <p className="p-head">Weekly windows · ISO weeks, Monday-start (same grouping as W-FRI on a Mon–Fri exchange)</p>
             {weekly.some((r) => r.projLow !== null) ? <Tbl rows={weekly} tf="W" /> : <p className="muted">NOT ENOUGH WEEKLY DATA — {wkCount} WEEKS FROM {bars.length} BARS.</p>}
           </div>
           <div className="panel">
@@ -771,11 +806,11 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
               onClick={() =>
                 downloadCSV(
                   `volrange_${symbol.replace(/[^A-Z0-9]/gi, "_").toUpperCase()}.csv`,
-                  ["TIMEFRAME", "WINDOW", "BARS_USED", "AVG_SWING_PCT", "AVG_UP_PCT", "AVG_DOWN_PCT", "PROJ_LOW", "PROJ_HIGH"],
+                  ["TIMEFRAME", "WINDOW", "BARS_USED", "UP_BARS", "DOWN_BARS", "AVG_SWING_PCT", "AVG_UP_PCT", "AVG_DOWN_PCT", "PROJ_LOW", "PROJ_HIGH"],
                   [
-                    ...daily.map((r) => ["D", r.window, r.n, r.avgSwing, r.avgUp, r.avgDown, r.projLow, r.projHigh]),
-                    ...weekly.map((r) => ["W", r.window, r.n, r.avgSwing, r.avgUp, r.avgDown, r.projLow, r.projHigh]),
-                    ...monthly.map((r) => ["M", r.window, r.n, r.avgSwing, r.avgUp, r.avgDown, r.projLow, r.projHigh]),
+                    ...daily.map((r) => ["D", r.window, r.n, r.upN, r.downN, r.avgSwing, r.avgUp, r.avgDown, r.projLow, r.projHigh]),
+                    ...weekly.map((r) => ["W", r.window, r.n, r.upN, r.downN, r.avgSwing, r.avgUp, r.avgDown, r.projLow, r.projHigh]),
+                    ...monthly.map((r) => ["M", r.window, r.n, r.upN, r.downN, r.avgSwing, r.avgUp, r.avgDown, r.projLow, r.projHigh]),
                   ]
                 )
               }
@@ -784,9 +819,12 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
             </button>
           </div>
           <p className="faint" style={{ fontSize: 10.5 }}>
-            SWING = (H-L)/L% · UP/DN = MEAN OF SIGNED BARS ONLY, THE FIRST ONE MEASURED AGAINST
-            THE CLOSE OUTSIDE THE WINDOW · PROJ ANCHORED TO SPOT LTP · A DASHED WINDOW MEANS
-            THE HISTORY CANNOT FILL IT, NOT THAT THE MOVE WAS ZERO
+            SWING = (H-L)/L% · UP/DN = MEAN OF SIGNED BARS ONLY, SO UP AND DN HAVE DIFFERENT
+            DENOMINATORS — THE BARS COLUMN SHOWS n·up/down, AND n&lt;WINDOW MEANS THE HISTORY CANNOT
+            FILL IT · FIRST RETURN IN EACH WINDOW IS MEASURED AGAINST THE CLOSE OUTSIDE IT · PROJ
+            ANCHORED TO SPOT LTP · THIS IS THE NOTEBOOK&apos;S AVERAGE ONE-BAR MOVE APPLIED TO THE
+            CURRENT PRICE, NOT A MULTI-BAR OR CONFIDENCE-BAND FORECAST: THE 1000-DAY ROW CARRIES
+            THE SAME DAILY MOVE AS THE 30-DAY ROW
           </p>
         </>
       )}

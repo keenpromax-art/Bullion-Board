@@ -155,8 +155,10 @@ export function classifySmaCross(
 
 // ---- Cell 10: multi-timeframe range projections ----
 export interface RangeRow {
-  window: number; n: number; avgSwing: number | null; avgUp: number | null;
-  avgDown: number | null; projLow: number | null; projHigh: number | null;
+  window: number; n: number; avgSwing: number | null; avgUp: number | null; avgDown: number | null;
+  /** Bars behind avgUp / avgDown — each averages one sign only, so these differ. */
+  upN: number; downN: number;
+  projLow: number | null; projHigh: number | null;
 }
 
 export function rangeTable(
@@ -164,7 +166,7 @@ export function rangeTable(
   windows: number[], ltp: number,
 ): RangeRow[] {
   return windows.map((w) => {
-    if (bars.length < w) return { window: w, n: bars.length, avgSwing: null, avgUp: null, avgDown: null, projLow: null, projHigh: null };
+    if (bars.length < w) return { window: w, n: bars.length, avgSwing: null, avgUp: null, avgDown: null, upN: 0, downN: 0, projLow: null, projHigh: null };
     const seg = bars.slice(-w);
     /**
      * THE CLOSE IMMEDIATELY BEFORE THE WINDOW IS THE FIRST RETURN'S BASE.
@@ -190,12 +192,31 @@ export function rangeTable(
       const base = i === 0 ? (before ? before.close : seg[0].close) : seg[i - 1].close;
       if (base > 0) {
         const r = ((b.close - base) / base) * 100;
+        // The notebook maps a non-up return to NaN and a non-down return to NaN,
+        // then takes `.mean()`. pandas skips NaN, so Up_Move averages ONLY the
+        // positive bars and Down_Move averages ONLY the negative ones - each
+        // over a DIFFERENT denominator. A flat or unchanged bar is excluded from
+        // both, not counted as a zero move. Collecting the two signs into
+        // separate arrays is that behaviour exactly.
         if (r > 0) ups.push(r); else if (r < 0) dns.push(Math.abs(r));
       }
     }
     const avgSwing = mean(swings), avgUp = mean(ups), avgDown = mean(dns);
+    /**
+     * PROJECTED RANGE IS ltp +/- (avg_move / 100) * ltp.
+     *
+     * Note what this is NOT. It is not a confidence band, not a percentile, and
+     * not scaled by how many bars the window covers - the notebook applies the
+     * same average one-bar move to every window, so the 1000-day row carries the
+     * same daily move as the 30-day row. Wider windows are smoother estimates of
+     * the same quantity, not longer-horizon projections. `upN`/`downN` are
+     * exposed so a reader can see how many bars each average actually rests on:
+     * with a 30-bar window a name that rose 12 times and fell 18 gives 12 and 18,
+     * not 30 and 30.
+     */
     return {
       window: w, n: seg.length, avgSwing, avgUp, avgDown,
+      upN: ups.length, downN: dns.length,
       projLow: isFinite(avgDown) ? ltp - (avgDown / 100) * ltp : null,
       projHigh: isFinite(avgUp) ? ltp + (avgUp / 100) * ltp : null,
     };
