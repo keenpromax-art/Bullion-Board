@@ -360,23 +360,29 @@ export function nbMomScore(r1: number | null, r3: number | null, r6: number | nu
 // ---- Cells 5/6: safety-first per-stock + max-Sharpe (bounded projected gradient) ----
 export interface SafetyStock {
   sym: string; price: number; actual1Y: number | null; expAnn: number | null;
-  volAnn: number | null; sharpe: number | null; mdd: number | null; score: number | null; pass: boolean;
+  volAnn: number | null; sortino: number | null; sharpe: number | null; mdd: number | null;
+  score: number | null; pass: boolean;
 }
 
 export function safetyMetrics(closes: number[], rf = 0.065): {
-  actual1Y: number | null; expAnn: number | null; volAnn: number | null; sharpe: number | null; mdd: number | null;
+  actual1Y: number | null; expAnn: number | null; volAnn: number | null; sortino: number | null; sharpe: number | null; mdd: number | null;
 } {
-  if (closes.length < 60) return { actual1Y: null, expAnn: null, volAnn: null, sharpe: null, mdd: null };
+  if (closes.length < 60) return { actual1Y: null, expAnn: null, volAnn: null, sortino: null, sharpe: null, mdd: null };
   const rets = pctChange(closes).filter(isFinite);
   const expAnn = rets.length ? mean(rets) * 252 : NaN;
   const volAnn = rets.length > 1 ? (stdSample(rets) as number) * Math.sqrt(252) : NaN;
   const ref = closes.length > 252 ? closes[closes.length - 253] : closes[0];
   const last = closes[closes.length - 1];
   const actual1Y = ref > 0 ? (last - ref) / ref : NaN;
+  // Sortino over negative returns only, as in the notebook. A ticker with no
+  // down day has no downside deviation, so it reports rather than dividing by 0.
+  const neg = rets.filter((x) => x < 0);
+  const downVol = neg.length > 1 ? (stdSample(neg) as number) * Math.sqrt(252) : NaN;
   return {
     actual1Y: isFinite(actual1Y) ? actual1Y : null,
     expAnn: isFinite(expAnn) ? expAnn : null,
     volAnn: isFinite(volAnn) ? volAnn : null,
+    sortino: isFinite(expAnn) && isFinite(downVol) && downVol > 0 ? (expAnn - rf) / downVol : null,
     sharpe: isFinite(expAnn) && isFinite(volAnn) && volAnn > 0 ? (expAnn - rf) / volAnn : null,
     mdd: maxDD(closes),
   };

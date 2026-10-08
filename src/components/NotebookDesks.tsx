@@ -354,10 +354,17 @@ export function NbOptDesk() {
   const [u, setU] = useState("FO");
   const { data, err, loading, reload } = useNb("optimizer", `universe=${u}`);
   const legs: any[] = data?.opt?.legs ?? [];
+const cands: any[] = data?.legs ?? [];
   const o = data?.opt;
+  const skipped = data?.skipped as
+    | { count: number; reasons: Record<string, number>; sample: Array<{ sym: string; reason: string }> }
+    | undefined;
+  const skips = skipped && skipped.count > 0 ? skipped : null;
+  const alpha = o && data?.benchmark?.expPct !== null && data?.benchmark?.expPct !== undefined
+    ? o.expPct - data.benchmark.expPct : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
-      <Head id="79" sub="SAFETY-FIRST OPTIMIZER v4 · 2Y · 4-FACTOR RANK → TOP-25 → 10-STOCK MAX-SHARPE · 5-25% BOX" />
+      <Head id="79" sub={`SAFETY-FIRST OPTIMIZER v4 · 2Y · RANKED OVER ALL ${data?.scanned ?? "—"} THEN 6% GATE → TOP-25 → 10-STOCK MAX-SHARPE · 5-25% BOX`} />
       <div className="toolbar">
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
         <button className="ghost" onClick={reload}>↻ RETRY</button>
@@ -373,32 +380,88 @@ export function NbOptDesk() {
             <div style={{ fontSize: 20, fontWeight: 800 }} className={o.expPct >= 6 ? "pos" : "neg"}>
               {o.expPct >= 6 ? "● CLEARS 6% HURDLE" : "● BELOW HURDLE"}
             </div>
-            <p className="muted" style={{ fontSize: 11.5 }}>EXP {fmt(o.expPct)}% · VOL {fmt(o.volPct)}% · SHARPE {fmt(o.sharpe, 3)} · NIFTY EXP {fmt(data.benchmark?.expPct)}%</p>
+            <p className="muted" style={{ fontSize: 11.5 }}>EXP {fmt(o.expPct)}% · VOL {fmt(o.volPct)}% · SHARPE {fmt(o.sharpe, 3)} · NIFTY EXP {fmt(data.benchmark?.expPct)}% · ALPHA {fmt(alpha)}pp</p>
           </div>
           <Cells items={[
             { l: "EXP 1Y%", v: `${fmt(o.expPct)}%`, s: "OPTIMAL", cls: "pos" },
             { l: "PROFIT ₹", v: `₹${Number(o.profit).toLocaleString("en-IN")}`, s: "ON ₹1L" },
             { l: "TOTAL ₹", v: `₹${Number(o.total).toLocaleString("en-IN")}`, s: "AFTER 1Y" },
-            { l: "VOL%", v: `${fmt(o.volPct)}%`, s: "ANN" },
+            { l: "VOL%", v: `${fmt(o.volPct)}%`, s: `NIFTY ${fmt(data.benchmark?.volPct)}` },
             { l: "SHARPE", v: fmt(o.sharpe, 3), s: `NIFTY ${fmt(data.benchmark?.sharpe, 3)}` },
-            { l: "PASSED", v: `${data.passed}/${data.scanned}`, s: "6% FILTER" },
+            { l: "PASSED", v: `${data.passed}/${data.scanned}`, s: `OF ${data.universe} REQUESTED` },
           ]} />
+          {skips && (
+            <div className="panel">
+              <p className="p-head">Skipped — {skips.count} of {data.universe} produced no usable metric</p>
+              <table className="plain">
+                <thead><tr><th>REASON</th><th style={{ textAlign: "right" }}>SYMS</th></tr></thead>
+                <tbody>
+                  {Object.entries(skips.reasons).sort((a, b) => b[1] - a[1]).map(([reason, n]) => (
+                    <tr key={reason}><td>{reason}</td><td style={{ textAlign: "right" }}><strong>{n}</strong></td></tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="faint" style={{ fontSize: 10.5 }}>
+                SAMPLE: {skips.sample.map((s) => s.sym).join(", ")}
+                {skips.count > skips.sample.length ? ` +${skips.count - skips.sample.length} MORE` : ""}
+                {" · "}THE NOTEBOOK APPLIES <code>dropna(thresh=0.8)</code> AND KEEPS WHATEVER SURVIVES. HERE EVERY ONE OF
+                THE {data.universe} IS REQUESTED AND THE {data.scanned} THAT ANSWERED ARE RANKED — AGAINST EACH OTHER,
+                NOT AGAINST THE SURVIVORS OF THE 6% GATE.
+              </p>
+            </div>
+          )}
+          <div className="panel">
+            <p className="p-head">Elite candidates — top {cands.length} by composite, after the 6% gate</p>
+            <div className="scrollx" style={{ maxHeight: 320, overflowY: "auto" }}>
+              <table className="plain">
+                <thead><tr><th>#</th><th>SYMBOL</th><th style={{ textAlign: "right" }}>SCORE</th><th style={{ textAlign: "right" }}>ACTUAL 1Y%</th><th style={{ textAlign: "right" }}>EXP 1Y%</th><th style={{ textAlign: "right" }}>VOL%</th><th style={{ textAlign: "right" }}>SHARPE</th><th style={{ textAlign: "right" }}>SORTINO</th><th style={{ textAlign: "right" }}>MDD%</th><th style={{ textAlign: "right" }}>IN BOOK</th></tr></thead>
+                <tbody>
+                  {cands.map((c, i) => {
+                    const inBook = legs.some((l) => l.sym === c.sym);
+                    return (
+                      <tr key={c.sym} style={inBook ? { boxShadow: "inset 2px 0 0 var(--amber)" } : undefined}>
+                        <td className="faint">{i + 1}</td>
+                        <td><span className="sec">{c.sym}</span></td>
+                        <td style={{ textAlign: "right" }}><strong>{fmt(c.score, 3)}</strong></td>
+                        <td style={{ textAlign: "right" }} className={(c.actualPct ?? 0) >= 0 ? "pos" : "neg"}>{fmt(c.actualPct)}</td>
+                        <td style={{ textAlign: "right" }} className={(c.expPct ?? 0) >= 0 ? "pos" : "neg"}>{fmt(c.expPct)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(c.volPct, 1)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(c.sharpe, 3)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(c.sortino, 3)}</td>
+                        <td style={{ textAlign: "right" }} className="neg">{fmt(c.mddPct)}</td>
+                        <td style={{ textAlign: "right" }}>{inBook ? <span className="warn">YES</span> : <span className="faint">—</span>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="faint" style={{ fontSize: 10.5 }}>
+              SCORE = 0.30×EXP PCT-RANK + 0.20×ACTUAL PCT-RANK + 0.30×SHARPE PCT-RANK + 0.20×(−MDD) PCT-RANK, EACH RANK
+              TAKEN OVER ALL {data.scanned} THAT ANSWERED · THE GATE IS ACTUAL&gt;0 AND EXP≥6%, APPLIED AFTER RANKING ·
+              MARKED ROWS ARE THE TEN IN THE BOOK · LOWEST OVERLAP BETWEEN ANY PAIR OF DAILY TAPES: {data.minCovOverlap} SESSIONS
+            </p>
+          </div>
           <div className="panel">
             <p className="p-head">Optimal allocations — 5-25% box, Σ=1</p>
             <HBars rows={legs.map((l) => ({ label: l.sym, value: l.wPct, display: `${l.wPct}% · ₹${l.amt.toLocaleString("en-IN")}`, color: "var(--amber)" }))} />
             <div className="scrollx" style={{ marginTop: 8 }}>
               <table className="plain">
-                <thead><tr><th>LEG</th><th style={{ textAlign: "right" }}>W%</th><th style={{ textAlign: "right" }}>₹</th><th style={{ textAlign: "right" }}>EXP%</th><th style={{ textAlign: "right" }}>SHARPE</th></tr></thead>
-                <tbody>
-                  {legs.map((l) => (
-                    <tr key={l.sym}><td><span className="sec">{l.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(l.wPct)}</td><td style={{ textAlign: "right" }}>{l.amt.toLocaleString("en-IN")}</td><td style={{ textAlign: "right" }}>{fmt(l.expPct)}</td><td style={{ textAlign: "right" }}>{fmt(l.sharpe, 3)}</td></tr>
-                  ))}
-                </tbody>
+<thead><tr><th>LEG</th><th style={{ textAlign: "right" }}>W%</th><th style={{ textAlign: "right" }}>₹</th><th style={{ textAlign: "right" }}>EXP%</th><th style={{ textAlign: "right" }}>SHARPE</th><th style={{ textAlign: "right" }}>SORTINO</th><th style={{ textAlign: "right" }}>MDD%</th></tr></thead>
+                  <tbody>
+                    {legs.map((l) => (
+                      <tr key={l.sym}><td><span className="sec">{l.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(l.wPct)}</td><td style={{ textAlign: "right" }}>{l.amt.toLocaleString("en-IN")}</td><td style={{ textAlign: "right" }}>{fmt(l.expPct)}</td><td style={{ textAlign: "right" }}>{fmt(l.sharpe, 3)}</td><td style={{ textAlign: "right" }}>{fmt(l.sortino, 3)}</td><td style={{ textAlign: "right" }} className="neg">{fmt(l.mddPct)}</td></tr>
+                    ))}
+                  </tbody>
               </table>
             </div>
-            <p className="faint" style={{ fontSize: 10.5 }}>{data.method} · SORTINO COMPUTED IN NB BUT UNUSED — OMITTED · 80% COVERAGE RULE</p>
+            <p className="faint" style={{ fontSize: 10.5 }}>
+              {data.method} · COVARIANCE IS PAIRED ON THE SAME TRADING DAY, NOT ON THE SAME ROW OFFSET, SO A GAP IN ONE
+              TAPE CANNOT SILENTLY PAIR TWO DIFFERENT CALENDAR DAYS · WEIGHTS SUM {fmt(legs.reduce((a, l) => a + (l.wPct ?? 0), 0), 2)}% ·
+              EXPECTED RETURN IS A LINEAR EXTRAPOLATION OF 2Y DAILY MEAN ×252, NOT A FORECAST — SEE THE AI BLOCK
+            </p>
           </div>
-          <AiBlock id="79" label="Safety-First Optimizer" context={`OPT EXP ${o.expPct}% VOL ${o.volPct}% SH ${o.sharpe} LEGS ${legs.slice(0, 5).map((l: any) => `${l.sym} ${l.wPct}%`).join(" | ")}`} />
+          <AiBlock id="79" label="Safety-First Optimizer" context={`SCANNED ${data.scanned} OF ${data.universe} REQUESTED PASSED 6% GATE ${data.passed} ELITE ${data.eliteCount} CAPITAL Rs100000 OPT EXP ${o.expPct}% VOL ${o.volPct}% SHARPE ${o.sharpe} PROFIT Rs${o.profit} NIFTY EXP ${data.benchmark?.expPct}% SHARPE ${data.benchmark?.sharpe} LEGS ${legs.slice(0, 5).map((l: any) => `${l.sym} ${l.wPct}%`).join(" | ")}`} />
         </>
       )}
     </div>

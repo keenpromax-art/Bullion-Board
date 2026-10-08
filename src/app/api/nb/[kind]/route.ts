@@ -250,16 +250,30 @@ async function kindOptimizer(sp: URLSearchParams) {
   const univ = univOf(sp.get("universe"));
   const capital = Number(sp.get("capital") || 100000);
   const TH = 0.06, RF = 0.065, SIZE = 10, TOPN = 25;
-  type SafetyPer = { sym: string; price: number; closes: number[]; actual1Y: number | null; expAnn: number | null; volAnn: number | null; sharpe: number | null; mdd: number | null };
+  type SafetyPer = { sym: string; price: number; closes: number[]; bars: Array<{ date: string; close: number }>; actual1Y: number; expAnn: number; volAnn: number | null; sortino: number | null; sharpe: number; mdd: number; score?: number | null; pass?: boolean };
+  const skipped: { sym: string; reason: string }[] = [];
   const per: SafetyPer[] = await mapPool<string, SafetyPer>(univ, 12, async (sym) => {
     try {
       const bars = await fetchHistory(sym, "2y", "1d");
-      if (bars.length < 200) return null;
+      const bare = sym.replace(".NS", "");
+      // A ticker that cannot produce all four scored metrics is not ranked. The
+      // notebook drops these inside `dropna`; saying which ones and why is the
+      // only way a reader can tell a 209-name scan from a 190-name one.
+      if (bars.length < 200) {
+        skipped.push({ sym: bare, reason: bars.length ? `ONLY ${bars.length} BARS - NEED 200` : "NO BARS RETURNED" });
+        return null;
+      }
       const closes = bars.map((b) => b.close);
       const m = safetyMetrics(closes, RF);
-      if (m.expAnn === null || m.actual1Y === null || m.sharpe === null || m.mdd === null) return null;
-      return { sym, price: closes[closes.length - 1], closes, ...m };
-    } catch { return null; }
+      if (m.expAnn === null || m.actual1Y === null || m.sharpe === null || m.mdd === null) {
+        skipped.push({ sym: bare, reason: "METRIC UNAVAILABLE - PRICE OR RETURN SERIES INCOMPLETE" });
+        return null;
+      }
+      return { sym, price: closes[closes.length - 1], closes, bars, ...m } as SafetyPer;
+    } catch (e: unknown) {
+      skipped.push({ sym: sym.replace(".NS", ""), reason: `FEED ERROR - ${String((e as Error)?.message ?? e).slice(0, 60)}` });
+      return null;
+    }
   });
   // benchmark
   let bm = { exp: null as number | null, vol: null as number | null, sharpe: null as number | null };
@@ -269,18 +283,42 @@ async function kindOptimizer(sp: URLSearchParams) {
     const m = safetyMetrics(bc, RF);
     bm = { exp: m.expAnn, vol: m.volAnn, sharpe: m.sharpe };
   } catch { /* fail-open */ }
-  const pass: (SafetyPer & { score: number | null })[] = per
-    .filter((p) => (p.actual1Y as number) > 0 && (p.expAnn as number) >= TH)
-    .map((p) => ({ ...p, score: null as number | null }));
+  /**
+   * THE RANKING POPULATION IS THE WHOLE UNIVERSE, NOT THE SURVIVORS.
+   *
+   * The notebook ranks inside the score expression itself:
+   *
+   *   score = 0.30 * exp_ret.rank(pct=True) + 0.20 * actual_ret.rank(pct=True)
+   *         + 0.30 * sharpe.rank(pct=True)    + 0.20 * (-mdd).rank(pct=True)
+   *   elite = score[hard_pass].nlargest(TOP_N)
+   *
+   * `rank(pct=True)` runs over the FULL cleaned frame - all valid tickers - and
+   * only afterwards does `hard_pass` select which of those scores may compete.
+   * This port filtered hard_pass FIRST and ranked what survived, which makes
+   * every surviving name a percentile rank among survivors: the worst performer
+   * that clears the 6% gate scores 1.0 on every factor instead of something low,
+   * so the composite cannot distinguish a merely-qualifying name from an
+   * outstanding one. It inflated the elite list into the top of the passed
+   * cohort rather than the top of the market.
+   *
+   * Ranking first and gating second reproduces the notebook: the cohort is
+   * filtered on pass/fail, but the SCORE that orders it is measured against
+   * everyone who produced a reading.
+   */
+  const scored = per.map((p) => ({ ...p, score: null as number | null, pass: false }));
   const rk = (xs: (number | null)[], asc = true) => rankPct(xs, asc);
-  const rExp = rk(pass.map((p) => p.expAnn));
-  const rAct = rk(pass.map((p) => p.actual1Y));
-  const rSh = rk(pass.map((p) => p.sharpe));
-  const rDd = rk(pass.map((p) => (p.mdd as number) * -1));
-  pass.forEach((p, i) => {
+  const rExp = rk(scored.map((p) => p.expAnn));
+  const rAct = rk(scored.map((p) => p.actual1Y));
+  const rSh = rk(scored.map((p) => p.sharpe));
+  const rDd = rk(scored.map((p) => (p.mdd as number) * -1));
+  scored.forEach((p, i) => {
     const parts = [rExp[i], rAct[i], rSh[i], rDd[i]];
-    p.score = parts.every((v) => v !== null) ? (parts[0] as number) * 0.3 + (parts[1] as number) * 0.2 + (parts[2] as number) * 0.3 + (parts[3] as number) * 0.2 : null;
+    p.score = parts.every((v) => v !== null)
+      ? (parts[0] as number) * 0.3 + (parts[1] as number) * 0.2 + (parts[2] as number) * 0.3 + (parts[3] as number) * 0.2
+      : null;
+    p.pass = (p.actual1Y as number) > 0 && (p.expAnn as number) >= TH;
   });
+  const pass = scored.filter((p) => p.pass);
   const elite = pass.filter((p) => p.score !== null).sort((a, b) => (b.score as number) - (a.score as number)).slice(0, TOPN);
   if (elite.length < SIZE) {
     return { universe: univ.length, scanned: per.length, passed: pass.length, elite: [], error: "FEWER THAN 10 PASSED THE 6% FILTER — NO PORTFOLIO (—)" };
@@ -289,20 +327,65 @@ async function kindOptimizer(sp: URLSearchParams) {
   const idxOf = new Map(elite.map((e, i) => [e.sym, i]));
   void idxOf;
   const mu = elite.map((e) => e.expAnn as number);
-  const retsM = elite.map((e) => pctChange(e.closes).filter(isFinite));
   const n = elite.length;
+  /**
+   * COVARIANCE PAIRED ON THE SAME TRADING DAY, NOT ON THE SAME ROW OFFSET.
+   *
+   * The notebook builds one wide frame - `cleaned.pct_change().dropna()` - and
+   * calls `.cov()`, so every pair is measured on the dates both tickers traded.
+   *
+   * This port held one return array per ticker and sliced each pair's TAIL to a
+   * common length: `a.slice(-m)` against `b.slice(-m)`. Two tickers can have
+   * different gaps in their tape - a halt, a listing date, a missing session -
+   * so row k of A and row k of B are frequently different calendar days. The
+   * correlation is then computed across mismatched days, which both shrinks
+   * measured covariance and adds noise, and the whole 10-name portfolio Sharpe
+   * is built from that matrix. A correlation that never existed is a real risk
+   * number printed as if it were measured.
+   *
+   * Pairing is now by date. A pair with too few overlapping sessions to be
+   * meaningful is left at 0 covariance and the pair is excluded from selection,
+   * rather than being given a fabricated number.
+   */
+  // Build each ticker's return keyed by the date OF the return (today's bar).
+  const keyed = elite.map((e) => {
+    const closes = new Map<string, number>();
+    for (const b of e.bars) closes.set(b.date, b.close);
+    const out: Array<[string, number]> = [];
+    for (let i = 1; i < e.bars.length; i++) {
+      const p = closes.get(e.bars[i - 1].date);
+      const c = e.bars[i].close;
+      if (p !== undefined && p > 0 && c > 0 && isFinite(c)) out.push([e.bars[i].date, c / p - 1]);
+    }
+    return out;
+  });
+  const overlap: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
   const cov: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
   for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      const a = retsM[i], b = retsM[j];
-      const m = Math.min(a.length, b.length);
-      const aa = a.slice(-m), bb = b.slice(-m);
-      const ma = mean(aa), mb = mean(bb);
+    const mi = new Map(keyed[i]);
+    for (let j = i; j < n; j++) {
+      const mj = new Map(keyed[j]);
+      const pairs: number[] = [];
+      for (const [d, v] of keyed[i]) {
+        const w = mj.get(d);
+        if (w !== undefined) pairs.push(v, w);
+      }
+      const cnt = pairs.length / 2;
+      overlap[i][j] = cnt;
+      overlap[j][i] = cnt;
+      if (cnt < 30) { cov[i][j] = 0; cov[j][i] = 0; continue; }
+      const a: number[] = [], b: number[] = [];
+      for (let k = 0; k < pairs.length; k += 2) { a.push(pairs[k]); b.push(pairs[k + 1]); }
+      const ma = mean(a), mb = mean(b);
       let c = 0;
-      for (let k = 0; k < m; k++) c += (aa[k] - ma) * (bb[k] - mb);
-      cov[i][j] = m > 1 ? (c / (m - 1)) * 252 : 0;
+      for (let k = 0; k < a.length; k++) c += (a[k] - ma) * (b[k] - mb);
+      const v = (c / (a.length - 1)) * 252;
+      cov[i][j] = v;
+      cov[j][i] = v;
     }
   }
+  const flatOverlap = overlap.flat().filter((v) => v > 0);
+  const minOverlap = flatOverlap.length ? Math.min(...flatOverlap) : 0;
   let best = elite.map((_, i) => i).slice(0, SIZE);
   const eqSharpe = (sel: number[]) => {
     const w = 1 / sel.length;
@@ -333,17 +416,45 @@ async function kindOptimizer(sp: URLSearchParams) {
   const optSharpe = (optRet - RF) / optVol;
   const legs = names.map((e, k) => ({
     sym: e.sym.replace(".NS", ""), wPct: r2(w[k] * 100), amt: Math.round(w[k] * capital),
-    expPct: r2((e.expAnn as number) * 100), sharpe: r3(e.sharpe),
+    expPct: r2((e.expAnn as number) * 100), sharpe: r3(e.sharpe), sortino: r3(e.sortino),
+    mddPct: r2((e.mdd as number) * 100), actualPct: r2((e.actual1Y as number) * 100),
+    score: r3(e.score), bars: e.bars.length,
   }));
   const profit = optRet * capital;
   return {
-    universe: univ.length, scanned: per.length, passed: pass.length,
-    benchmark: { expPct: bm.exp !== null ? r2(bm.exp * 100) : null, sharpe: bm.sharpe !== null ? r3(bm.sharpe) : null },
+    universe: univ.length, requested: univ.length, scanned: per.length, passed: pass.length,
+    eliteCount: elite.length, minCovOverlap: minOverlap,
+    skipped: {
+      count: skipped.length,
+      reasons: skipped.reduce<Record<string, number>>((acc, s) => {
+        const k = /^ONLY \d+ BARS/.test(s.reason) ? "INSUFFICIENT HISTORY - UNDER 200 DAILY BARS"
+          : /^NO BARS/.test(s.reason) ? "NO BARS RETURNED"
+            : /^METRIC UNAVAILABLE/.test(s.reason) ? "METRIC UNAVAILABLE"
+              : "FEED ERROR";
+        acc[k] = (acc[k] ?? 0) + 1;
+        return acc;
+      }, {}),
+      sample: skipped.slice(0, 12).sort((a, b) => a.sym.localeCompare(b.sym)),
+    },
+    legs: pass
+      .filter((p) => p.score !== null)
+      .sort((a, b) => (b.score as number) - (a.score as number))
+      .slice(0, TOPN)
+      .map((p) => ({
+        sym: p.sym.replace(".NS", ""), score: r3(p.score), actualPct: r2(p.actual1Y * 100),
+        expPct: r2(p.expAnn * 100), volPct: p.volAnn !== null ? r2(p.volAnn * 100) : null,
+        sharpe: r3(p.sharpe), sortino: r3(p.sortino), mddPct: r2(p.mdd * 100), bars: p.bars.length,
+      })),
+    benchmark: {
+      expPct: bm.exp !== null ? r2(bm.exp * 100) : null,
+      volPct: bm.vol !== null ? r2(bm.vol * 100) : null,
+      sharpe: bm.sharpe !== null ? r3(bm.sharpe) : null,
+    },
     opt: {
       expPct: r2(optRet * 100), volPct: r2(optVol * 100), sharpe: r3(optSharpe),
       profit: Math.round(profit), total: Math.round(capital + profit), legs,
     },
-    method: "TOP-25 RANK + HILL-CLIMB 10-SELECT + BOUNDED MAX-SHARPE (WEB EQUIV OF C(25,10) ENUM + SLSQP)",
+    method: "RANK OVER FULL UNIVERSE + HARD-PASS GATE + TOP-25 + HILL-CLIMB 10-SELECT + DATE-ALIGNED COVARIANCE + BOUNDED MAX-SHARPE",
   };
 }
 
