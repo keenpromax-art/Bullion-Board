@@ -387,16 +387,27 @@ export function NbMoversDesk() {
   const bot: any[] = data?.bottom ?? [];
   const allRows: any[] = data?.all ?? [];
   const skipped = data?.skipped as { count: number; reasons: Record<string, number>; sample: Array<{ sym: string; reason: string }> } | undefined;
-  const quar = data?.quarantined as { count: number; halted: number; stale: number; sample: Array<{ sym: string; reason: string; chg: number | null; spanDays: number | null }> } | undefined;
+  const quar = data?.quarantined as { count: number; halted: number; stale: number; haltedSample: string[] } | undefined;
+  const staleRows: any[] = data?.stale ?? [];
+  // BOTH returns two ranked windows from one scan — the notebook downloads 2mo
+  // once and reads a week and a month off the same frame, and there is no reason
+  // for the desk to charge for two passes.
+  const windows: any[] = (data?.windows ?? []) as any[];
+  const isBoth = w === "BOTH";
   const skips = skipped && skipped.count > 0 ? skipped : null;
   const qtn = quar && quar.count > 0 ? quar : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
-      <Head id="80" sub={`MOVERS RANK · ${w} % — SPOT EQUITY (NB TITLES SAY OPTIONS, CODE IS SPOT)`} />
+      <Head id="80" sub={`MOVERS RANK · ${isBoth ? "1W + 1M, ONE SCAN" : `${w} TOP/BOTTOM ${w === "1D" ? 10 : 5}`} — SPOT EQUITY (NB TITLES SAY OPTIONS, CODE IS SPOT)`} />
       <div className="toolbar">
-        <Pills opts={["1D", "1W", "1M"]} val={w} set={setW} />
+        <Pills opts={["1D", "1W", "1M", "BOTH"]} val={w} set={setW} />
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
         <button className="ghost" onClick={reload}>↻ RETRY</button>
+        {isBoth && windows.length === 2 && (
+          <span className="faint" style={{ fontSize: 10.5 }}>
+            {windows.map((x) => `${x.win}: ${x.ranked} RANKED · MEDIAN SPAN ${x.medianSpan}d (LIMIT ${x.spanLimit}d)`).join(" · ")}
+          </span>
+        )}
         <button
           className="ghost"
           onClick={() =>
@@ -414,7 +425,7 @@ export function NbMoversDesk() {
       {loading && <p className="muted">RANKING {u === "FO" ? 209 : "FULL NSE"}…</p>}
       {err && <p className="neg">ERR: {err} <button className="ghost" onClick={reload}>RETRY</button></p>}
       {!loading && !err && top.length === 0 && <p className="muted">NO MOVERS — RETRY.</p>}
-      {top.length > 0 && (
+      {!isBoth && top.length > 0 && (
         <div className="grid grid-2">
           <div className="panel">
             <p className="p-head">Top 10 — {w}</p>
@@ -440,35 +451,82 @@ export function NbMoversDesk() {
           </div>
         </div>
       )}
+      {/* BOTH: the notebook's four tables. One scan of 2mo serves the week and the
+          month, which is the whole reason BOTH exists as a mode rather than two
+          separate requests. */}
+      {isBoth && windows.length === 2 && !loading && !err && (
+        <>
+          {windows.map((win: any) => (
+            <div key={win.win} className="grid grid-2">
+              <div className="panel">
+                <p className="p-head">Top 5 — {win.win} · median span {win.medianSpan}d</p>
+                <table className="plain">
+                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
+                  <tbody>
+                    {win.top.map((r: any) => (
+                      <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className={(r.chg ?? 0) >= 0 ? "pos" : "neg"}>{(r.chg ?? 0) >= 0 ? "+" : ""}{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays}d</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="panel">
+                <p className="p-head">Bottom 5 — {win.win} · median span {win.medianSpan}d</p>
+                <table className="plain">
+                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
+                  <tbody>
+                    {win.bottom.map((r: any) => (
+                      <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className={(r.chg ?? 0) >= 0 ? "pos" : "neg"}>{(r.chg ?? 0) >= 0 ? "+" : ""}{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays}d</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+          {windows.some((x: any) => x.top.some((r: any) => (r.chg ?? 0) < 0)) && (
+            <p className="warn" style={{ fontSize: 11.5, lineHeight: 1.55 }}>
+              A RANK IS NOT A CLAIM. WHERE A TOP TABLE CONTAINS A RED ROW, FEWER THAN 5 NAMES
+              ROSE IN THAT WINDOW AND THE TABLE IS PADDED WITH THE LEAST-BAD LOSSES.
+            </p>
+          )}
+        </>
+      )}
       {/* QUARANTINE. The notebook forward-fills halted names, which lands them at
           0.00% and quietly keeps them out of both lists. That is the right
           outcome, but it is invisible: a name simply never appears. Here the same
           names are removed from the ranking AND shown, with the reason and the
-          real elapsed span, so "why isn't my stock on this list" is answerable
+          real elapsed span, so "why isn't this stock on this list" is answerable
           without leaving the desk. */}
       {qtn && (
         <div className="panel">
-          <p className="p-head">Held back from the ranking — {qtn.count} names whose print is not a real {w} move</p>
+          <p className="p-head">Held back from the ranking — {qtn.count} names whose print is not a real move</p>
           <div className="cells" style={{ marginBottom: 8 }}>
             <div className="cell"><div className="lbl">HALTED</div><div className="val" style={{ fontSize: 16 }}>{qtn.halted}</div><div className="sub">zero volume on the last print</div></div>
-            <div className="cell"><div className="lbl">STALE</div><div className="val" style={{ fontSize: 16 }}>{qtn.stale}</div><div className="sub">gaps wider than one session</div></div>
+            <div className="cell"><div className="lbl">STALE</div><div className="val" style={{ fontSize: 16 }}>{qtn.stale}</div><div className="sub">span far longer than the median</div></div>
             <div className="cell"><div className="lbl">SKIPPED</div><div className="val" style={{ fontSize: 16 }}>{skips?.count ?? 0}</div><div className="sub">no usable reading at all</div></div>
           </div>
-          <table className="plain">
-            <thead><tr><th>SEC</th><th>REASON</th><th style={{ textAlign: "right" }}>WOULD-HAVE-BEEN %</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
-            <tbody>
-              {qtn.sample.map((q) => (
-                <tr key={q.sym}>
-                  <td><span className="sec">{q.sym}</span></td>
-                  <td style={{ fontSize: 11 }}>{q.reason}</td>
-                  <td style={{ textAlign: "right" }} className="faint">{q.chg === null ? "—" : `${q.chg > 0 ? "+" : ""}${q.chg}`}</td>
-                  <td style={{ textAlign: "right" }} className="faint">{q.spanDays ?? "—"}d</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {qtn.count > qtn.sample.length && (
-            <p className="faint" style={{ fontSize: 10.5 }}>+{qtn.count - qtn.sample.length} MORE NOT LISTED</p>
+          {qtn.halted > 0 && (
+            <p className="faint" style={{ fontSize: 10.5 }}>
+              HALTED: {qtn.haltedSample.join(", ")}
+              {qtn.halted > qtn.haltedSample.length ? ` +${qtn.halted - qtn.haltedSample.length} MORE` : ""}
+            </p>
+          )}
+          {staleRows.length > 0 && (
+            <table className="plain">
+              <thead><tr><th>SEC</th><th>REASON</th><th style={{ textAlign: "right" }}>WOULD-HAVE-BEEN %</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
+              <tbody>
+                {staleRows.map((q: any) => (
+                  <tr key={q.sym}>
+                    <td><span className="sec">{q.sym}</span></td>
+                    <td style={{ fontSize: 11 }}>{q.reason}</td>
+                    <td style={{ textAlign: "right" }} className="faint">{q.chg === null ? "—" : `${q.chg > 0 ? "+" : ""}${q.chg}`}</td>
+                    <td style={{ textAlign: "right" }} className="faint">{q.spanDays ?? "—"}d</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {qtn.stale > staleRows.length && (
+            <p className="faint" style={{ fontSize: 10.5 }}>+{qtn.stale - staleRows.length} MORE STALE NOT LISTED</p>
           )}
           {skips && (
             <p className="faint" style={{ fontSize: 10.5 }}>
@@ -481,6 +539,7 @@ export function NbMoversDesk() {
       <p className="faint" style={{ fontSize: 10.5 }}>
         1D = LAST/SECOND-LAST CLOSE · 1W = ILOC[-6] · 1M = ILOC[-22] · COUNT {data?.count ?? "—"}/{data?.universe ?? "—"}
         {qtn ? ` · ${qtn.count} HELD BACK, SEE ABOVE` : ""} · SPAN = REAL ELAPSED CALENDAR DAYS BEHIND THE NUMBER
+        {isBoth && " · BOTH WINDOWS SHARE ONE SCAN OF 2MO, NOT TWO SCANS"}
       </p>
       {/* A PADDED LIST. "Top 10" is a rank, not a claim that ten things went up.
           When fewer than ten names rose, the table must pad with the least-bad
@@ -488,7 +547,7 @@ export function NbMoversDesk() {
           thin session. Testing whether the BEST name fell is the wrong question
           (it only catches a wholly-down universe); what matters is whether any
           row in the table is against its own direction. */}
-      {top.some((r: any) => (r.chg ?? 0) < 0) && (
+      {!isBoth && top.some((r: any) => (r.chg ?? 0) < 0) && (
         <p className="warn" style={{ fontSize: 11.5, lineHeight: 1.55 }}>
           FEWER THAN 10 NAMES ROSE. THE WINNERS TABLE IS A RANK, NOT A LIST OF GAINS —
           THE RED ROWS AT THE BOTTOM ARE THE LEAST-BAD LOSSES, PADDED IN BECAUSE NOTHING

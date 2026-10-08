@@ -322,8 +322,6 @@ async function kindOptimizer(sp: URLSearchParams) {
 
 async function kindMovers(sp: URLSearchParams) {
   const univ = univOf(sp.get("universe"));
-  const win = (sp.get("win") || "1D").toUpperCase();
-  const range = win === "1M" || win === "1W" ? "2mo" : "5d";
 
   /**
    * THE HALT GAP — the one place this port was quietly wrong, and the reason the
@@ -350,54 +348,125 @@ async function kindMovers(sp: URLSearchParams) {
    * rather than vanishing, because "why is this name missing" is a question the
    * desk should answer before it is asked.
    */
-  const lookback = win === "1W" ? 6 : win === "1M" ? 22 : 2;
-  const skips: { sym: string; reason: string }[] = [];
-  const quarantined: { sym: string; reason: string; chg: number | null; spanDays: number | null }[] = [];
+  const WINDOWS = {
+    "1D": { lookback: 2, topN: 10 },
+    "1W": { lookback: 6, topN: 5 },
+    "1M": { lookback: 22, topN: 5 },
+  } as const;
+  type Win = keyof typeof WINDOWS;
 
+  const requested = (sp.get("win") || "1D").toUpperCase();
+  const wants: Win[] = requested === "BOTH" ? ["1W", "1M"] : requested in WINDOWS ? [requested as Win] : ["1D"];
+  const maxLookback = Math.max(...wants.map((w) => WINDOWS[w].lookback));
+  // The notebook downloads 2mo ONCE and derives a week and a month from it. That
+  // is worth keeping: the old desk re-scanned the entire universe every time the
+  // window pill changed, so asking for both cost two full passes where one
+  // serves.
+  //
+  // Range is chosen in CALENDAR terms, not bar terms — and getting that wrong is
+  // silent. `range=5d` is five CALENDAR days, which yields roughly three trading
+  // bars, so keying it off `lookback > 6` gave a 6-bar window a 5-day window and
+  // every single name failed the length check. The desk came back empty and said
+  // nothing about why. Roughly six trading bars need a calendar month; roughly
+  // twenty-two need two.
+  const range = maxLookback <= 2 ? "5d" : maxLookback <= 6 ? "1mo" : "2mo";
+
+  const skips: { sym: string; reason: string }[] = [];
+  const halted: { sym: string; spanDays: number | null }[] = [];
+
+  // One fetch per symbol. Every requested window is derived from the same bars.
   const scanned = await mapPool(univ, 10, async (sym) => {
     const bare = sym.replace(".NS", "");
     try {
       const bars = await fetchHistory(sym, range, "1d");
-      if (bars.length < lookback) {
-        skips.push({ sym: bare, reason: `ONLY ${bars.length} BARS — NEED ${lookback}` });
+      if (bars.length < maxLookback) {
+        skips.push({ sym: bare, reason: `ONLY ${bars.length} BARS — NEED ${maxLookback}` });
         return null;
       }
       const lastBar = bars[bars.length - 1];
-      const refBar = bars[bars.length - lookback];
-      const last = lastBar.close;
-      const ref = refBar.close;
-      const chg = ref > 0 ? ((last - ref) / ref) * 100 : null;
-
-      // Real elapsed calendar days behind this "1D" number.
-      const spanDays = Math.round(
-        (Date.parse(lastBar.date) - Date.parse(refBar.date)) / 86400000
-      );
-
-      if (chg === null) {
-        skips.push({ sym: bare, reason: "ZERO OR MISSING REFERENCE CLOSE" });
-        return null;
-      }
+      // Zero volume on the newest print means the name is halted. Its "move" is
+      // an artefact of the halt, not a trade, for every window at once — so it
+      // is recorded once here and excluded everywhere below.
       if (lastBar.volume === 0) {
-        quarantined.push({ sym: bare, reason: "HALTED — NO VOLUME ON THE LAST PRINT", chg: r2(chg), spanDays });
+        halted.push({ sym: bare, spanDays: null });
         return null;
       }
-      // A normal non-trading stretch is a weekend plus at most a few holidays.
-      // 1W and 1M legitimately span longer, so only 1D is gap-checked.
-      if (win === "1D" && spanDays > 5) {
-        quarantined.push({ sym: bare, reason: `STALE — LAST TWO PRINTS ARE ${spanDays} CALENDAR DAYS APART`, chg: r2(chg), spanDays });
-        return null;
+      const per: Partial<Record<Win, { chg: number; spanDays: number; ref: number }>> = {};
+      for (const w of wants) {
+        const refBar = bars[bars.length - WINDOWS[w].lookback];
+        const ref = refBar.close;
+        if (!(ref > 0)) continue;
+        per[w] = {
+          chg: ((lastBar.close - ref) / ref) * 100,
+          spanDays: Math.round((Date.parse(lastBar.date) - Date.parse(refBar.date)) / 86400000),
+          ref,
+        };
       }
-      return { sym: bare, price: r2(last), chg: r2(chg), spanDays, prevClose: r2(ref), date: lastBar.date };
+      return { sym: bare, price: r2(lastBar.close), date: lastBar.date, per };
     } catch (e: any) {
       skips.push({ sym: bare, reason: `FEED ERROR — ${String(e?.message ?? e).slice(0, 60)}` });
       return null;
     }
   });
 
-  const ok = scanned.filter((r): r is NonNullable<typeof r> => r !== null && r.chg !== null);
-  const byChg = [...ok].sort((a, b) => (b.chg as number) - (a.chg as number));
-  const top = win === "1D" ? byChg.slice(0, 10) : byChg.slice(0, 5);
-  const bottom = win === "1D" ? [...byChg].reverse().slice(0, 10) : [...byChg].reverse().slice(0, 5);
+  const ok = scanned.filter((r): r is NonNullable<typeof r> => r !== null);
+
+  /** Rank one window, holding back anything whose span is out of line. */
+  function rank(w: Win) {
+    const cfg = WINDOWS[w];
+    const candidates = ok.filter((r) => r.per[w] !== undefined);
+    // MEDIAN span, not a hardcoded one. The obvious threshold is wrong in both
+    // directions: too tight and a Diwali week flags half the market, too loose and
+    // a name halted for a fortnight still ranks. The median is the span the
+    // exchange calendar actually produced today, so it absorbs holidays by
+    // construction, and only a name materially longer than its peers is held.
+    const spans = candidates.map((r) => r.per[w]!.spanDays).sort((a, b) => a - b);
+    const median = spans.length ? spans[Math.floor(spans.length / 2)]! : 0;
+    const limit = Math.ceil(median * 1.5) + 2;
+
+    const kept: typeof candidates = [];
+    const stale: Array<{ sym: string; reason: string; chg: number | null; spanDays: number | null }> = [];
+    for (const r of candidates) {
+      const e = r.per[w]!;
+      if (e.spanDays > limit) {
+        stale.push({
+          sym: r.sym,
+          reason: `STALE FOR ${w} — ${e.spanDays} CALENDAR DAYS BEHIND A ${median}-DAY MEDIAN`,
+          chg: r2(e.chg),
+          spanDays: e.spanDays,
+        });
+      } else {
+        kept.push(r);
+      }
+    }
+    const byChg = [...kept].sort((a, b) => b.per[w]!.chg - a.per[w]!.chg);
+    const asc = [...byChg].reverse();
+    // Flattened to the window's own numbers rather than handing callers the
+    // nested `per` map. One shape for every consumer, and the CSV and the desk
+    // read the same fields the single-window response always did.
+    const flat = (r: (typeof kept)[number]) => ({
+      sym: r.sym,
+      price: r.price,
+      chg: r2(r.per[w]!.chg),
+      spanDays: r.per[w]!.spanDays,
+      prevClose: r2(r.per[w]!.ref),
+      date: r.date,
+    });
+    return {
+      win: w,
+      medianSpan: median,
+      spanLimit: limit,
+      ranked: byChg.length,
+      staleCount: stale.length,
+      top: byChg.slice(0, cfg.topN).map(flat),
+      bottom: asc.slice(0, cfg.topN).map(flat),
+      all: byChg.map(flat),
+      stale: stale.slice(0, 12).sort((a, b) => a.sym.localeCompare(b.sym)),
+    };
+  }
+
+  const windows = wants.map(rank);
+  const primary = windows[0]!;
 
   const skipReasons: Record<string, number> = {};
   const bucket = (r: string) =>
@@ -407,26 +476,25 @@ async function kindMovers(sp: URLSearchParams) {
   for (const s of skips) skipReasons[bucket(s.reason)] = (skipReasons[bucket(s.reason)] ?? 0) + 1;
 
   return {
-    win,
+    win: requested,
+    /** One entry per requested window. BOTH returns two, from a single scan. */
+    windows,
     universe: univ.length,
     count: ok.length,
-    top,
-    bottom,
-    /**
-     * Everything the ranking is drawn from, not just the 20 rows on screen, so a
-     * download can be audited rather than trusted.
-     */
-    all: ok,
+    top: primary.top,
+    bottom: primary.bottom,
+    all: primary.all,
+    stale: primary.stale,
     skipped: {
       count: skips.length,
       reasons: skipReasons,
       sample: skips.slice(0, 12).sort((a, b) => a.sym.localeCompare(b.sym)),
     },
     quarantined: {
-      count: quarantined.length,
-      halted: quarantined.filter((q) => q.reason.startsWith("HALTED")).length,
-      stale: quarantined.filter((q) => q.reason.startsWith("STALE")).length,
-      sample: quarantined.slice(0, 12).sort((a, b) => a.sym.localeCompare(b.sym)),
+      count: halted.length + primary.staleCount,
+      halted: halted.length,
+      stale: primary.staleCount,
+      haltedSample: halted.slice(0, 12).map((h) => h.sym).sort(),
     },
   };
 }
