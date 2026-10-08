@@ -422,7 +422,7 @@ export function NbMoversDesk() {
               <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
               <tbody>
                 {top.map((r) => (
-                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className="pos">+{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
+                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className={(r.chg ?? 0) >= 0 ? "pos" : "neg"}>{(r.chg ?? 0) >= 0 ? "+" : ""}{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
                 ))}
               </tbody>
             </table>
@@ -433,7 +433,7 @@ export function NbMoversDesk() {
               <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
               <tbody>
                 {bot.map((r) => (
-                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className="neg">{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
+                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className={(r.chg ?? 0) >= 0 ? "pos" : "neg"}>{(r.chg ?? 0) >= 0 ? "+" : ""}{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
                 ))}
               </tbody>
             </table>
@@ -482,6 +482,25 @@ export function NbMoversDesk() {
         1D = LAST/SECOND-LAST CLOSE · 1W = ILOC[-6] · 1M = ILOC[-22] · COUNT {data?.count ?? "—"}/{data?.universe ?? "—"}
         {qtn ? ` · ${qtn.count} HELD BACK, SEE ABOVE` : ""} · SPAN = REAL ELAPSED CALENDAR DAYS BEHIND THE NUMBER
       </p>
+      {/* A PADDED LIST. "Top 10" is a rank, not a claim that ten things went up.
+          When fewer than ten names rose, the table must pad with the least-bad
+          and those rows are RED - which reads as a broken render rather than a
+          thin session. Testing whether the BEST name fell is the wrong question
+          (it only catches a wholly-down universe); what matters is whether any
+          row in the table is against its own direction. */}
+      {top.some((r: any) => (r.chg ?? 0) < 0) && (
+        <p className="warn" style={{ fontSize: 11.5, lineHeight: 1.55 }}>
+          FEWER THAN 10 NAMES ROSE. THE WINNERS TABLE IS A RANK, NOT A LIST OF GAINS —
+          THE RED ROWS AT THE BOTTOM ARE THE LEAST-BAD LOSSES, PADDED IN BECAUSE NOTHING
+          ELSE WAS AVAILABLE.
+        </p>
+      )}
+      {bot.some((r: any) => (r.chg ?? 0) > 0) && (
+        <p className="warn" style={{ fontSize: 11.5, lineHeight: 1.55 }}>
+          FEWER THAN 10 NAMES FELL. THE LOSERS TABLE IS A RANK, NOT A LIST OF LOSSES —
+          THE GREEN ROWS ARE THE SMALLEST GAINS, PADDED IN BECAUSE NOTHING ELSE FELL.
+        </p>
+      )}
     </div>
   );
 }

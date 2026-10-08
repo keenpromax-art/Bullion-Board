@@ -428,6 +428,13 @@ a:hover { text-decoration: underline; }
 .sec { color: var(--sec); font-weight: 700; }
 .muted { color: var(--sub); }
 .faint { color: var(--faint); }
+/* A caveat that is not a fault. Red is reserved for things that are wrong; an
+   amber .warn is for a reader who needs to know something before they trust the
+   number in front of them — a whole universe down, a feed that never answered,
+   a filings window that is empty. Two desks reached for `className="warn"`
+   before it existed, which left the styling silently inert; declared here so
+   it cannot recur. */
+.warn { color: var(--amber); }
 .pos { color: var(--green); }
 .neg { color: var(--red); }
 
