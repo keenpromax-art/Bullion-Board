@@ -1420,3 +1420,46 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 @media (prefers-reduced-motion: reduce) {
   .term-tape .tape-track { animation: none; }
 }
+
+/* ---------------------------------------------------------------- filings 117
+   Namespaced .fil-* so the desk never collides with .doc-* (documents hub).
+   Family chips reuse the .doc-fam outline language; everything else is new. */
+.fil-cov { display: flex; align-items: center; gap: 8px; min-width: 170px; }
+.fil-cov-bar {
+  flex: 1; height: 4px; background: var(--track); border: 1px solid var(--grid);
+  border-radius: 2px; overflow: hidden;
+}
+.fil-cov-bar > span { display: block; height: 100%; }
+.fil-cov > span { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; white-space: nowrap; }
+
+.fil-fam {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.07em; padding: 1px 5px;
+  border-radius: 2px; white-space: nowrap;
+  border: 1px solid var(--grid); color: var(--faint);
+}
+.fil-fam-results { color: var(--amber); border-color: var(--amber-line-hard); }
+.fil-fam-commentary, .fil-fam-presentation { color: var(--sec); border-color: color-mix(in srgb, var(--sec) 50%, transparent); }
+.fil-fam-governance, .fil-fam-capital { color: var(--text); border-color: var(--grid); }
+.fil-fam-rating, .fil-fam-disclosure { color: var(--sub); }
+
+/* A filing title is a link into the desk's own panels, so it must look
+   clickable without borrowing the primary button chrome. */
+.fil-link {
+  background: none; border: none; padding: 0; cursor: pointer; text-align: left;
+  color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.45;
+  text-decoration: underline; text-decoration-color: var(--amber-line); text-underline-offset: 2px;
+}
+.fil-link:hover { color: var(--amber); text-decoration-color: var(--amber); }
+
+.fil-prose { max-height: 520px; overflow-y: auto; padding-right: 4px; }
+.fil-prose p { margin: 0 0 10px 0; font-size: 12.5px; line-height: 1.7; color: var(--text); }
+.fil-prose p:first-child { color: var(--muted, var(--sub)); }
+
+.fil-der .kv { align-items: baseline; }
+.fil-der .kv strong { font-size: 12px; text-align: right; }
+
+.term-panel-body .fil-cov, .desk-fill .fil-cov { min-width: 120px; }
+.term-panel-body .fil-prose, .desk-fill .fil-prose { max-height: 320px; }
+@container panel (max-width: 600px) {
+  .term-panel-body .fil-cov, .desk-fill .fil-cov { min-width: 0; }
+}

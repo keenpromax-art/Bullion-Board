@@ -116,7 +116,11 @@ export const TERMINAL_DESKS: ModuleInfo[] = [
   t("113", "CAST", "Capital Structure", "Equity vs debt stack, WACC build, leverage path, debt tranches.", "/capital"),
   t("114", "NEXUS", "Nexus Chat — CFA Study", "CFA study chat with book + PDF library, modes and notes. Hosted app inside panel.", "/module/114"),
   t("115", "BOOK", "Book Reader", "PDF book library with per-book page memory — upload once, resume anywhere.", "/module/115"),
-  t("116", "WLD", "World Universe", "Every Yahoo-listed equity worldwide — searchable, filterable by region/sector/exchange, built from the Yahoo screener feed.", "/universe"),];
+  t("116", "WLD", "World Universe", "Every Yahoo-listed equity worldwide — searchable, filterable by region/sector/exchange, built from the Yahoo screener feed.", "/universe"),
+  // Filed under Fundamental rather than Terminal: it is a fundamental desk, and
+// m() gives it the /module/117 route it needs for the deep-link surface.
+m("117", "run_filings_intel", "Filings Intelligence", "Fundamental", "SEC EDGAR and NSE regulatory filings: filing index, IS/BS/CFS extracted from filed XBRL, the statements exactly as printed, and the MD&A prose."),
+];
 
 MODULES.push(...TERMINAL_DESKS);
 

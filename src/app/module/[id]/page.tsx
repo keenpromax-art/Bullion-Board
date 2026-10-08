@@ -19,6 +19,7 @@ import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingR
 import { BookReader } from "@/components/BookDesks";
 import { NbSeasonDesk, NbSmaDesk, NbCorrDesk, NbOptDesk, NbMoversDesk, NbVolDesk, NbSectorDesk, NbIpoDesk, NbTerminalDesk } from "@/components/NotebookDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
+import { FilingsDesk } from "@/components/FilingDesks";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
 import { LineChart, BarChart, AreaChart, HBars, Histogram, Donut, EquityDrawdown, ChartPanel } from "@/components/charts";
@@ -109,6 +110,16 @@ function useTaskParam(): string | null {
   return t ? t.toUpperCase().slice(0, 40) : null;
 }
 
+const FILING_MODES = ["INDEX", "STATEMENTS", "AS-FILED", "MD&A"] as const;
+type FilingMode = (typeof FILING_MODES)[number];
+
+/** Lets a desk link straight into one panel of a multi-mode desk (117). */
+function useFilingModeParam(): FilingMode {
+  const sp = useSearchParams();
+  const raw = (sp.get("mode") ?? "").toUpperCase();
+  return (FILING_MODES as readonly string[]).includes(raw) ? (raw as FilingMode) : "INDEX";
+}
+
 export default function ModulePage({ params }: { params: { id: string } }) {
   return (
     <Suspense fallback={<main className="container"><p className="muted">LOADING DESK…</p></main>}>
@@ -122,6 +133,7 @@ function Inner({ id }: { id: string }) {
   const code = funcCode(id);
   const symParam = useSymParam();
   const task = useTaskParam();
+  const modeParam = useFilingModeParam();
   const router = useRouter();
   const [symbol, setSymbol] = useState(symParam);
 
@@ -172,6 +184,14 @@ function Inner({ id }: { id: string }) {
             loading="lazy"
           />
         </div>
+      </Shell>
+    );
+  }
+
+  if (id === "117") {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <FilingsDesk symbol={symbol} initialMode={modeParam} />
       </Shell>
     );
   }

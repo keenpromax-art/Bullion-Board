@@ -16,6 +16,7 @@ import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk, LinkerDesk } from "@/components/FundaDesks";
 import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk, StockGreeksDesk } from "@/components/QuantDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
+import { FilingsDesk } from "@/components/FilingDesks";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ANRDesk, CastDesk } from "@/components/CapitalDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
@@ -577,6 +578,9 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (id === "51") return <WikiDesk />;
   if (id === "49") return <BibleDesk />;
   if (id === "42" || id === "43") return <LinkDesk symbol={sym} mode={id === "42" ? "charts" : "filings"} />;
+  // 117 FIL — filings intelligence. Takes the ticker (that is the subject) and
+  // hands onOpen through so an error state can route to the sibling desks.
+  if (id === "117") return <FilingsDesk symbol={sym} onOpen={onOpen} />;
   if (id === "66" || id === "71") return <AIDesk symbol={sym} mode={id === "71" ? "tasks" : "chat"} />;
   if (id === "2" || id === "4" || id === "5") return <ChartDesk symbol={sym} id={id} mode={id === "2" ? "suite" : id === "4" ? "compare" : "score"} title={mod.label.toUpperCase()} />;
   if (id === "29" || id === "57") return <FrontierPanel symbols={id === "29" ? [sym, "^NSEI"] : [sym, "^NSEI", "GC=F"]} title={`${mod.label.toUpperCase()} â€” ${id === "29" ? "2-ASSET" : "3-ASSET"}`} />;

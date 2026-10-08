@@ -31,12 +31,13 @@ function mergeCookies(res: Response) {
   cookies = [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
 }
 
-function nseHeaders(): Record<string, string> {
+function nseHeaders(extra?: Record<string, string>): Record<string, string> {
   return {
     "user-agent": NSE_UA,
     "accept-language": "en,gu;q=0.9,hi;q=0.8",
     accept: "*/*",
     ...(cookies ? { cookie: cookies } : {}),
+    ...(extra || {}),
   };
 }
 
@@ -49,19 +50,29 @@ export async function nseRefresh(): Promise<void> {
   if (!r.ok && r.status !== 200) throw new Error(`nse home ${r.status}`);
 }
 
-export async function nseGet(url: string): Promise<Response> {
+export async function nseGet(url: string, extraHeaders?: Record<string, string>): Promise<Response> {
   await throttle();
   let r = await fetch(url, {
-    headers: nseHeaders(),
+    headers: nseHeaders(extraHeaders),
     signal: AbortSignal.timeout(15000),
   });
   if (r.status === 401) {
     await nseRefresh();
     await throttle();
     r = await fetch(url, {
-      headers: nseHeaders(),
+      headers: nseHeaders(extraHeaders),
       signal: AbortSignal.timeout(15000),
     });
   }
   return r;
+}
+
+// The XBRL archive at nsearchives.nseindia.com sits behind a different
+// referer than the api host and occasionally answers 403 without one.
+export function nseArchiveHeaders(): Record<string, string> {
+  return {
+    referer: "https://www.nseindia.com/companies-listing/corporate-integrated-filing",
+    origin: "https://www.nseindia.com",
+    accept: "*/*",
+  };
 }

@@ -6,7 +6,9 @@
 export const BACKUP_VERSION = 1;
 
 const PREFIXES = ["iss.", "bb."];
-const SECRET_KEYS = ["iss.openrouter.key", "iss.fred.key"];
+// A user's EDGAR contact is a real email address — personal data, not a
+// credential, so it must not ride out inside an exported backup file.
+const SECRET_KEYS = ["iss.openrouter.key", "iss.fred.key", "iss.sec.contact"];
 
 export interface BackupFile {
   app: "bullion-board";

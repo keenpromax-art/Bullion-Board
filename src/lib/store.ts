@@ -23,6 +23,7 @@ const K = {
   orKey: "iss.openrouter.key",
   orModel: "iss.openrouter.model",
   fredKey: "iss.fred.key",
+  secContact: "iss.sec.contact",
   macroExtra: "iss.macro.extra",
   explainerModel: "iss.explainer.model",
   captureBrowserKeys: "iss.captureBrowserKeys",
@@ -180,6 +181,14 @@ export const store = {
   },
   setFredKey(k: string): void {
     write(K.fredKey, k);
+  },
+  // EDGAR asks for a contact email on every request. A person's address, so
+  // it is registered in backup.ts SECRET_KEYS and never echoed to a route.
+  getSecContact(): string {
+    return read<string>(K.secContact, "");
+  },
+  setSecContact(c: string): void {
+    write(K.secContact, c);
   },
   getMacroExtra(): string[] {
     return read<string[]>(K.macroExtra, []);

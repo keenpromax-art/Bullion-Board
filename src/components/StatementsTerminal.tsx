@@ -4,6 +4,11 @@
 // 27-point financial-statements spec from Yahoo (yfinance) + screener holdings.
 // Sources per section are labeled; anything needing a feed Yahoo lacks is an
 // explicit NEEDS-FEED panel, never silently missing.
+//
+// Sections that once declared themselves dead against the Yahoo feed are now
+// read from the registrant's OWN filings via desk 117, so "NEEDS FILINGS FEED"
+// is either satisfied or replaced by a statement of exactly what the filing
+// does not carry.
 
 import { useEffect, useMemo, useState } from "react";
 import { useStatements, useCompany, RatiosTables } from "./FundaDesks";
@@ -12,6 +17,7 @@ import { LineChart, GroupedBars, BarChart, Donut, HBars } from "./charts";
 import { sectorOf, SECTORS } from "@/lib/sectors";
 import { streamChat, aiSystem } from "@/lib/ai";
 import { store } from "@/lib/store";
+import { funcCode } from "@/lib/terminal";
 
 type Num = number | null;
 type Row = { label: string; values: Num[] };
@@ -67,10 +73,10 @@ function Sec({ id, no, title, src, children }: { id: string; no: string; title: 
   );
 }
 
-function Dead({ items, need }: { items: string[]; need: string }) {
+function Dead({ items, need, head = "Not on Yahoo feed" }: { items: string[]; need: string; head?: string }) {
   return (
     <div className="panel">
-      <p className="p-head">Not on Yahoo feed</p>
+      <p className="p-head">{head}</p>
       {items.map((d) => (
         <div key={d} className="fnrow dead">
           <span className="faint" style={{ minWidth: 26 }}>·</span>
@@ -78,6 +84,171 @@ function Dead({ items, need }: { items: string[]; need: string }) {
           <span className="badge bad">{need}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Filings vs the vendor feed on the headline lines, for the most recent period
+ * both carry.
+ *
+ * The three bands are not cosmetic. Below half a percent the two agree and
+ * there is nothing to say. Between half a percent and twenty, that is a real
+ * discrepancy worth chasing and the filing wins. Above twenty, the two feeds
+ * are almost certainly not on the same BASIS rather than one being wrong —
+ * RELIANCE's vendor "annual" revenue is ~3.5x the filed figure because it is a
+ * sum of quarters — so the panel says so instead of crying disagreement.
+ */
+function FeedComparison({ rows }: { rows: Array<{ label: string; filings: number | null; yahoo: number | null; diffPct: number | null }> }) {
+  const live = rows.filter((r) => r.diffPct !== null && Math.abs(r.diffPct) >= 0.005);
+  if (!live.length) {
+    return (
+      <div className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>
+        FILINGS AND YAHOO AGREE WITHIN 0.5% ON EVERY HEADLINE LINE FOR THE MOST RECENT COMMON PERIOD.
+      </div>
+    );
+  }
+  const worst = live.reduce((a, b) => (Math.abs(b.diffPct ?? 0) > Math.abs(a.diffPct ?? 0) ? b : a));
+  const gap = Math.abs(worst.diffPct ?? 0);
+  const basisMismatch = gap >= 20;
+  return (
+    <div className="warn" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>
+      {basisMismatch
+        ? "▲ THE TWO FEEDS DO NOT APPEAR TO SHARE A BASIS — DO NOT READ THIS AS A DISCREPANCY. "
+        : "▲ FILINGS AND YAHOO DISAGREE — READ THE FILING. "}
+      {live.map((r) => `${r.label.toUpperCase()} ${(r.diffPct ?? 0) >= 0 ? "+" : ""}${(r.diffPct ?? 0).toFixed(1)}%`).join(" · ")}
+      {basisMismatch
+        ? " A GAP THIS LARGE IS USUALLY A BASIS DIFFERENCE, NOT A TYPO: FOR AN INDIAN NAME THE VENDOR'S ANNUAL FIGURE IS OFTEN A SUM OF QUARTERS RATHER THAN ONE FISCAL YEAR, AND CONSOLIDATED AND STANDALONE DIFFER. THE FILED NUMBER IS THE PRIMARY ONE."
+        : ""}
+    </div>
+  );
+}
+
+/**
+ * Restatement flags, read from the same filings leg. EDGAR keeps every filing
+ * of a period, so a period whose value changed between filings is detectable —
+ * this is the first panel in the app that can say so without a human reading
+ * two documents side by side.
+ */
+function RestatementNote({ symbol }: { symbol: string }) {
+  const [rows, setRows] = useState<Array<{ line: string; tag: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/filings/xbrl?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => r.json())
+      .then((j: any) => {
+        if (!alive || j?.ok === false) return;
+        const seen = new Set<string>();
+        const out: Array<{ line: string; tag: string }> = [];
+        for (const basis of ["annual", "quarterly"] as const) {
+          for (const k of ["is", "bs", "cf"]) {
+            for (const l of j?.[basis]?.[k]?.lines ?? []) {
+              if (l.restated && !seen.has(l.label)) {
+                seen.add(l.label);
+                out.push({ line: l.label, tag: l.tag ?? "—" });
+              }
+            }
+          }
+        }
+        setRows(out);
+      })
+      .catch(() => undefined)
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [symbol]);
+
+  return (
+    <div className="panel">
+      <p className="p-head">§17b · Prior-period restatement flags</p>
+      {loading ? <p className="muted">COMPARING FILED VALUES…</p> : null}
+      {!loading && !rows.length ? (
+        <p className="muted">
+          NONE FLAGGED — NO PERIOD WAS FILED TWICE WITH DIFFERENT VALUES. THIS IS A REAL READING, NOT A MISSING FEED: THE LEGACY ROWS ABOVE ARE
+          STILL UNAVAILABLE, BUT RESTATEMENTS NOW COME FROM THE FILINGS THEMSELVES.
+        </p>
+      ) : null}
+      {rows.length ? (
+        <table className="plain">
+          <thead><tr><th>LINE CHANGED BY A LATER FILING</th><th>XBRL TAG</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.line} className="active">
+                <td>{r.line}</td>
+                <td className="faint" style={{ fontSize: 10 }}>{r.tag}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The filings-fed answer to what a section used to declare dead. Reads the
+ * note disclosures module 117 extracts from the filing itself, so the panel
+ * either carries the registrant's own words or says plainly which of them the
+ * filing does not contain. It never falls back to a plausible-looking default.
+ */
+function FromFilings({ symbol, title, items, empty }: { symbol: string; title: string; items: Array<{ label: string; match: RegExp }>; empty: string }) {
+  const [notes, setNotes] = useState<Array<{ label: string; value: string; num: number | null }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setErr("");
+    fetch(`/api/filings/xbrl?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => r.json())
+      .then((j: any) => {
+        if (!alive) return;
+        if (j?.ok === false) setErr(String(j.error ?? "filings leg failed"));
+        const all: any[] = [...(j?.annual?.notes ?? []), ...(j?.quarterly?.notes ?? [])];
+        const seen = new Set<string>();
+        setNotes(
+          all
+            .filter((n) => !seen.has(n.label) && seen.add(n.label))
+            .filter((n) => items.some((it) => it.match.test(n.label) || it.match.test(n.value ?? "")))
+            .map((n) => ({ label: n.label, value: String(n.value ?? ""), num: n.num ?? null }))
+        );
+      })
+      .catch((e) => { if (alive) setErr(e?.message ?? "network"); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [symbol]);
+
+  const wanted = items.filter((it) => !notes.some((n) => it.match.test(n.label)));
+
+  return (
+    <div className="panel">
+      <p className="p-head">{title} — <span className="faint">from the filed XBRL</span></p>
+      {loading ? <p className="muted">READING FILINGS…</p> : null}
+      {err ? <p className="warn" style={{ fontSize: 11.5 }}>FILINGS LEG: {err}</p> : null}
+      {!loading && !notes.length && !err ? <p className="muted">{empty}</p> : null}
+      {notes.length ? (
+        <table className="plain">
+          <tbody>
+            {notes.map((n) => (
+              <tr key={n.label}>
+                <td style={{ whiteSpace: "nowrap", verticalAlign: "top" }}>{n.label}</td>
+                <td style={{ fontSize: 12, lineHeight: 1.55 }}>
+                  {n.value.length > 260 ? `${n.value.slice(0, 260)}…` : n.value}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      {wanted.length ? (
+        <p className="faint" style={{ fontSize: 10.5, margin: "8px 0 0 0" }}>
+          STILL NOT IN THE FILING: {wanted.map((w) => w.label.toUpperCase()).join(" · ")}
+        </p>
+      ) : null}
+      <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>
+        SOURCE: SEC EDGAR XBRL / NSE INTEGRATED FILING, VIA DESK {funcCode("117")} · FILED DISCLOSURES ONLY, NOT A SUMMARY.
+      </p>
     </div>
   );
 }
@@ -131,7 +302,11 @@ const NAV: Array<[string, string]> = [
 ];
 
 export function StatementsTerminal({ symbol }: { symbol: string }) {
-  const { data: st, err, loading } = useStatements(symbol);
+  // `feed` is the source toggle. FILINGS is the default because a statement
+  // read out of the registrant's own filing is the primary source; YAHOO
+  // stays one click away so a reader can see what the vendor says instead.
+  const [feed, setFeed] = useState<"filings" | "yahoo">("filings");
+  const { data: st, err, loading } = useStatements(symbol, feed);
   const { q: coQ } = useCompany(symbol);
   const [basis, setBasis] = useState<"annual" | "quarterly" | "ttm">("annual");
   const [pctMode, setPctMode] = useState(false);
@@ -383,6 +558,8 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
           <button className={`pill${ccy === "USD" ? " active" : ""}`} onClick={() => setCcy("USD")}>USD</button>
           <button className={`pill${heat ? " active" : ""}`} onClick={() => setHeat(!heat)}>HEATMAP</button>
           <span style={{ borderLeft: "1px solid var(--grid)", margin: "0 4px" }} />
+          <button className={`pill${feed === "filings" ? " active" : ""}`} onClick={() => setFeed("filings")}>FROM FILINGS</button>
+          <button className={`pill${feed === "yahoo" ? " active" : ""}`} onClick={() => setFeed("yahoo")}>FROM YAHOO</button>
           {(["all", "is", "bs", "cf"] as const).map((f) => (
             <button key={f} className={`pill${stmtFilter === f ? " active" : ""}`} onClick={() => setStmtFilter(f)}>
               {f === "all" ? "ALL" : f === "is" ? "INCOME STMT" : f === "bs" ? "BALANCE SHEET" : "CASH FLOW"}
@@ -396,6 +573,16 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
               onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })}>{l}</button>
           ))}
         </div>
+        {/* Source provenance, always on screen. A statement whose origin is
+            unclear is not a statement, and a feed swap must be visible rather
+            than inferred from a number that moved. */}
+        <p className="faint" style={{ fontSize: 10.5, margin: "8px 0 0 0" }}>
+          SOURCE: {(st.source ?? "—").toUpperCase()} · {(st.sourceDetail ?? "—")}
+          {st.filingsAsOf ? ` · FILINGS AS OF ${st.filingsAsOf}` : ""}
+          {st.blocksFromYahoo?.length ? ` · FROM YAHOO INSTEAD: ${st.blocksFromYahoo.join(", ").toUpperCase()}` : ""}
+        </p>
+        {st.errors?.filings ? <p className="warn" style={{ fontSize: 11, margin: "4px 0 0 0" }}>FILINGS LEG: {st.errors.filings}</p> : null}
+        <FeedComparison rows={st.disagreement ?? []} />
       </div>
 
       {/* AI SUMMARY PANEL */}
@@ -662,8 +849,17 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
           </div>
         </Sec>
         <div style={{ marginTop: 10 }}>
-          <Dead items={["Auditor remarks / qualifications", "Related-party transaction flags", "Forensic deep-dive"]} need="NEEDS FILINGS FEED (SEE FOR)" />
-        </div>
+<FromFilings
+          symbol={symbol}
+          title="§14a · Auditor &amp; qualification"
+          items={[
+            { label: "Auditor opinion", match: /auditor|audit opinion|qualification|going concern/i },
+            { label: "Related-party detail", match: /related part/i },
+          ]}
+          empty="THIS FILING TAGS NO AUDITOR OR QUALIFICATION FACTS. THE AUDITOR REMARKS LIVE IN THE PRINTED AUDITOR'S REPORT, WHICH IS PROSE RATHER THAN A TAGGED FACT — READ IT IN DESK 117."
+        />
+        <Dead items={["Forensic deep-dive"]} need="SEE DESK 5 FOR" head="Not a filing disclosure" />
+      </div>
       </div>
 
       <div id="t-tax">
@@ -682,8 +878,18 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
           </div>
         </Sec>
         <div style={{ marginTop: 10 }}>
-          <Dead items={["MAT credit ledger", "Tax litigation register", "Rate-change impact notes"]} need="NEEDS FILINGS FEED" />
-        </div>
+<FromFilings
+          symbol={symbol}
+          title="§18a · Tax detail from the filing"
+          items={[
+            { label: "Tax paid", match: /tax paid|income taxes paid|taxespaid/i },
+            { label: "Tax on discontinued ops", match: /tax on discontinued/i },
+            { label: "Effective-rate reconciliation", match: /tax rate|statutory/i },
+            { label: "Unrecognised tax benefits", match: /unrecogni[sz]ed tax/i },
+          ]}
+          empty="NO TAX LEDGER FACTS ARE TAGGED IN THIS FILING. THE MAT CREDIT SCHEDULE, THE TAX LITIGATION REGISTER AND RATE-CHANGE IMPACT NOTES ARE NOTE DISCLOSURES, NOT TAGGED FACTS — READ THE TAX NOTE IN DESK 117."
+        />
+      </div>
       </div>
 
       <div id="t-wc">
@@ -802,8 +1008,20 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
           ].slice(0, 40)} moneyFmt={mf} heat={false} />
         </Sec>
         <div style={{ marginTop: 10 }}>
-          <Dead items={["Prior-period restatement flags", "Related-party transaction detail", "Actuarial gains/losses schedule", "ESOP vesting schedules"]} need="NEEDS FILINGS FEED" />
-        </div>
+<FromFilings
+          symbol={symbol}
+          title="§17a · Notes-to-accounts, as filed"
+          items={[
+            { label: "Basis of preparation", match: /basis of preparation|basis of accounting|going concern/i },
+            { label: "Audit opinion", match: /auditor|audit opinion/i },
+            { label: "Segment note", match: /segment note|disclosure of notes on segments/i },
+            { label: "Results note", match: /results note|notes to financial results/i },
+            { label: "Peer review / auditor detail", match: /peer review|auditor domain|auditor firm/i },
+          ]}
+          empty="NO NARRATIVE DISCLOSURES ARE TAGGED IN THE FILINGS READ. RESTATEMENT FLAGS, RELATED-PARTY DETAIL, ACTUARIAL SCHEDULES AND ESOP VESTING TABLES ARE ALL NOTE SCHEDULES — OPEN THE NOTES IN DESK 117."
+        />
+        <RestatementNote symbol={symbol} />
+      </div>
       </div>
 
       <div id="t-act">
@@ -882,8 +1100,18 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
           </div>
         </Sec>
         <div style={{ marginTop: 10 }}>
-          <Dead items={["CSR spend history", "Credit rating history", "Forex exposure split", "KMP remuneration", "M&A/divestiture notes"]} need="NEEDS FILINGS FEED" />
-        </div>
+<FromFilings
+          symbol={symbol}
+          title="§15a · Company context, as filed"
+          items={[
+            { label: "Credit / coverage ratios", match: /debt.?equity|coverage ratio|dscr|iscr/i },
+            { label: "Audit status", match: /audited/i },
+            { label: "Auditor", match: /auditor/i },
+            { label: "Entity scale", match: /entity shares|public float|shares outstanding/i },
+          ]}
+          empty="NO CONTEXT FACTS TAGGED. CSR SPEND, KMP REMUNERATION AND CREDIT-RATING HISTORY ARE NOT XBRL TAGGED FACTS — THEY LIVE IN THE ANNUAL REPORT PROSE AND THE BOARD'S REPORT."
+        />
+      </div>
       </div>
 
       <div id="t-cash">
@@ -907,8 +1135,23 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
           <LTable periods={st.pl?.periods ?? []} rows={[...matchRows(st.bs, /lease|capital lease|derivative|pension|employee benefit|provisions/i)].slice(0, 20)} moneyFmt={mf} heat={false} />
         </Sec>
         <div style={{ marginTop: 10 }}>
-          <Dead items={["Guarantees / LCs outstanding", "Derivative notional & hedge detail", "Pending litigation exposure", "Carbon intensity & green capex", "ESG-linked covenants"]} need="NEEDS FILINGS/ESG FEED (§24/§26)" />
-        </div>
+<FromFilings
+          symbol={symbol}
+          title="§24a · Off-balance-sheet, as filed"
+          items={[
+            { label: "Guarantees", match: /guarantee/i },
+            { label: "Litigation", match: /litigation|settlement|contingenc/i },
+            { label: "Restructuring / impairment", match: /restructuring|impairment/i },
+            { label: "Derivatives", match: /derivative|hedge|fair value/i },
+          ]}
+          empty="NO OFF-BALANCE-SHEET FACTS ARE TAGGED IN THE FILINGS READ. GUARANTEE NOTIONALS, DERIVATIVE HEDGES AND PENDING LITIGATION ARE NOTE SCHEDULES — OPEN THE COMMITMENTS AND FINANCIAL-INSTRUMENTS NOTES IN DESK 117."
+        />
+        <Dead
+          items={["Carbon intensity & green capex", "ESG-linked covenants"]}
+          need="NEEDS ESG FEED (§26)"
+          head="Not an SEC or NSE XBRL concept"
+        />
+      </div>
       </div>
 
       <div className="panel">

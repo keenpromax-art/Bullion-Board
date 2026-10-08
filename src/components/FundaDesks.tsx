@@ -18,9 +18,22 @@ export interface Statements {
   pl: STable | null; bs: STable | null; cf: STable | null; sh: STable | null;
   qtr: STable | null; qtrCF: STable | null; rat: STable | null;
   ratios?: Record<string, string>; marketCapCr?: number | null; marketCap?: number | null;
+  /** Which feed answered: filings (default) | yahoo | yahoo-fallback. */
+  source?: string;
+  /** Human-readable provenance, shown rather than inferred. */
+  sourceDetail?: string;
+  /** True when some blocks came from filings and others from the vendor feed. */
+  partial?: boolean;
+  /** Blocks the filings leg could not supply, so the vendor fed them instead. */
+  blocksFromYahoo?: string[];
+  errors?: { filings?: string | null; yahoo?: string | null };
+  /** Filings vs vendor on the headline lines. A large gap is worth naming. */
+  disagreement?: Array<{ label: string; filings: number | null; yahoo: number | null; diffPct: number | null }>;
+  filingsTaxonomy?: string | null;
+  filingsAsOf?: string | null;
 }
 
-export function useStatements(symbol: string) {
+export function useStatements(symbol: string, source?: "filings" | "yahoo" | "auto") {
   const [data, setData] = useState<Statements | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +42,11 @@ export function useStatements(symbol: string) {
     const my = ++seq.n;
     let alive = true;
     setLoading(true); setErr(""); setData(null);
-    fetch(`/api/statements?symbol=${encodeURIComponent(symbol)}`)
+    // `source` selects the feed so the desk can A/B the filings extraction
+    // against the vendor's. Default is filings, with the vendor as a
+    // fail-open leg rather than as the primary answer.
+    const q = source ? `&source=${source}` : "";
+    fetch(`/api/statements?symbol=${encodeURIComponent(symbol)}${q}`)
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || "statements failed");
@@ -39,7 +56,7 @@ export function useStatements(symbol: string) {
       .finally(() => { if (alive && seq.n === my) setLoading(false); });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol]);
+  }, [symbol, source]);
   return { data, err, loading };
 }
 
