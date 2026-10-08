@@ -183,12 +183,30 @@ export function NbSmaDesk() {
   const { data, err, loading, reload } = useNb("sma", `universe=${u}`);
   const rows: any[] = data?.rows ?? [];
   const counts: Record<string, number> = data?.counts ?? {};
+  const allRows: any[] = data?.all ?? [];
+  const skipped = data?.skipped as { count: number; reasons: Record<string, number>; sample: Array<{ sym: string; reason: string }> } | undefined;
+  // Resolved to a definite value before the JSX so the panel can narrow on it;
+  // `skipped?.count > 0 && ...` does not narrow inside the closure.
+  const skips = skipped && skipped.count > 0 ? skipped : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
       <Head id="77" sub="SMA 50/200 CROSSOVER SCREENER · 2Y DAILY · AT≤3D / POST 4-20D / 2% PROXIMITY" />
       <div className="toolbar">
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
         <button className="ghost" onClick={reload}>↻ RETRY</button>
+        <button
+          className="ghost"
+          onClick={() =>
+            downloadCSV(
+              `sma_crossover_${u.toLowerCase()}.csv`,
+              ["#", "TICKER", "LAST", "SMA_50", "SMA_200", "DIFF_PCT", "DAYS_SINCE_CROSS", "CROSS_STATUS", "SIGNAL"],
+              allRows.map((r: any, i: number) => [i + 1, r.sym, r.price, r.s50, r.s200, r.diffPct, r.daysSince, r.status, r.signal])
+            )
+          }
+          title="Every symbol that produced a reading — neutral rows included, not just the actionable ones"
+        >
+          ⤓ CSV {allRows.length} ROWS
+        </button>
       </div>
       {loading && <p className="muted">SCANNING 2Y TAPE…</p>}
       {err && <p className="neg">ERR: {err} <button className="ghost" onClick={reload}>RETRY</button></p>}
@@ -202,6 +220,31 @@ export function NbSmaDesk() {
             { l: "APPROACH", v: String((counts["APPROACHING BULLISH CROSS"] ?? 0) + (counts["APPROACHING BEARISH CROSS"] ?? 0)), s: "≤2%" },
             { l: "BULL SHARE", v: `${fmt(rows.filter((r) => r.signal === "BULLISH").length / Math.max(rows.length, 1) * 100, 0)}%`, s: "OF ACTIONABLE" },
           ]} />
+          {/* SKIPPED, NAMED. The notebook prints this block and so does the desk:
+              a screener that silently drops the symbols Yahoo refused turns
+              "44 of 209" into a claim about 209 that it cannot support. Read the
+              scanned count against the universe before trusting any rate above. */}
+          {skips && (
+            <div className="panel">
+              <p className="p-head">Skipped &mdash; {skips.count} of {data.universe} never produced a reading</p>
+              <table className="plain">
+                <thead><tr><th>REASON</th><th style={{ textAlign: "right" }}>SYMS</th></tr></thead>
+                <tbody>
+                  {Object.entries(skips.reasons).sort((a, b) => b[1] - a[1]).map(([reason, n]) => (
+                    <tr key={reason}>
+                      <td>{reason}</td>
+                      <td style={{ textAlign: "right" }}><strong>{n}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="faint" style={{ fontSize: 10.5 }}>
+                SAMPLE: {skips.sample.map((s) => s.sym).join(", ")}
+                {skips.count > skips.sample.length ? ` +${skips.count - skips.sample.length} MORE` : ""}
+                {" \u00b7 "}EVERY RATE ABOVE IS DRAWN FROM THE {data.count} THAT ANSWERED, NOT FROM {data.universe}.
+              </p>
+            </div>
+          )}
           <div className="panel">
             <p className="p-head">Actionable crosses — |diff| desc</p>
             <div className="scrollx" style={{ maxHeight: 440, overflowY: "auto" }}>
@@ -222,7 +265,10 @@ export function NbSmaDesk() {
                 </tbody>
               </table>
             </div>
-            <p className="faint" style={{ fontSize: 10.5 }}>SMA = SIMPLE MEAN 50/200 · SKIP &lt;200 BARS · NEUTRAL ROWS HIDDEN</p>
+            <p className="faint" style={{ fontSize: 10.5 }}>
+              SMA = SIMPLE MEAN 50/200 · SHOWING {rows.length} ACTIONABLE OF {allRows.length} READINGS
+              {skips ? ` · ${skips.count} SKIPPED, SEE ABOVE` : ""} · NEUTRAL ROWS HIDDEN ON SCREEN BUT INCLUDED IN THE CSV
+            </p>
           </div>
           <AiBlock id="77" label="SMA Crossover Screener" context={`AT-CROSS ${rows.filter((r) => r.status.startsWith("AT")).slice(0, 8).map((r: any) => `${r.sym} ${r.status}`).join(" | ") || "NONE"}`} />
         </>

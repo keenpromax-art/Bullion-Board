@@ -82,25 +82,95 @@ async function kindSeasonality(sp: URLSearchParams) {
 
 async function kindSma(sp: URLSearchParams) {
   const univ = univOf(sp.get("universe"));
-  const rows = await mapPool(univ, 8, async (sym) => {
+  /**
+   * Skips are COUNTED AND NAMED, not swallowed.
+   *
+   * The notebook's SECTION 5 prints a SKIPPED TICKERS block with an error
+   * breakdown, precisely because a scan that quietly drops failures turns
+   * "44 actionable of 209" into a statement about 209 symbols when it is only
+   * ever a statement about however many happened to answer. mapPool drops an
+   * errored symbol into `null` and the old code had no way to tell that apart
+   * from a symbol that legitimately had no cross — so the two used to vanish
+   * into the same silence. On the FO universe nothing is currently failing,
+   * which is exactly why this needed fixing: the bug is invisible until the
+   * day Yahoo rate-limits a burst and a real number quietly becomes a fake one.
+   */
+  const skips: { sym: string; reason: string }[] = [];
+  const all = await mapPool(univ, 8, async (sym) => {
+    const bare = sym.replace(".NS", "");
     try {
-      const bars = await fetchHistory(sym.replace(".NS", "") + ".NS", "2y", "1d");
-      if (bars.length < 200) return null;
+      const bars = await fetchHistory(sym, "2y", "1d");
+      if (bars.length < 200) {
+        skips.push({ sym: bare, reason: bars.length ? `ONLY ${bars.length} BARS — NEED 200 FOR SMA200` : "NO BARS RETURNED" });
+        return null;
+      }
       const closes = bars.map((b) => b.close);
       const c = classifySmaCross(closes);
-      if (c.status === "SKIPPED") return null;
+      if (c.status === "SKIPPED") {
+        skips.push({ sym: bare, reason: "NO VALID SMA PAIR — 200-BAR WINDOW NOT FILLED" });
+        return null;
+      }
       return {
-        sym: sym.replace(".NS", ""), price: r2(closes[closes.length - 1]),
+        sym: bare, price: r2(closes[closes.length - 1]),
         s50: r2(c.s50), s200: r2(c.s200), diffPct: r2(c.diffPct),
         daysSince: c.daysSince, status: c.status, signal: c.signal,
       };
-    } catch { return null; }
+    } catch (e: any) {
+      skips.push({ sym: bare, reason: `FEED ERROR — ${String(e?.message ?? e).slice(0, 60)}` });
+      return null;
+    }
   });
-  const actionable = rows.filter((r) => !["NEUTRAL"].includes(r.status));
+
+  const rows = all as Array<{ sym: string; status: string; diffPct: number | null }>;
+  const actionable = rows.filter((r) => r.status !== "NEUTRAL");
   const counts: Record<string, number> = {};
   for (const r of rows) counts[r.status] = (counts[r.status] ?? 0) + 1;
   actionable.sort((a, b) => Math.abs(b.diffPct ?? 0) - Math.abs(a.diffPct ?? 0));
-  return { universe: univ.length, count: rows.length, counts, rows: actionable.slice(0, 100), };
+
+  const skipReasons: Record<string, number> = {};
+  /**
+   * Bucketed, not verbatim.
+   *
+   * The raw message is kept per-symbol in `sample`, but the COUNTS are grouped
+   * into a handful of causes. Emitting the message as-is produced 35 buckets on
+   * the full-NSE run — one for every distinct bar count — because "ONLY 152
+   * BARS" and "ONLY 181 BARS" are the same problem wearing different numbers.
+   * A breakdown table with 35 rows and 1 row each tells the reader nothing they
+   * can act on; three rows that name the three real causes tells them the
+   * screener is fine and the universe needs cleaning.
+   */
+  for (const s of skips) {
+    const bucket = /^ONLY \d+ BARS/.test(s.reason)
+      ? "INSUFFICIENT HISTORY — UNDER 200 DAILY BARS"
+      : /UNKNOWN TICKER|NO YAHOO TAPE/i.test(s.reason)
+        ? "NOT ON THE YAHOO TAPE — DELISTED, RENAMED OR WRONG SUFFIX"
+        : /^NO BARS RETURNED/.test(s.reason)
+          ? "NO BARS RETURNED"
+          : /^NO VALID SMA PAIR/.test(s.reason)
+            ? "SMA200 WINDOW NEVER FILLED"
+            : "FEED ERROR";
+    skipReasons[bucket] = (skipReasons[bucket] ?? 0) + 1;
+  }
+
+  return {
+    universe: univ.length,
+    count: rows.length,
+    actionableCount: actionable.length,
+    counts,
+    /**
+     * EVERY symbol that produced a reading, neutral included, because the
+     * notebook exports df_results rather than df_actions and a screener whose
+     * export is filtered to the interesting rows is not a screener you can
+     * audit. The desk still displays actionable only; the CSV takes everything.
+     */
+    all: rows,
+    rows: actionable,
+    skipped: {
+      count: skips.length,
+      reasons: skipReasons,
+      sample: skips.slice(0, 12).sort((a, b) => a.sym.localeCompare(b.sym)),
+    },
+  };
 }
 
 async function kindCorr(sp: URLSearchParams) {
