@@ -63,7 +63,21 @@ function SentBadge({ label }: { label: string }) {
   return <span className={`badge ${cls}`}><span className="dot" />{label}</span>;
 }
 
-function downloadCSV(name: string, header: string[], rows: unknown[][]) {
+/**
+ * CSV writer, shared across desks.
+ *
+ * Exported because it was originally private here and every desk that wanted a
+ * download grew its own copy — four near-identical blocks by the time the
+ * seasonality desk needed one. The escaping is RFC 4180: a field containing a
+ * comma, quote or newline is quoted, and inner quotes are doubled. That last
+ * part is not decoration: ticker names with an ampersand are harmless, but a
+ * desk that ever exports free-text would silently corrupt the file without it.
+ *
+ * Nulls and undefined become empty fields rather than the strings "null" or
+ * "undefined", which is what String(v) would otherwise produce and which would
+ * then read as real data in Excel.
+ */
+export function downloadCSV(name: string, header: string[], rows: unknown[][]) {
   const esc = (v: unknown) => {
     const s = v === null || v === undefined ? "" : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

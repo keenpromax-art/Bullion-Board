@@ -6,6 +6,7 @@ import { store } from "@/lib/store";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { rangeTable } from "@/lib/notebook";
 import { HBars, BarChart, Donut } from "@/components/charts";
+import { downloadCSV } from "@/components/ModuleDesks";
 
 // Notebook desks 76-84 — TS port of Stocks_Final.ipynb (live Yahoo tape).
 // Anatomy: cells strip -> p-head panels -> verdict banner -> faint footnotes.
@@ -110,6 +111,19 @@ export function NbSeasonDesk() {
       <div className="toolbar">
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
         <button className="ghost" onClick={reload}>↻ RETRY</button>
+        <button
+          className="ghost"
+          onClick={() =>
+            downloadCSV(
+              `seasonality_${data?.monthName?.toLowerCase() ?? "month"}_${u.toLowerCase()}.csv`,
+              ["#", "TICKER", "LTP", "WIN_RATE_PCT", "AVG_RETURN_PCT", "STD_DEV_PCT", "SHARPE", "SKEW", "MAX_PCT", "MIN_PCT", "YEARS"],
+              rows.map((r: any, i: number) => [i + 1, r.sym, r.ltp, r.win, r.avg, r.sd, r.sharpe, r.skew, r.max, r.min, r.n])
+            )
+          }
+          title="Download every row that passed, not just the 100 shown"
+        >
+          ⤓ CSV {rows.length} ROWS
+        </button>
         <span className="faint" style={{ fontSize: 10.5 }}>209 F&O DEFAULT · ALL = FULL NSE (SLOW)</span>
       </div>
       {loading && <p className="muted">SCANNING 10Y MONTHLY TAPE…</p>}
@@ -151,7 +165,10 @@ export function NbSeasonDesk() {
                 </tbody>
               </table>
             </div>
-            <p className="faint" style={{ fontSize: 10.5 }}>RET = MONTHLY % · SHARPE = AVG/STD (SAMPLE) · SKIP N&lt;5 · LTP = 5D DAILY LAST</p>
+            <p className="faint" style={{ fontSize: 10.5 }}>
+              RET = MONTHLY % · SHARPE = AVG/STD (SAMPLE) · SKIP N&lt;5 · LTP = 5D DAILY LAST ·
+              SHOWING {Math.min(rows.length, 100)} OF {rows.length} · CSV EXPORTS ALL {rows.length}
+            </p>
           </div>
           <AiBlock id="76" label="Seasonality Scanner" context={`NEXT MONTH ${data.monthName} TOP ${rows.slice(0, 5).map((r: any) => `${r.sym} SH ${r.sharpe} AVG ${r.avg}% WIN ${r.win}%`).join(" | ")}`} />
         </>
