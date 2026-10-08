@@ -582,6 +582,24 @@ async function kindMovers(sp: URLSearchParams) {
   // twenty-two need two.
   const range = maxLookback <= 2 ? "5d" : maxLookback <= 6 ? "1mo" : "2mo";
 
+  /**
+   * MINIMUM BARS FOLLOWS THE WINDOW, AND THE WINDOW CELLS SHARE ONE FLOOR.
+   *
+   * The 1W/1M cell gates on 22 bars regardless of which of its two tables you
+   * read: it reads `iloc[-22]` for every ticker even when only the week table is
+   * displayed, and it downloads a flat `period="2mo"` for all of them. So within
+   * that cell a 1W view is a narrower slice of the SAME 22-bar floor, not a
+   * looser one - this port used to gate on the requested window instead, which
+   * let a 1W request admit names the cell would have dropped.
+   *
+   * The 1D board is a different cell with a different pull: `period="5d"`, last
+   * two closes, no month reference. It needs 2 bars and nothing else. Applying 22
+   * there rejected all 209 names, because a five-calendar-day pull returns about
+   * three trading bars - which is the same trap documented at the range choice
+   * above, in the opposite direction.
+   */
+  const minBars = maxLookback <= 2 ? 2 : 22;
+
   const skips: { sym: string; reason: string }[] = [];
   const halted: { sym: string; spanDays: number | null }[] = [];
 
@@ -590,8 +608,8 @@ async function kindMovers(sp: URLSearchParams) {
     const bare = sym.replace(".NS", "");
     try {
       const bars = await fetchHistory(sym, range, "1d");
-      if (bars.length < maxLookback) {
-        skips.push({ sym: bare, reason: `ONLY ${bars.length} BARS — NEED ${maxLookback}` });
+      if (bars.length < minBars) {
+        skips.push({ sym: bare, reason: `ONLY ${bars.length} BARS — NEED ${minBars}` });
         return null;
       }
       const lastBar = bars[bars.length - 1];
