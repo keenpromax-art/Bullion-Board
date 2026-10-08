@@ -42,21 +42,23 @@ async function kindSeasonality(sp: URLSearchParams) {
   const univ = univOf(sp.get("universe"));
   const today = new Date();
   const targetMonth = (today.getMonth() + 1) % 12 + 1; // next calendar month (notebook wrap)
-  const monthName = today.toLocaleString("en-US", { month: "long", timeZone: "Asia/Kolkata" });
-  const rows = await mapPool(univ, 10, async (sym) => {
+  // The name must come from targetMonth, not from today — otherwise the header
+  // labels one month while the returns are scored for the next. Matches
+  // calendar.month_name[target_month] in the notebook.
+  const monthName = new Date(Date.UTC(2024, targetMonth - 1, 1)).toLocaleString("en-US", {
+    month: "long",
+    timeZone: "UTC",
+  });
+  const settled = await mapPool<string, { sym: string; reason: string } | { row: SeasonRow }>(
+    univ, 10, async (sym) => {
     try {
       const [m, d] = await Promise.all([
         fetchHistory(sym, "10y", "1mo"),
         fetchHistory(sym, "5d", "1d"),
       ]);
-      if (m.length < 30) return null;
-      // monthly % from month closes
-      const rets: number[] = [];
-      for (let i = 1; i < m.length; i++) {
-        const p = m[i - 1].close;
-        if (p > 0) rets.push((m[i].close / p - 1) * 100);
-      }
-      // align months: notebook filters by index.month == target
+      if (m.length < 30) return { sym, reason: `MONTHLY TAPE SHORT — ${m.length} BARS` };
+      // Notebook: returns[ticker][returns.index.month == target].dropna(),
+      // pct_change across month-end closes. NaN months are dropped, not zeroed.
       const filt: number[] = [];
       for (let i = 1; i < m.length; i++) {
         const mo = new Date(m[i].date + "T00:00:00Z").getUTCMonth() + 1;
@@ -65,19 +67,44 @@ async function kindSeasonality(sp: URLSearchParams) {
           if (p > 0 && isFinite(m[i].close)) filt.push((m[i].close / p - 1) * 100);
         }
       }
-      void rets;
       const s = seasonStats(filt);
+      // MIN_YEARS = 5: the notebook skips the ticker outright before it reaches
+      // the DataFrame, and drops any row whose Sharpe came back NaN.
+      if (s.n < 5) return { sym, reason: `UNDER MIN_YEARS=5 — ${s.n} OBSERVATIONS OF MONTH ${targetMonth}` };
+      if (s.sharpe === null || !isFinite(s.sharpe)) return { sym, reason: `STD DEV = 0 — SHARPE UNDEFINED` };
       if (s.n < 5 || s.sharpe === null || !isFinite(s.sharpe as number)) return null;
-      const ltp = d.length ? d[d.length - 1].close : m[m.length - 1].close;
+      // Notebook LTP comes from a 5d daily pull, not the monthly bar, so the two can
+      // disagree by a day. Falling back to the monthly close would silently
+      // substitute a different price.
+      const ltp = d.length ? d[d.length - 1].close : null;
+      if (ltp === null || !isFinite(ltp)) return { sym, reason: "NO DAILY LTP" };
       return {
-        sym: sym.replace(".NS", ""), ltp: r2(ltp),
-        win: r2(s.win), avg: r2(s.avg), sd: r2(s.sd), sharpe: r3(s.sharpe),
-        skew: r3(s.skew), max: r2(s.max), min: r2(s.min), n: s.n,
+        row: {
+          sym: sym.replace(".NS", ""), ltp: r2(ltp),
+          win: r2(s.win), avg: r2(s.avg), sd: r2(s.sd), sharpe: r3(s.sharpe),
+          skew: r3(s.skew), max: r2(s.max), min: r2(s.min), n: s.n,
+        },
       };
-    } catch { return null; }
+    } catch { return { sym, reason: "TAPE UNAVAILABLE — FETCH FAILED" }; }
   });
+  const misses = settled.filter((s): s is { sym: string; reason: string } => "reason" in s);
+  const rows = settled.filter((s): s is { row: SeasonRow } => "row" in s).map((s) => s.row);
   rows.sort((a, b) => (b.sharpe ?? -Infinity) - (a.sharpe ?? -Infinity));
-  return { targetMonth, monthName, universe: univ.length, count: rows.length, rows };
+  const reasons: Record<string, number> = {};
+  for (const x of misses) {
+    const k = x.reason.replace(/—.*$/, "").trim().replace(/\s+\d+.*$/, "").trim();
+    reasons[k] = (reasons[k] ?? 0) + 1;
+  }
+  return {
+    targetMonth, monthName, universe: univ.length, requested: univ.length,
+    count: rows.length,
+    skipped: {
+      count: misses.length,
+      reasons,
+      sample: misses.slice(0, 12).map((x) => ({ sym: x.sym.replace(".NS", ""), reason: x.reason })),
+    },
+    rows,
+  };
 }
 
 async function kindSma(sp: URLSearchParams) {
@@ -568,6 +595,8 @@ async function kindIpo() {
   return { source: "SCREENER.IN VIA SERVER PROXY · 1H CACHE", boards: out };
 }
 
+type SeasonRow = { sym: string; ltp: number | null } & ReturnType<typeof seasonStats>;
+
 type TermRow = {
   sym: string; sec: string; ltp: number | null;
   d1: number | null; w1: number | null; m1: number | null; m3: number | null; m6: number | null;
@@ -611,11 +640,12 @@ async function kindTerminal(sp: URLSearchParams) {
         fetchHistory(sym, "10y", "1mo"),
       ]);
       if (d.length < 60) return { sym, reason: "HISTORY < 60 BARS" };
-      // A tape whose final bar is over a week old is not a live price. Quarantining
-      // it is what separates "halted" from "cheap".
+      // A tape whose final bar is over 12 calendar days old is not live — that is
+      // wider than a long holiday, so it catches delisted and dead feeds without
+      // quarantining real names over Diwali.
       const lastBar = d[d.length - 1].date;
       const ageDays = (now.getTime() - new Date(`${lastBar}T00:00:00Z`).getTime()) / 86400000;
-      if (ageDays > 7) return { sym, reason: `STALE TAPE — LAST BAR ${lastBar}` };
+      if (ageDays > 12) return { sym, reason: `STALE TAPE — LAST BAR ${lastBar}` };
       const closes = d.map((b) => b.close);
       const highs = d.map((b) => b.high);
       const lows = d.map((b) => b.low);

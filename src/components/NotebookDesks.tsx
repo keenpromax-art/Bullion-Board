@@ -105,9 +105,13 @@ export function NbSeasonDesk() {
   const { data, err, loading, reload } = useNb("seasonality", `universe=${u}`);
   const rows: any[] = data?.rows ?? [];
   const top = useMemo(() => rows.slice(0, 15), [rows]);
+  const skipped = data?.skipped as
+    | { count: number; reasons: Record<string, number>; sample: Array<{ sym: string; reason: string }> }
+    | undefined;
+  const skips = skipped && skipped.count > 0 ? skipped : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
-      <Head id="76" sub={`SEASONALITY SCANNER · NEXT-MONTH ${data?.monthName?.toUpperCase() ?? ""} · SHARPE-RANKED · ${data?.universe ?? "—"} SYMS`} />
+      <Head id="76" sub={`SEASONALITY SCANNER · NEXT-MONTH ${data?.monthName?.toUpperCase() ?? ""} (M${data?.targetMonth ?? "—"}) · SHARPE-RANKED · ${data?.universe ?? "—"} REQUESTED`} />
       <div className="toolbar">
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
         <button className="ghost" onClick={reload}>↻ RETRY</button>
@@ -132,12 +136,33 @@ export function NbSeasonDesk() {
       {rows.length > 0 && (
         <>
           <Cells items={[
-            { l: "TARGET", v: data.monthName?.slice(0, 3).toUpperCase() ?? "—", s: `M${data.targetMonth}` },
-            { l: "SCANNED", v: String(data.count), s: `OF ${data.universe}` },
+            { l: "TARGET", v: data.monthName?.slice(0, 3).toUpperCase() ?? "—", s: `M${data.targetMonth} · NEXT` },
+            { l: "SCORED", v: String(data.count), s: `OF ${data.universe}` },
+            { l: "SKIPPED", v: String(data.skipped?.count ?? 0), s: "MIN_YEARS=5", cls: data.skipped?.count ? "neg" : undefined },
             { l: "TOP SHARPE", v: fmt(rows[0]?.sharpe, 3), s: rows[0]?.sym ?? "" },
             { l: "TOP AVG%", v: `${fmt(rows[0]?.avg)}%`, s: `WIN ${fmt(rows[0]?.win, 1)}%` },
             { l: "MED WIN%", v: `${fmt(rows[Math.floor(rows.length / 2)]?.win, 1)}%`, s: "MEDIAN" },
           ]} />
+          {skips && (
+            <div className="panel">
+              <p className="p-head">Skipped — {skips.count} of {data.universe} did not reach the notebook&apos;s MIN_YEARS=5</p>
+              <table className="plain">
+                <thead><tr><th>REASON</th><th style={{ textAlign: "right" }}>SYMS</th></tr></thead>
+                <tbody>
+                  {Object.entries(skips.reasons).sort((a, b) => b[1] - a[1]).map(([reason, n]) => (
+                    <tr key={reason}><td>{reason}</td><td style={{ textAlign: "right" }}><strong>{n}</strong></td></tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="faint" style={{ fontSize: 10.5 }}>
+                SAMPLE: {skips.sample.map((s) => s.sym).join(", ")}
+                {skips.count > skips.sample.length ? ` +${skips.count - skips.sample.length} MORE` : ""}
+                {" · "}THE NOTEBOOK DROPS THESE SILENTLY VIA <code>continue</code>. THEY ARE NOT MISSING DATA — THEY HAVE
+                FEWER THAN 5 OBSERVATIONS OF MONTH {data.targetMonth}, SO A RATE BUILT FROM THE OTHER {data.count} IS THE
+                WHOLE BASIS OF EVERY NUMBER ON THIS DESK.
+              </p>
+            </div>
+          )}
           <div className="panel">
             <p className="p-head">Avg return — top 15 by Sharpe</p>
             <BarChart values={top.map((r) => r.avg ?? 0)} labels={top.map((r) => r.sym)} height={130} />
@@ -166,11 +191,12 @@ export function NbSeasonDesk() {
               </table>
             </div>
             <p className="faint" style={{ fontSize: 10.5 }}>
-              RET = MONTHLY % · SHARPE = AVG/STD (SAMPLE) · SKIP N&lt;5 · LTP = 5D DAILY LAST ·
+              RET = PCT_CHANGE ACROSS MONTH-END CLOSES, {data.monthName?.toUpperCase()} ONLY · SHARPE = AVG/STD (SAMPLE, NOT ANNUALISED —
+              IT IS A RATIO OF TWO MONTHLY FIGURES) · MIN_YEARS=5 · LTP = LAST DAILY CLOSE ·
               SHOWING {Math.min(rows.length, 100)} OF {rows.length} · CSV EXPORTS ALL {rows.length}
             </p>
           </div>
-          <AiBlock id="76" label="Seasonality Scanner" context={`NEXT MONTH ${data.monthName} TOP ${rows.slice(0, 5).map((r: any) => `${r.sym} SH ${r.sharpe} AVG ${r.avg}% WIN ${r.win}%`).join(" | ")}`} />
+          <AiBlock id="76" label="Seasonality Scanner" context={`SCORING MONTH ${data.monthName?.toUpperCase()} (M${data.targetMonth}, NEXT CALENDAR MONTH) SCORED ${data.count} OF ${data.universe} REQUESTED SKIPPED ${data.skipped?.count ?? 0} TOP ${rows.slice(0, 5).map((r: any) => `${r.sym} SH ${r.sharpe} AVG ${r.avg}% WIN ${r.win}% YRS ${r.n}`).join(" | ")}`} />
         </>
       )}
     </div>
