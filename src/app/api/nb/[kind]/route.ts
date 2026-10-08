@@ -550,6 +550,15 @@ async function kindMovers(sp: URLSearchParams) {
    * rather than vanishing, because "why is this name missing" is a question the
    * desk should answer before it is asked.
    */
+  /**
+   * 1D IS THE NOTEBOOK'S CELL: top 10 and bottom 10 of `period="5d"` moves.
+   *
+   * The notebook's own universe is the same 209 and its window is exactly the
+   * last two closes on a 5d pull, so `lookback: 2, topN: 10` matches it. The 1W
+   * and 1M rows the desk also offers are NOT in this cell - they came from the
+   * neighbouring windows cells - so they stay available but the 1D board is the
+   * one that can be checked line for line against what the notebook prints.
+   */
   const WINDOWS = {
     "1D": { lookback: 2, topN: 10 },
     "1W": { lookback: 6, topN: 5 },

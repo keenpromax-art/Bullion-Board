@@ -482,16 +482,21 @@ export function NbMoversDesk() {
   const skipped = data?.skipped as { count: number; reasons: Record<string, number>; sample: Array<{ sym: string; reason: string }> } | undefined;
   const quar = data?.quarantined as { count: number; halted: number; stale: number; haltedSample: string[] } | undefined;
   const staleRows: any[] = data?.stale ?? [];
+  // The notebook's cell prints LTP and Prev Close next to the percentage, so both
+  // belong on the board - a +12.40% row tells you nothing about the two prices it
+  // came from, and the prices are what you check the percentage against.
+  const refBar = (r: any) => `${fmt(r.prevClose)} → ${fmt(r.price)}`;
   // BOTH returns two ranked windows from one scan — the notebook downloads 2mo
   // once and reads a week and a month off the same frame, and there is no reason
   // for the desk to charge for two passes.
   const windows: any[] = (data?.windows ?? []) as any[];
+  const win0: any = windows[0] ?? {};
   const isBoth = w === "BOTH";
   const skips = skipped && skipped.count > 0 ? skipped : null;
   const qtn = quar && quar.count > 0 ? quar : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
-      <Head id="80" sub={`MOVERS RANK · ${isBoth ? "1W + 1M, ONE SCAN" : `${w} TOP/BOTTOM ${w === "1D" ? 10 : 5}`} — SPOT EQUITY (NB TITLES SAY OPTIONS, CODE IS SPOT)`} />
+      <Head id="80" sub={`MOVERS RANK · ${isBoth ? "1W + 1M, ONE SCAN" : `${w} TOP/BOTTOM ${w === "1D" ? 10 : 5}`} — ALL ${data?.universe ?? "—"} F&O NAMES SCANNED — SPOT EQUITY (NB TITLES SAY OPTIONS, CODE IS SPOT)`} />
       <div className="toolbar">
         <Pills opts={["1D", "1W", "1M", "BOTH"]} val={w} set={setW} />
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
@@ -521,12 +526,12 @@ export function NbMoversDesk() {
       {!isBoth && top.length > 0 && (
         <div className="grid grid-2">
           <div className="panel">
-            <p className="p-head">Top 10 — {w}</p>
+            <p className="p-head">Top 10 — {w} · {win0.ranked ?? top.length} ranked</p>
             <table className="plain">
-              <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
+              <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>PREV→LAST</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
               <tbody>
                 {top.map((r) => (
-                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className={(r.chg ?? 0) >= 0 ? "pos" : "neg"}>{(r.chg ?? 0) >= 0 ? "+" : ""}{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
+                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }} className="faint">{refBar(r)}</td><td style={{ textAlign: "right" }} className={(r.chg ?? 0) >= 0 ? "pos" : "neg"}>{(r.chg ?? 0) >= 0 ? "+" : ""}{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
                 ))}
               </tbody>
             </table>
@@ -534,10 +539,10 @@ export function NbMoversDesk() {
           <div className="panel">
             <p className="p-head">Bottom 10 — {w}</p>
             <table className="plain">
-              <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
+              <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>PREV→LAST</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
               <tbody>
                 {bot.map((r) => (
-                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.price)}</td><td style={{ textAlign: "right" }} className={(r.chg ?? 0) >= 0 ? "pos" : "neg"}>{(r.chg ?? 0) >= 0 ? "+" : ""}{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
+                  <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }} className="faint">{refBar(r)}</td><td style={{ textAlign: "right" }} className={(r.chg ?? 0) >= 0 ? "pos" : "neg"}>{(r.chg ?? 0) >= 0 ? "+" : ""}{fmt(r.chg)}</td><td style={{ textAlign: "right" }} className="faint">{r.spanDays ?? "—"}d</td></tr>
                 ))}
               </tbody>
             </table>
