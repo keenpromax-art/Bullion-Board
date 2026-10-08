@@ -21,8 +21,25 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
   const [customModel, setCustomModel] = useState("");
   const [fkey, setFkey] = useState("");
   const [saved, setSaved] = useState("");
-  const [server, setServer] = useState<{ hasServerKey: boolean; model: string } | null>(null);
+const [server, setServer] = useState<{ hasServerKey: boolean; model: string } | null>(null);
   const { models: free, live, loading: modelsLoading } = useFreeModels();
+  const [showKey, setShowKey] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [verdict, setVerdict] = useState<{ ok: boolean; verdict: string; detail: string } | null>(null);
+
+  async function testKey() {
+    setTesting(true); setVerdict(null);
+    try {
+      const r = await fetch("/api/ai/testkey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: key, model: customModel.trim() || model }),
+      });
+      setVerdict(await r.json());
+    } catch (e: any) {
+      setVerdict({ ok: false, verdict: "UNREACHABLE", detail: e?.message ?? "Request failed." });
+    } finally { setTesting(false); }
+  }
   const [fserver, setFserver] = useState<{ hasServerKey: boolean } | null>(null);
   const [explTrigger, setExplTrigger] = useState<"hover+click" | "click" | "off">("click");
   const [explAI, setExplAI] = useState(true);
@@ -40,6 +57,17 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
       setExplCacheSize(store.getExplainCacheSize());
     } catch { /* ignore */ }
     fetch("/api/ai/status").then((r) => r.json()).then(setServer).catch(() => {});
+    // Auto-verify on open, so the panel states a FACT instead of leaving the
+    // reader to trust a stored string. A key that expired days after setup is
+    // the likeliest reason AI silently stops working.
+    fetch("/api/ai/testkey", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey: store.getORKey(), model: store.getORModel() }),
+    })
+      .then((r) => r.json())
+      .then(setVerdict)
+      .catch(() => {});
     fetch("/api/macro/key").then((r) => r.json()).then(setFserver).catch(() => {});
   }, []);
 
@@ -96,11 +124,18 @@ export default function SettingsDesk({ compact = false }: { compact?: boolean })
       <label style={{ display: "grid", gap: 6, fontSize: 11, color: "var(--sub)" }}>
         YOUR OPENROUTER KEY (OPTIONAL — BLANK = SERVER DEFAULT)
         <input
-          className="box" value={key} onChange={(e) => setKey(e.target.value)}
-          placeholder="sk-or-… " type="password" spellCheck={false} autoComplete="off"
+          className="box" value={key} onChange={(e) => { setKey(e.target.value); setVerdict(null); }}
+          placeholder="sk-or-… " type={showKey ? "text" : "password"} spellCheck={false} autoComplete="off"
           aria-label="OpenRouter API key override"
         />
       </label>
+      <div className="toolbar" style={{ gap: 6 }}>
+        <button className="ghost" onClick={() => setShowKey((v) => !v)} style={{ padding: "3px 8px", fontSize: 10.5 }}>{showKey ? "HIDE" : "SHOW"}</button>
+        <button className="ghost" onClick={testKey} disabled={testing} style={{ padding: "3px 8px", fontSize: 10.5 }}>{testing ? "TESTING…" : "TEST KEY"}</button>
+      </div>
+      {verdict && (
+        <p className={verdict.ok ? "pos" : "neg"} style={{ fontSize: 10.5, lineHeight: 1.5 }}>{verdict.verdict} — {verdict.detail}</p>
+      )}
 
       <label style={{ display: "grid", gap: 6, fontSize: 11, color: "var(--sub)" }}>
         MODEL

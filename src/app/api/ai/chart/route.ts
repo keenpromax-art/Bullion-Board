@@ -110,6 +110,13 @@ export async function POST(req: NextRequest) {
     label?: string;
     /** Extra context the caller already has on screen, e.g. "PRICE · 50D MA". */
     context?: string;
+    /**
+     * The reader's own OpenRouter key. Accepted here for the same reason
+     * /api/ai/chat accepts it — the product's whole key model is "server
+     * default, per-browser override" — and NOT accepting it made this the one
+     * AI surface in the app that ignored a key the user had set in Settings.
+     */
+    apiKey?: string;
   };
   try {
     body = await req.json();
@@ -117,13 +124,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const key = process.env.OPENROUTER_API_KEY;
+  const key = (body.apiKey || "").trim() || process.env.OPENROUTER_API_KEY || "";
   if (!key) {
     return NextResponse.json(
-      { error: "No server AI key — set OPENROUTER_API_KEY in .env.local" },
+      { error: "No OpenRouter key — add your own in Settings, or set OPENROUTER_API_KEY on the server." },
       { status: 401 }
     );
   }
+  const usingOwnKey = !!(body.apiKey || "").trim();
 
   const series = (body.series ?? []).filter((s) => s && Array.isArray(s.values));
   if (!series.length) {
@@ -256,6 +264,10 @@ export async function POST(req: NextRequest) {
         ok: true,
         text,
         model: j?.model ?? m,
+        // Which credential actually answered. Useful when a user has both set:
+        // if the strip keeps working after CLEARING their key, the server default
+        // was covering for a broken one.
+        keySource: usingOwnKey ? "YOUR KEY" : "SERVER KEY",
         stats: computed.map((c) => ({ label: c.label, ...c.st })),
       });
     } catch (e: unknown) {

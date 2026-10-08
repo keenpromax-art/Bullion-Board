@@ -12,6 +12,37 @@ export default function SettingsPage() {
   const [key, setKey] = useState("");
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [saved, setSaved] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [verdict, setVerdict] = useState<{ ok: boolean; verdict: string; detail: string } | null>(null);
+
+  async function testKey() {
+    setTesting(true); setVerdict(null);
+    try {
+      const r = await fetch("/api/ai/testkey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: key, model }),
+      });
+      setVerdict(await r.json());
+    } catch (e: any) {
+      setVerdict({ ok: false, verdict: "UNREACHABLE", detail: e?.message ?? "Request failed." });
+    } finally { setTesting(false); }
+  }
+
+  async function testServerKey() {
+    setTesting(true); setVerdict(null);
+    try {
+      const r = await fetch("/api/ai/testkey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model }),
+      });
+      setVerdict(await r.json());
+    } catch (e: any) {
+      setVerdict({ ok: false, verdict: "UNREACHABLE", detail: e?.message ?? "Request failed." });
+    } finally { setTesting(false); }
+  }
   const [server, setServer] = useState<{ hasServerKey: boolean; model: string } | null>(null);
   const { models: free, live, loading: modelsLoading } = useFreeModels();
   const [fkey, setFkey] = useState("");
@@ -30,7 +61,25 @@ export default function SettingsPage() {
   useEffect(() => {
     setKey(store.getORKey());
     setModel(store.getORModel());
-    fetch("/api/ai/status").then((r) => r.json()).then(setServer).catch(() => {});
+    // Auto-verify on arrival, so the panel states a FACT rather than asking the
+    // reader to trust a stored string. A key that has silently expired is the
+    // single most likely reason the AI looks broken days after it was set up.
+    (async () => {
+      try {
+        const [st, tk] = await Promise.all([
+          fetch("/api/ai/status").then((r) => r.json()),
+          fetch("/api/ai/testkey", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ apiKey: store.getORKey(), model: store.getORModel() }),
+          }).then((r) => r.json()),
+        ]);
+        setServer(st);
+        setVerdict(tk);
+      } catch {
+        setServer(null);
+      }
+    })();
     setFkey(store.getFredKey());
     fetch("/api/macro/key").then((r) => r.json()).then(setFserver).catch(() => {});
     setExplainerModel(store.getExplainerModel());
@@ -134,8 +183,38 @@ export default function SettingsPage() {
           </p>
           <div className="grid" style={{ marginTop: 10 }}>
             <label style={{ display: "grid", gap: 6, fontSize: 12, color: "var(--sub)" }}>YOUR OPENROUTER KEY (OPTIONAL OVERRIDE)
-              <input className="box" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-or-… (BLANK = USE SERVER DEFAULT)" type="password" />
+              <input
+                className="box"
+                value={key}
+                onChange={(e) => { setKey(e.target.value); setVerdict(null); }}
+                placeholder="sk-or-… (BLANK = USE SERVER DEFAULT)"
+                type={showKey ? "text" : "password"}
+                spellCheck={false}
+                autoComplete="off"
+              />
             </label>
+            <div className="toolbar">
+              <button className="ghost" onClick={() => setShowKey((v) => !v)} type="button">
+                {showKey ? "HIDE" : "SHOW"}
+              </button>
+              <button className="btn" onClick={testKey} disabled={testing} type="button">
+                {testing ? "TESTING…" : "TEST KEY"}
+              </button>
+              <button className="ghost" onClick={testServerKey} disabled={testing} type="button" title="Test the server's default key, ignoring yours">
+                TEST SERVER KEY
+              </button>
+            </div>
+            {verdict && (
+              <p className={verdict.ok ? "pos" : "neg"} style={{ fontSize: 11.5, lineHeight: 1.6 }}>
+                {verdict.verdict} — {verdict.detail}
+              </p>
+            )}
+            <p className="faint" style={{ fontSize: 10.5, lineHeight: 1.55 }}>
+              A KEY THAT SAYS ● SET ABOVE IS NOT NECESSARILY A KEY THAT WORKS. THIS SENDS ONE
+              ONE-TOKEN REQUEST TO OPENROUTER AND NAMES THE FAILURE — REJECTED, NO CREDIT,
+              BLOCKED, RATE LIMITED OR MODEL GONE — BECAUSE THOSE LOOK IDENTICAL AS “IT DIDN’T
+              WORK” AND NEED COMPLETELY DIFFERENT FIXES.
+            </p>
             <label style={{ display: "grid", gap: 6, fontSize: 12, color: "var(--sub)" }}>MODEL
               <select className="box" value={free.some((x) => x.id === model) ? model : "__custom"} onChange={(e) => setModel(e.target.value === "__custom" ? "" : e.target.value)}>
                 {free.map((m) => <option key={m.id} value={m.id}>{m.name} — {m.id}</option>)}

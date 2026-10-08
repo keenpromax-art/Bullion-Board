@@ -63,6 +63,10 @@ export function ChartAI({
           desk,
           label,
           context,
+          // The reader's own key when they set one, exactly as chatComplete
+          // does. Without this this strip silently fell back to the server key
+          // and became the only AI surface that ignored a user's override.
+          apiKey: store.getORKey(),
         }),
       });
       const j = await r.json();
