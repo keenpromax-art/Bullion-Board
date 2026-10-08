@@ -752,6 +752,29 @@ export function DecisionPanel({ snap, density }: { snap: OpeningSnap; density: D
           SAME ROW SHAPE AS THE SCORECARD SESSION LOG — ADD DATE · EDGE · OUTCOME TO IT AFTER THE BELL
         </span>
       </div>
+      {/* What the number is worth. The forecast above is only meaningful next to
+          the model's own out-of-sample record, and that record lives in tab 09 —
+          three clicks away, which is where a percentage gets detached from the
+          caveat that makes it mean something. The caveat travels WITH the
+          percentage here: whole-sample hit rate is near-meaningless because
+          most NIFTY sessions open inside the flat band, so the meaningful
+          figures are directional precision and the lift over an always-call
+          benchmark, never the raw hit rate. */}
+      <div className="pre-callscore" aria-label="Model track record, out of sample">
+        <span className="pre-cl-k">TRACK RECORD</span>
+        <span className="pre-cl-s-sub">{snap.model?.sessions ?? "—"} SESSIONS · OUT-OF-SAMPLE</span>
+        <span className="pre-cl-k">SIGN</span>
+        <span className="pre-cl-v pos">{fpct(snap.model?.oosSignAgreement ?? null, "%")}</span>
+        <span className="pre-cl-k">PRECISION ON PUBLISHED CALLS</span>
+        <span className="pre-cl-v pos">{fpct(snap.model?.oosPrecision ?? null, "%")}</span>
+        <span className="pre-cl-k">vs ALWAYS-CALL</span>
+        <span className="pre-cl-v">{fpct(snap.model?.oosBenchmark ?? null, "%")}</span>
+        <span className="pre-cl-k">RMSE GAIN</span>
+        <span className="pre-cl-v">{fpct(snap.model?.oosRmseGainPct ?? null, "%")}</span>
+        <span className="pre-cl-note">
+          DIRECTIONAL FIGURES, NOT A HIT RATE — MOST SESSIONS OPEN FLAT, SO THE WHOLE-SAMPLE HIT RATE IS NEAR-MEANINGLESS · SAMPLE {snap.model?.sample ?? "—"}
+        </span>
+      </div>
       <div className="pre-hero-l">
         <div className="pre-kicker">
           <span>{snap.target ?? "—"}</span>
