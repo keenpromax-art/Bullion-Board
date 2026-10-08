@@ -232,13 +232,41 @@ export function nbBB(closes: number[], w = 20): { pos: number | null; width: num
 }
 
 export function nbStoch(high: number[], low: number[], close: number[], k = 14, d = 3): { k: number | null; dval: number | null } {
-  if (close.length < k) return { k: null, dval: null };
-  const hv = high.slice(-k), lv = low.slice(-k);
-  const hh = Math.max(...hv), ll = Math.min(...lv);
-  const last = close[close.length - 1];
-  const kk = hh !== ll ? ((last - ll) / (hh - ll + 1e-10)) * 100 : null;
-  // %D = mean of last-3 %K proxies (notebook rolls %K series; single-point approx)
-  return { k: kk, dval: kk };
+  const n = close.length;
+  if (n < k) return { k: null, dval: null };
+  // Rolling %K across the trailing k-bar window, then %D = mean of the last d %K
+  // readings. Mirrors the notebook's rolling call instead of re-reading one window.
+  const ks: Array<number | null> = [];
+  for (let i = k - 1; i < n; i++) {
+    let hh = -Infinity, ll = Infinity;
+    for (let j = i - k + 1; j <= i; j++) {
+      if (high[j] > hh) hh = high[j];
+      if (low[j] < ll) ll = low[j];
+    }
+    ks.push(hh !== ll ? ((close[i] - ll) / (hh - ll + 1e-10)) * 100 : null);
+  }
+  const last = ks[ks.length - 1] ?? null;
+  const win = ks.slice(-d);
+  // A partial window would silently understate %D, so it reports — instead of guessing.
+  const dv = win.length === d && win.every((v) => v !== null) ? mean(win as number[]) : null;
+  return { k: last, dval: dv };
+}
+
+/**
+ * Cross-sectional percentile rank, 0-100, in input order. Nulls stay null so a
+ * ticker without a reading is never ranked against the ones that do have one.
+ * The notebook scores MomScore this way across the whole universe, not per ticker.
+ */
+export function nbPctRank(values: Array<number | null>): Array<number | null> {
+  const out: Array<number | null> = values.map(() => null);
+  const pts = values
+    .map((v, i) => ({ v, i }))
+    .filter((p): p is { v: number; i: number } => p.v !== null && isFinite(p.v));
+  if (pts.length === 0) return out;
+  pts.sort((a, b) => a.v - b.v);
+  const n = pts.length;
+  pts.forEach((p, r) => { out[p.i] = n === 1 ? 100 : (r / (n - 1)) * 100; });
+  return out;
 }
 
 export function nbZ(closes: number[], w = 20): number | null {

@@ -6,7 +6,7 @@ import { NB_SECTOR_MAP } from "@/lib/nbSector";
 import {
   mean, stdSample, pearson, pctChange, seasonStats, classifySmaCross,
   nbRsiSimple, hvAnn, nbAtr, nbBB, nbStoch, nbZ, nbOptions, nbSignalCount,
-  nbBeta, nbMomScore, safetyMetrics, maxSharpeWeights, rankPct,
+  nbBeta, nbMomScore, nbPctRank, safetyMetrics, maxSharpeWeights, rankPct,
 } from "@/lib/notebook";
 
 // Notebook scan APIs — one dynamic route backing desks 76-84.
@@ -568,6 +568,19 @@ async function kindIpo() {
   return { source: "SCREENER.IN VIA SERVER PROXY · 1H CACHE", boards: out };
 }
 
+type TermRow = {
+  sym: string; sec: string; ltp: number | null;
+  d1: number | null; w1: number | null; m1: number | null; m3: number | null; m6: number | null;
+  rsi: number | null; hv: number | null; atr: number | null; bbPos: number | null;
+  stochK: number | null; stochD: number | null; z: number | null;
+  a50: boolean | null; a200: boolean | null; golden: boolean | null; macdBull: boolean | null;
+  dd: { cur: number | null; max: number | null };
+  sharpe: number | null; sortino: number | null; beta: number | null;
+  momRaw: number | null; mom: number | null; vr: number | null; sig: number; bars: number;
+  straddlePct: number | null; emPct: number | null;
+  sea: { avg: number | null; wr: number | null; n: number } | null;
+};
+
 async function kindTerminal(sp: URLSearchParams) {
   const univ = univOf(sp.get("universe"));
   const q = (sp.get("q") || "").toUpperCase();
@@ -579,18 +592,30 @@ async function kindTerminal(sp: URLSearchParams) {
   let dte = lastDay;
   while (dte.getUTCDay() !== 4) dte = new Date(dte.getTime() - 86400000);
   const daysToExpiry = Math.max(1, Math.round((dte.getTime() - now.getTime()) / 86400000) + 1);
+  const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const nextMonthIdx = (new Date().getUTCMonth() + 1) % 12;
   let niftyRets: number[] = [];
   try {
     const nb = await fetchHistory("^NSEI", "1y", "1d");
     niftyRets = pctChange(nb.map((b) => Math.log(b.close))).filter(isFinite);
   } catch { /* fail-open */ }
-  const rows = await mapPool(list.slice(0, 209), 12, async (sym) => {
+  // Beta is only meaningful against a live NIFTY tape. When this is false every
+  // BETA cell is a missing reading, not a low beta, and the desk must say so.
+  const betaTape = niftyRets.length >= 30;
+  const requested = list.slice(0, 209);
+  const settled = await mapPool<string, { sym: string; reason: string } | { row: TermRow }>(
+    requested, 12, async (sym) => {
     try {
       const [d, m] = await Promise.all([
         fetchHistory(sym, "1y", "1d"),
         fetchHistory(sym, "10y", "1mo"),
       ]);
-      if (d.length < 60) return null;
+      if (d.length < 60) return { sym, reason: "HISTORY < 60 BARS" };
+      // A tape whose final bar is over a week old is not a live price. Quarantining
+      // it is what separates "halted" from "cheap".
+      const lastBar = d[d.length - 1].date;
+      const ageDays = (now.getTime() - new Date(`${lastBar}T00:00:00Z`).getTime()) / 86400000;
+      if (ageDays > 7) return { sym, reason: `STALE TAPE — LAST BAR ${lastBar}` };
       const closes = d.map((b) => b.close);
       const highs = d.map((b) => b.high);
       const lows = d.map((b) => b.low);
@@ -611,24 +636,19 @@ async function kindTerminal(sp: URLSearchParams) {
       const s200 = closes.length >= 200 ? mean(closes.slice(-200)) : NaN;
       const golden = isFinite(s50) && isFinite(s200) ? (s50 as number) > (s200 as number) : null;
       // MACD bull via EMA12/26/9
-      const ema = (arr: number[], span: number) => {
+      const ema = (arr: number[], span: number): number[] => {
         const k = 2 / (span + 1);
         let p = arr[0];
-        for (let i = 1; i < arr.length; i++) p = arr[i] * k + p * (1 - k);
-        return p;
+        const out = [p];
+        for (let i = 1; i < arr.length; i++) { p = arr[i] * k + p * (1 - k); out.push(p); }
+        return out;
       };
-      const e12 = ema(closes, 12), e26 = ema(closes, 26);
-      void e12; void e26;
-      // macd line/signal approx on closes tail
-      const macdLine: number[] = [];
-      for (let i = 0; i < closes.length; i++) {
-        const seg = closes.slice(0, i + 1);
-        if (seg.length < 26) { macdLine.push(NaN); continue; }
-        macdLine.push(ema(seg, 12) - ema(seg, 26));
-      }
-      const ml = macdLine.filter(isFinite);
-      const macdSig = ml.length >= 9 ? ema(ml, 9) : NaN;
-      const macdBull = isFinite(macdSig) && ml.length ? ml[ml.length - 1] > (macdSig as number) : null;
+      // MACD(12,26,9) in one O(n) pass over both EMA legs.
+      const e12s = ema(closes, 12), e26s = ema(closes, 26);
+      const macdTail = closes.map((_, i) => e12s[i] - e26s[i]).slice(25);
+      const sigTail = ema(macdTail, 9);
+      const macdBull = macdTail.length >= 9 && sigTail.length >= 9
+        ? macdTail[macdTail.length - 1] > sigTail[sigTail.length - 1] : null;
       const dd = (() => { let pk = -Infinity, cur = 0, mx = 0; for (const p of closes) { if (p > pk) pk = p; if (pk > 0) { cur = ((p - pk) / pk) * 100; mx = Math.min(mx, cur); } } return { cur: r2(cur), max: r2(mx) }; })();
       const ex = lr.map((x) => x - 0.065 / 252);
       const sd = stdSample(ex);
@@ -641,31 +661,48 @@ async function kindTerminal(sp: URLSearchParams) {
       const opt = nbOptions(ltp, hv, daysToExpiry);
       const sig = nbSignalCount({ rsi, macdBull, a50, a200, golden, stochK: st.k });
       const vr = vols.length >= 22 && mean(vols.slice(-21, -1)) > 0 ? vols[vols.length - 1] / (mean(vols.slice(-21, -1)) as number) : null;
-      // next-month seasonality
-      const nm = (new Date().getMonth() + 1) % 12 + 1;
+      // Seasonality is scored against NEXT calendar month — the month this board
+      // is actually traded into, not the one already closing.
       const mf: number[] = [];
       for (let i = 1; i < m.length; i++) {
-        if (new Date(m[i].date + "T00:00:00Z").getUTCMonth() + 1 === nm) {
+        if (new Date(m[i].date + "T00:00:00Z").getUTCMonth() === nextMonthIdx) {
           const p = m[i - 1].close;
           if (p > 0) mf.push(((m[i].close / p) - 1) * 100);
         }
       }
       const sea = mf.length >= 3 ? { avg: r2(mean(mf)), wr: r2((mf.filter((v) => v > 0).length / mf.length) * 100), n: mf.length } : null;
       return {
-        sym: sym.replace(".NS", ""), sec: NB_SECTOR_MAP[sym] ?? "Others", ltp: r2(ltp),
-        d1: r2(sr(1)), w1: r2(sr(5)), m1: r2(sr(21)), m3: r2(sr(63)), m6: r2(sr(126)),
-        rsi: r2(rsi), hv: r2(hv), atr: r2(atr), bbPos: r2(bb.pos), stochK: r2(st.k),
-        z: r2(z), a50, a200, golden, macdBull, dd, sharpe: r3(sharpe), sortino: r3(sortino),
-        beta: r2(beta), mom: r2(mom), vr: r2(vr), sig,
-        straddlePct: r2(opt.straddlePct), emPct: r2(opt.emPct), sea,
+        row: {
+          sym: sym.replace(".NS", ""), sec: NB_SECTOR_MAP[sym] ?? "Others", ltp: r2(ltp),
+          d1: r2(sr(1)), w1: r2(sr(5)), m1: r2(sr(21)), m3: r2(sr(63)), m6: r2(sr(126)),
+          rsi: r2(rsi), hv: r2(hv), atr: r2(atr), bbPos: r2(bb.pos), stochK: r2(st.k), stochD: r2(st.dval),
+          z: r2(z), a50, a200, golden, macdBull, dd, sharpe: r3(sharpe), sortino: r3(sortino),
+          beta: r2(beta), momRaw: r2(mom), mom: null as number | null, vr: r2(vr), sig, bars: d.length,
+          straddlePct: r2(opt.straddlePct), emPct: r2(opt.emPct), sea,
+        },
       };
-    } catch { return null; }
+    } catch { return { sym, reason: "TAPE UNAVAILABLE — FETCH FAILED" }; }
   });
-  const ok = rows.filter(Boolean) as NonNullable<(typeof rows)[number]>[];
+  const misses = settled.filter((s): s is { sym: string; reason: string } => "reason" in s);
+  const ok = settled.filter((s): s is { row: TermRow } => "row" in s).map((s) => s.row);
+  // MomScore is a cross-sectional rank in the notebook, not a per-ticker score.
+  // Rank across whoever actually answered, so 100 always means "best of the tape".
+  const ranks = nbPctRank(ok.map((r) => r.momRaw));
+  ok.forEach((r, i) => { r.mom = r2(ranks[i]); });
   const gain = ok.filter((r) => (r.w1 ?? 0) > 0).length;
+  const reasons: Record<string, number> = {};
+  for (const x of misses) reasons[x.reason.split("—")[0].trim()] = (reasons[x.reason.split("—")[0].trim()] ?? 0) + 1;
   return {
-    universe: univ.length, count: ok.length, gainers: gain, losers: ok.length - gain,
-    daysToExpiry, rows: ok.sort((a, b) => (b.mom ?? -1) - (a.mom ?? -1)),
+    universe: univ.length, requested: requested.length, count: ok.length,
+    gainers: gain, losers: ok.length - gain, daysToExpiry, betaTape,
+    momBase: ok.length,
+    seaMonth: nextMonthIdx + 1, seaName: MON[nextMonthIdx],
+    skipped: {
+      count: misses.length,
+      reasons,
+      sample: misses.slice(0, 12).map((x) => ({ sym: x.sym.replace(".NS", ""), reason: x.reason })),
+    },
+    rows: ok.sort((a, b) => (b.mom ?? -1) - (a.mom ?? -1)),
   };
 }
 

@@ -5,7 +5,7 @@ import { funcCode } from "@/lib/terminal";
 import { store } from "@/lib/store";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { rangeTable } from "@/lib/notebook";
-import { HBars, BarChart, Donut } from "@/components/charts";
+import { HBars, BarChart, Donut, Histogram } from "@/components/charts";
 import { downloadCSV } from "@/components/ModuleDesks";
 
 // Notebook desks 76-84 — TS port of Stocks_Final.ipynb (live Yahoo tape).
@@ -784,6 +784,18 @@ export function NbIpoDesk() {
 }
 
 // ---- 84: NSE Intelligence Terminal (cell 15) ----
+function median(xs: number[]): number | null {
+  const a = xs.filter((v) => isFinite(v)).sort((x, y) => x - y);
+  if (!a.length) return null;
+  const m = a.length >> 1;
+  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+}
+
+function Flag({ v }: { v: boolean | null | undefined }) {
+  if (v === null || v === undefined) return <span className="faint">—</span>;
+  return <span className={v ? "pos" : "neg"}>{v ? "YES" : "NO"}</span>;
+}
+
 export function NbTerminalDesk() {
   const [u, setU] = useState("FO");
   const [q, setQ] = useState("");
@@ -791,115 +803,384 @@ export function NbTerminalDesk() {
   const qs = `universe=${u}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
   const { data, err, loading, reload } = useNb("terminal", qs);
   const rows: any[] = data?.rows ?? [];
+  // Resolved to a definite value before the JSX so the panel can narrow on it;
+  // `skipped?.count > 0 && ...` does not narrow inside the closure.
+  const skipped = data?.skipped as
+    | { count: number; reasons: Record<string, number>; sample: Array<{ sym: string; reason: string }> }
+    | undefined;
+  const skips = skipped && skipped.count > 0 ? skipped : null;
+
   const top = useMemo(() => [...rows].sort((a, b) => (b.mom ?? -1) - (a.mom ?? -1)).slice(0, 12), [rows]);
   const ob = useMemo(() => rows.filter((r) => (r.rsi ?? 0) >= 70).slice(0, 10), [rows]);
   const os = useMemo(() => rows.filter((r) => (r.rsi ?? 0) <= 30).slice(0, 10), [rows]);
-  const hiv = useMemo(() => [...rows].sort((a, b) => (b.straddlePct ?? -1) - (a.straddlePct ?? -1)).slice(0, 10), [rows]);
+  const hiv = useMemo(() => [...rows].sort((a, b) => (b.straddlePct ?? -1) - (a.straddlePct ?? -1)).slice(0, 12), [rows]);
+  const tech = useMemo(() => [...rows].sort((a, b) => (b.rsi ?? -1) - (a.rsi ?? -1)).slice(0, 15), [rows]);
+  const risky = useMemo(() => [...rows].sort((a, b) => (b.hv ?? -1) - (a.hv ?? -1)).slice(0, 15), [rows]);
+  const seas = useMemo(
+    () => rows.filter((r) => r.sea && r.sea.avg !== null).sort((a, b) => (b.sea.avg ?? -1e9) - (a.sea.avg ?? -1e9)),
+    [rows]
+  );
+  const momHist = useMemo(() => rows.map((r) => r.mom).filter((v: any) => v !== null && v !== undefined), [rows]);
+  const hvHist = useMemo(() => rows.map((r) => r.hv).filter((v: any) => v !== null && v !== undefined), [rows]);
+  const seaHist = useMemo(
+    () => rows.map((r) => r.sea?.avg).filter((v: any) => v !== null && v !== undefined),
+    [rows]
+  );
+  const sectors = useMemo(() => {
+    const g: Record<string, { n: number; up: number; moms: number[]; hvs: number[] }> = {};
+    for (const r of rows) {
+      const k = r.sec || "OTHERS";
+      g[k] ??= { n: 0, up: 0, moms: [], hvs: [] };
+      g[k].n += 1;
+      if ((r.w1 ?? 0) > 0) g[k].up += 1;
+      if (r.mom !== null && r.mom !== undefined) g[k].moms.push(r.mom);
+      if (r.hv !== null && r.hv !== undefined) g[k].hvs.push(r.hv);
+    }
+    return Object.entries(g)
+      .map(([sec, v]) => ({ sec, n: v.n, up: v.up, breadth: v.up / Math.max(v.n, 1), medMom: median(v.moms), medHv: median(v.hvs) }))
+      .sort((a, b) => (b.medMom ?? -1) - (a.medMom ?? -1));
+  }, [rows]);
+  const verdict = useMemo(() => {
+    if (!rows.length || !data) return "";
+    const breadth = data.gainers / Math.max(data.count, 1);
+    const med = median(rows.map((r) => r.mom));
+    const medHv = median(hvHist);
+    const tone = breadth > 0.6 && (med ?? 50) > 55 ? "RISK-ON"
+      : breadth < 0.4 || (med ?? 50) < 45 ? "RISK-OFF" : "MIXED";
+    return `${tone} · BREADTH ${(breadth * 100).toFixed(0)}% UP 1W · MED MOM RANK ${fmt(med, 1)} · MED HV20 ${fmt(medHv, 1)}% · DTE ${data.daysToExpiry} · COVERED ${data.count}/${data.requested}`;
+  }, [rows, data, hvHist]);
+
+  const csv = () =>
+    downloadCSV(
+      `nse_terminal_${data?.seaName?.toLowerCase() ?? "month"}_${u.toLowerCase()}.csv`,
+      ["MOM_RANK", "TICKER", "SECTOR", "LTP", "D1_PCT", "W1_PCT", "M1_PCT", "M3_PCT", "M6_PCT",
+        "NB_RSI_14", "HV20_ANN_PCT", "ATR_14", "BB_POS_PCT", "STOCH_K", "STOCH_D", "Z20",
+        "ABOVE_SMA50", "ABOVE_SMA200", "GOLDEN_CROSS", "MACD_BULL", "DD_CUR_PCT", "DD_MAX_PCT",
+        "SHARPE", "SORTINO", "BETA_1Y", "MOM_RANK", "MOM_RAW", "VOL_RATIO_20", "SIG_COUNT_6",
+        "STRADDLE_PROXY_PCT", "EXPECTED_MOVE_PCT", "SEA_AVG_PCT", "SEA_WIN_PCT", "SEA_YEARS", "BARS"],
+      rows.map((r: any) => [
+        r.mom, r.sym, r.sec, r.ltp, r.d1, r.w1, r.m1, r.m3, r.m6,
+        r.rsi, r.hv, r.atr, r.bbPos, r.stochK, r.stochD, r.z,
+        r.a50, r.a200, r.golden, r.macdBull, r.dd?.cur ?? null, r.dd?.max ?? null,
+        r.sharpe, r.sortino, r.beta, r.mom, r.momRaw, r.vr, r.sig,
+        r.straddlePct, r.emPct, r.sea?.avg ?? null, r.sea?.wr ?? null, r.sea?.n ?? null, r.bars,
+      ])
+    );
+
   return (
     <div className="grid" style={{ gap: 10 }}>
-      <Head id="84" sub={`NSE INTELLIGENCE TERMINAL v5 PORT · 209 SYMS · NB-RSI(SIMPLE) · HV-PROXY OPTIONS · DTE ${data?.daysToExpiry ?? "—"}`} />
+      <Head id="84" sub={`NSE INTELLIGENCE TERMINAL v5 PORT · ${data?.count ?? "—"} OF ${data?.universe ?? "—"} F&O SYMS COVERED · NB-RSI(SIMPLE) · HV-PROXY OPTIONS · NEXT MONTH ${data?.seaName ?? "—"}${data?.seaMonth ? ` (M${data.seaMonth})` : ""} · DTE ${data?.daysToExpiry ?? "—"}`} />
       <div className="toolbar">
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
-        <Pills opts={["OVERVIEW", "MOMENTUM", "OPTIONS", "ALL"]} val={tab} set={setTab} />
+        <Pills opts={["OVERVIEW", "MOMENTUM", "OPTIONS", "TECHNICAL", "RISK", "SEASONALITY", "SECTOR", "ALL"]} val={tab} set={setTab} />
         <input className="box" value={q} onChange={(e) => setQ(e.target.value.toUpperCase())} placeholder="FILTER…" style={{ maxWidth: 130 }} />
         <button className="ghost" onClick={reload}>↻ RETRY</button>
+        <button className="ghost" onClick={csv} disabled={!rows.length} title="Every covered row, all 28 metrics, gaps left blank">⤓ CSV {rows.length} ROWS</button>
       </div>
       {loading && <p className="muted">COMPUTING 28-METRIC BOARD… (30-60S FIRST HIT)</p>}
       {err && <p className="neg">ERR: {err} <button className="ghost" onClick={reload}>RETRY</button></p>}
-      {!loading && !err && rows.length === 0 && <p className="muted">NO ROWS — RETRY.</p>}
+      {!loading && !err && rows.length === 0 && <p className="muted">NO ROWS COVERED — RETRY.</p>}
       {rows.length > 0 && (
         <>
           <Cells items={[
-            { l: "COVERED", v: String(data.count), s: `OF ${data.universe}` },
+            { l: "COVERED", v: String(data.count), s: `OF ${data.requested} REQUESTED` },
+            { l: "SKIPPED", v: String(data.skipped?.count ?? 0), s: "NO READABLE TAPE", cls: data.skipped?.count ? "neg" : undefined },
             { l: "GAINERS 1W", v: String(data.gainers), s: `${fmt(data.gainers / Math.max(data.count, 1) * 100, 0)}%`, cls: "pos" },
             { l: "LOSERS 1W", v: String(data.losers), s: "1W≤0", cls: "neg" },
-            { l: "OB RSI≥70", v: String(ob.length), s: "OVERBOUGHT" },
-            { l: "OS RSI≤30", v: String(os.length), s: "OVERSOLD" },
+            { l: "MED MOM", v: fmt(median(momHist), 1), s: "CROSS-SEC RANK" },
             { l: "DTE", v: String(data.daysToExpiry), s: "LAST THU" },
           ]} />
+          <div className="panel panel-glow">
+            <p className="p-head">Verdict</p>
+            <p style={{ margin: 0, fontSize: 13, letterSpacing: "0.02em" }}>{verdict}</p>
+            {!data.betaTape && (
+              <p className="neg" style={{ margin: "6px 0 0 0", fontSize: 11.5 }}>
+                NIFTY TAPE OFF — BETA COLUMN IS EMPTY, NOT LOW. IT IS A GAP, NOT A READING.
+              </p>
+            )}
+          </div>
+          {skips && (
+            <div className="panel">
+              <p className="p-head">Skipped — {skips.count} of {data.requested} requested never produced a reading</p>
+              <table className="plain">
+                <thead><tr><th>REASON</th><th style={{ textAlign: "right" }}>SYMS</th></tr></thead>
+                <tbody>
+                  {Object.entries(skips.reasons).sort((a, b) => b[1] - a[1]).map(([reason, n]) => (
+                    <tr key={reason}><td>{reason}</td><td style={{ textAlign: "right" }}><strong>{n}</strong></td></tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="faint" style={{ fontSize: 10.5 }}>
+                SAMPLE: {skips.sample.map((s: any) => s.sym).join(", ")}
+                {skips.count > skips.sample.length ? ` +${skips.count - skips.sample.length} MORE` : ""}
+                {" · "}EVERY BREADTH, RANK AND MEDIAN ABOVE IS DRAWN FROM THE {data.count} THAT ANSWERED, NOT FROM {data.requested}. STALE TAPES ARE QUARANTINED, NOT SHOWN AS LIVE PRICES.
+              </p>
+            </div>
+          )}
           {(tab === "OVERVIEW" || tab === "MOMENTUM") && (
             <div className="panel">
-              <p className="p-head">Top momentum — MomScore (1M·20 + 3M·30 + 6M·35 + 1Y·15)</p>
+              <p className="p-head">Top momentum — MomScore cross-sectional rank (1M·20 + 3M·30 + 6M·35 + 1Y·15)</p>
               <div className="scrollx" style={{ maxHeight: 360, overflowY: "auto" }}>
                 <table className="plain">
-                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LTP ₹</th><th style={{ textAlign: "right" }}>1W%</th><th style={{ textAlign: "right" }}>1M%</th><th style={{ textAlign: "right" }}>NB-RSI</th><th style={{ textAlign: "right" }}>HV%</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>MOM</th><th style={{ textAlign: "right" }}>SIG/6</th></tr></thead>
+                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LTP ₹</th><th style={{ textAlign: "right" }}>1W%</th><th style={{ textAlign: "right" }}>3M%</th><th style={{ textAlign: "right" }}>6M%</th><th style={{ textAlign: "right" }}>NB-RSI</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>MOM</th><th style={{ textAlign: "right" }}>RAW</th><th style={{ textAlign: "right" }}>SIG/6</th></tr></thead>
                   <tbody>
                     {top.map((r) => (
                       <tr key={r.sym}>
                         <td><span className="sec">{r.sym}</span> <span className="faint" style={{ fontSize: 10 }}>{r.sec}</span></td>
                         <td style={{ textAlign: "right" }}>{fmt(r.ltp)}</td>
                         <td style={{ textAlign: "right" }} className={(r.w1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.w1)}</td>
-                        <td style={{ textAlign: "right" }} className={(r.m1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.m1)}</td>
+                        <td style={{ textAlign: "right" }} className={(r.m3 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.m3)}</td>
+                        <td style={{ textAlign: "right" }} className={(r.m6 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.m6)}</td>
                         <td style={{ textAlign: "right" }}>{fmt(r.rsi, 1)}</td>
-                        <td style={{ textAlign: "right" }}>{fmt(r.hv, 1)}</td>
                         <td style={{ textAlign: "right" }}>{fmt(r.beta)}</td>
                         <td style={{ textAlign: "right" }}><strong>{fmt(r.mom, 1)}</strong></td>
+                        <td style={{ textAlign: "right" }} className="faint">{fmt(r.momRaw, 1)}</td>
                         <td style={{ textAlign: "right" }}>{r.sig}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              <p className="faint" style={{ fontSize: 10.5 }}>
+                MOM = PERCENTILE RANK ACROSS THE {data.count} THAT ANSWERED (100 = BEST OF THIS TAPE, NOT BEST OF NSE) ·
+                RAW = UNRANKED WEIGHTED MOMENTUM · RF 6.5% IN SHARPE/SORTINO
+              </p>
+              {(data.momBase ?? 0) < 20 && (
+                <p className="warn" style={{ fontSize: 11.5, margin: "6px 0 0 0" }}>
+                  RANK BASE IS ONLY {data.momBase} NAMES — THE FILTER NARROWED IT. A "100" HERE IS THE BEST OF A
+                  HANDFUL OF TICKERS, NOT A REAL QUANTILE. CLEAR THE FILTER FOR A RANK YOU CAN TRADE ON.
+                </p>
+              )}
             </div>
           )}
           {tab === "OVERVIEW" && (
-            <div className="grid grid-2">
-              <div className="panel">
-                <p className="p-head">Breadth 1W</p>
-                <Donut slices={[{ label: "GAIN", value: data.gainers, color: "var(--green)" }, { label: "LOSS", value: data.losers, color: "var(--red)" }]} />
+            <>
+              <div className="grid grid-2">
+                <div className="panel">
+                  <p className="p-head">Breadth 1W</p>
+                  <Donut slices={[{ label: "GAIN", value: data.gainers, color: "var(--green)" }, { label: "LOSS", value: data.losers, color: "var(--red)" }]} />
+                </div>
+                <div className="panel">
+                  <p className="p-head">OB / OS (NB-RSI simple-mean)</p>
+                  <div className="kv"><span className="muted">OB ≥70</span><strong className="neg">{ob.map((r) => r.sym).join(" · ") || "—"}</strong></div>
+                  <div className="kv"><span className="muted">OS ≤30</span><strong className="pos">{os.map((r) => r.sym).join(" · ") || "—"}</strong></div>
+                  <p className="faint" style={{ fontSize: 10.5 }}>RSI HERE = SIMPLE 14D MEAN (NB FORMULA), NOT WILDER</p>
+                </div>
               </div>
               <div className="panel">
-                <p className="p-head">OB / OS (NB-RSI simple-mean)</p>
-                <div className="kv"><span className="muted">OB ≥70</span><strong className="neg">{ob.map((r) => r.sym).join(" · ") || "—"}</strong></div>
-                <div className="kv"><span className="muted">OS ≤30</span><strong className="pos">{os.map((r) => r.sym).join(" · ") || "—"}</strong></div>
-                <p className="faint" style={{ fontSize: 10.5 }}>RSI HERE = SIMPLE 14D MEAN (NB FORMULA), NOT WILDER</p>
+                <p className="p-head">MomScore rank distribution — where the tape actually sits</p>
+                <Histogram values={momHist} bins={20} height={120} color="var(--sec)" />
               </div>
-            </div>
+            </>
           )}
           {(tab === "OVERVIEW" || tab === "OPTIONS") && (
             <div className="panel">
               <p className="p-head">Options proxy — HV straddle (no chain: σ=HV20, K=S, T=DTE)</p>
               <div className="scrollx" style={{ maxHeight: 320, overflowY: "auto" }}>
                 <table className="plain">
-                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>HV%</th><th style={{ textAlign: "right" }}>STRADDLE%</th><th style={{ textAlign: "right" }}>EM±%</th></tr></thead>
+                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>HV%</th><th style={{ textAlign: "right" }}>STRADDLE%</th><th style={{ textAlign: "right" }}>EM±%</th><th style={{ textAlign: "right" }}>LTP ₹</th></tr></thead>
                   <tbody>
                     {hiv.map((r) => (
-                      <tr key={r.sym}><td><span className="sec">{r.sym}</span></td><td style={{ textAlign: "right" }}>{fmt(r.hv, 1)}</td><td style={{ textAlign: "right" }}><strong>{fmt(r.straddlePct)}</strong></td><td style={{ textAlign: "right" }}>±{fmt(r.emPct)}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {tab === "ALL" && (
-            <div className="panel">
-              <p className="p-head">All tickers — {rows.length} (filter narrows server-side)</p>
-              <div className="scrollx" style={{ maxHeight: 480, overflowY: "auto" }}>
-                <table className="plain">
-                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LTP</th><th style={{ textAlign: "right" }}>1D</th><th style={{ textAlign: "right" }}>1W</th><th style={{ textAlign: "right" }}>1M</th><th style={{ textAlign: "right" }}>RSI</th><th style={{ textAlign: "right" }}>HV</th><th style={{ textAlign: "right" }}>SH</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>MOM</th><th style={{ textAlign: "right" }}>SEA</th></tr></thead>
-                  <tbody>
-                    {rows.slice(0, 150).map((r) => (
                       <tr key={r.sym}>
                         <td><span className="sec">{r.sym}</span></td>
-                        <td style={{ textAlign: "right" }}>{fmt(r.ltp)}</td>
-                        <td style={{ textAlign: "right" }} className={(r.d1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.d1)}</td>
-                        <td style={{ textAlign: "right" }} className={(r.w1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.w1)}</td>
-                        <td style={{ textAlign: "right" }} className={(r.m1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.m1)}</td>
-                        <td style={{ textAlign: "right" }}>{fmt(r.rsi, 1)}</td>
                         <td style={{ textAlign: "right" }}>{fmt(r.hv, 1)}</td>
-                        <td style={{ textAlign: "right" }}>{fmt(r.sharpe, 2)}</td>
-                        <td style={{ textAlign: "right" }}>{fmt(r.beta)}</td>
-                        <td style={{ textAlign: "right" }}>{fmt(r.mom, 0)}</td>
-                        <td style={{ textAlign: "right" }} className="faint">{r.sea ? `${fmt(r.sea.avg)}` : "—"}</td>
+                        <td style={{ textAlign: "right" }}><strong>{fmt(r.straddlePct)}</strong></td>
+                        <td style={{ textAlign: "right" }}>±{fmt(r.emPct)}</td>
+                        <td style={{ textAlign: "right" }} className="faint">{fmt(r.ltp)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="faint" style={{ fontSize: 10.5 }}>FIRST 150 SHOWN · USE FILTER FOR REST · IV_RANK BUG (RANK==PCT) FIXED — SINGLE HV FIELD SHOWN</p>
+              <p className="faint" style={{ fontSize: 10.5 }}>
+                NO OPTION CHAIN IS FETCHED — σ IS BACKED-OUT HV20, NOT IV. SKIN VALUES AND IV PREMIUM ARE ABSENT,
+                SO READ THIS AS A RANKING OF EXPECTED MOVE, NEVER AS A PRICE YOU CAN TRADE.
+              </p>
             </div>
           )}
-          <AiBlock id="84" label="NSE Intelligence Terminal" context={`BOARD ${data.count} SYMS GAIN ${data.gainers} LOSS ${data.losers} TOP-MOM ${top.slice(0, 5).map((r: any) => `${r.sym} M${r.mom} RSI${r.rsi}`).join(" | ")} OB ${ob.slice(0, 4).map((r: any) => r.sym).join(",") || "NONE"}`} />
+          {tab === "OPTIONS" && (
+            <div className="panel">
+              <p className="p-head">Expected move — proxy straddle % across the covered tape</p>
+              <Histogram values={rows.map((r) => r.straddlePct).filter((v: any) => v !== null && v !== undefined)} bins={20} height={120} />
+            </div>
+          )}
+          {tab === "TECHNICAL" && (
+            <div className="panel">
+              <p className="p-head">Technical state — oscillators and trend stack</p>
+              <div className="scrollx" style={{ maxHeight: 440, overflowY: "auto" }}>
+                <table className="plain">
+                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>RSI</th><th style={{ textAlign: "right" }}>STOCH K</th><th style={{ textAlign: "right" }}>STOCH D</th><th style={{ textAlign: "right" }}>BB%</th><th style={{ textAlign: "right" }}>Z20</th><th style={{ textAlign: "right" }}>ATR</th><th style={{ textAlign: "right" }}>SMA50</th><th style={{ textAlign: "right" }}>SMA200</th><th style={{ textAlign: "right" }}>GOLD</th><th style={{ textAlign: "right" }}>MACD</th></tr></thead>
+                  <tbody>
+                    {tech.map((r) => (
+                      <tr key={r.sym}>
+                        <td><span className="sec">{r.sym}</span> <span className="faint" style={{ fontSize: 10 }}>{r.sec}</span></td>
+                        <td style={{ textAlign: "right" }} className={(r.rsi ?? 0) >= 70 ? "neg" : (r.rsi ?? 50) <= 30 ? "pos" : undefined}>{fmt(r.rsi, 1)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.stochK, 1)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.stochD, 1)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.bbPos, 0)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.z, 2)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.atr)}</td>
+                        <td style={{ textAlign: "right" }}><Flag v={r.a50} /></td>
+                        <td style={{ textAlign: "right" }}><Flag v={r.a200} /></td>
+                        <td style={{ textAlign: "right" }}><Flag v={r.golden} /></td>
+                        <td style={{ textAlign: "right" }}><Flag v={r.macdBull} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="faint" style={{ fontSize: 10.5 }}>
+                BB% = POSITION IN THE 20D BAND (0 = LOWER, 100 = UPPER) · Z20 = SIGMA FROM 20D MEAN ·
+                STOCH D IS THE TRUE 3-PERIOD MEAN OF %K, NOT A COPY OF IT · SIG/6 COUNTS RSI 40-60, MACD,
+                SMA50, SMA200, GOLDEN AND STOCH&gt;50
+              </p>
+            </div>
+          )}
+          {tab === "RISK" && (
+            <>
+              <div className="panel">
+                <p className="p-head">Risk stack — volatility, Sharpe, drawdown, volume</p>
+                <div className="scrollx" style={{ maxHeight: 380, overflowY: "auto" }}>
+                  <table className="plain">
+                    <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>HV20%</th><th style={{ textAlign: "right" }}>SHARPE</th><th style={{ textAlign: "right" }}>SORTINO</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>DD NOW%</th><th style={{ textAlign: "right" }}>DD MAX%</th><th style={{ textAlign: "right" }}>VOL×20</th><th style={{ textAlign: "right" }}>BARS</th></tr></thead>
+                    <tbody>
+                      {risky.map((r) => (
+                        <tr key={r.sym}>
+                          <td><span className="sec">{r.sym}</span> <span className="faint" style={{ fontSize: 10 }}>{r.sec}</span></td>
+                          <td style={{ textAlign: "right" }}><strong>{fmt(r.hv, 1)}</strong></td>
+                          <td style={{ textAlign: "right" }}>{fmt(r.sharpe, 2)}</td>
+                          <td style={{ textAlign: "right" }}>{fmt(r.sortino, 2)}</td>
+                          <td style={{ textAlign: "right" }}>{fmt(r.beta)}</td>
+                          <td style={{ textAlign: "right" }} className="neg">{fmt(r.dd?.cur)}</td>
+                          <td style={{ textAlign: "right" }} className="neg">{fmt(r.dd?.max)}</td>
+                          <td style={{ textAlign: "right" }} className={((r.vr ?? 1) >= 1.5) ? "warn" : undefined}>{fmt(r.vr, 2)}</td>
+                          <td style={{ textAlign: "right" }} className="faint">{r.bars}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="faint" style={{ fontSize: 10.5 }}>
+                  SHARPE/SORTINO ANNUALISED AT √252 OVER DAILY EXCESS RETURNS, RF 6.5% · DD IS PEAK-TO-TRUNCH ON CLOSES ·
+                  VOL×20 IS TODAY'S VOLUME VS THE PRIOR 20D MEAN · A LOW BARS COUNT MEANS THE 200D READINGS ARE NOT AVAILABLE
+                </p>
+              </div>
+              <div className="panel">
+                <p className="p-head">HV20 distribution</p>
+                <Histogram values={hvHist} bins={20} height={120} />
+              </div>
+            </>
+          )}
+          {tab === "SEASONALITY" && (
+            <div className="panel">
+              <p className="p-head">Next-month seasonality — {data.seaName} (M{data.seaMonth}), 10Y monthly</p>
+              {seas.length === 0 ? (
+                <p className="muted">NO TICKER HAS 3+ OBSERVATIONS OF {data.seaName} — TOO SHORT TO SCORE.</p>
+              ) : (
+                <>
+                  <BarChart values={seas.slice(0, 20).map((r) => r.sea.avg)} labels={seas.slice(0, 20).map((r) => r.sym)} height={130} />
+                  <div className="scrollx" style={{ maxHeight: 320, overflowY: "auto" }}>
+                    <table className="plain">
+                      <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>{data.seaName} AVG%</th><th style={{ textAlign: "right" }}>WIN%</th><th style={{ textAlign: "right" }}>YEARS</th><th style={{ textAlign: "right" }}>MOM RANK</th></tr></thead>
+                      <tbody>
+                        {seas.slice(0, 60).map((r) => (
+                          <tr key={r.sym}>
+                            <td><span className="sec">{r.sym}</span> <span className="faint" style={{ fontSize: 10 }}>{r.sec}</span></td>
+                            <td style={{ textAlign: "right" }} className={(r.sea.avg ?? 0) >= 0 ? "pos" : "neg"}><strong>{fmt(r.sea.avg)}</strong></td>
+                            <td style={{ textAlign: "right" }}>{fmt(r.sea.wr, 0)}</td>
+                            <td style={{ textAlign: "right" }} className={(r.sea.n ?? 0) < 5 ? "warn" : undefined}>{r.sea.n}</td>
+                            <td style={{ textAlign: "right" }} className="faint">{fmt(r.mom, 0)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="faint" style={{ fontSize: 10.5 }}>
+                    THIS IS THE UPCOMING CALENDAR MONTH, NOT THE ONE CLOSING · SKIP UNDER 3 OBSERVATIONS ·
+                    AMBER YEARS &lt; 5 IS A THIN SAMPLE, NOT A STRONG EDGE · {seas.filter((r) => (r.sea.n ?? 0) < 5).length} OF {seas.length} ARE THIN
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+          {tab === "SECTOR" && (
+            <>
+              <div className="panel">
+                <p className="p-head">Sector map — median MomScore rank</p>
+                <HBars rows={sectors.slice(0, 18).map((s) => ({
+                  label: s.sec, value: s.medMom ?? 0, display: fmt(s.medMom, 1),
+                  color: (s.medMom ?? 0) >= 50 ? "var(--green)" : "var(--red)",
+                }))} />
+              </div>
+              <div className="panel">
+                <p className="p-head">Sector breadth 1W — share of names up</p>
+                <BarChart
+                  values={sectors.map((s) => s.breadth * 100)}
+                  labels={sectors.map((s) => s.sec.slice(0, 4))}
+                  height={130}
+                />
+              </div>
+              <div className="panel">
+                <p className="p-head">Sector table</p>
+                <table className="plain">
+                  <thead><tr><th>SECTOR</th><th style={{ textAlign: "right" }}>NAMES</th><th style={{ textAlign: "right" }}>UP 1W</th><th style={{ textAlign: "right" }}>BREADTH%</th><th style={{ textAlign: "right" }}>MED MOM</th><th style={{ textAlign: "right" }}>MED HV%</th></tr></thead>
+                  <tbody>
+                    {sectors.map((s) => (
+                      <tr key={s.sec}>
+                        <td><span className="sec">{s.sec}</span></td>
+                        <td style={{ textAlign: "right" }}>{s.n}</td>
+                        <td style={{ textAlign: "right" }}>{s.up}</td>
+                        <td style={{ textAlign: "right" }} className={s.breadth > 0.5 ? "pos" : "neg"}>{fmt(s.breadth * 100, 0)}</td>
+                        <td style={{ textAlign: "right" }}><strong>{fmt(s.medMom, 1)}</strong></td>
+                        <td style={{ textAlign: "right" }}>{fmt(s.medHv, 1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="faint" style={{ fontSize: 10.5 }}>
+                SECTOR TAGS COME FROM A FIXED MANUAL MAP OVER THE 209 F&O NAMES — A NAME MISSING FROM IT LANDS IN OTHERS,
+                AND THE TAGS DO NOT MOVE WHEN A COMPANY RECLASSIFIES.
+              </p>
+            </>
+          )}
+          {tab === "ALL" && (
+            <div className="panel">
+              <p className="p-head">All covered tickers — {rows.length} of {data.count} (filter narrows server-side)</p>
+              <div className="scrollx" style={{ maxHeight: 480, overflowY: "auto" }}>
+                <table className="plain">
+                  <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LTP</th><th style={{ textAlign: "right" }}>1D</th><th style={{ textAlign: "right" }}>1W</th><th style={{ textAlign: "right" }}>1M</th><th style={{ textAlign: "right" }}>3M</th><th style={{ textAlign: "right" }}>6M</th><th style={{ textAlign: "right" }}>RSI</th><th style={{ textAlign: "right" }}>HV</th><th style={{ textAlign: "right" }}>Z20</th><th style={{ textAlign: "right" }}>SH</th><th style={{ textAlign: "right" }}>SO</th><th style={{ textAlign: "right" }}>BETA</th><th style={{ textAlign: "right" }}>MOM</th><th style={{ textAlign: "right" }}>{data.seaName}</th></tr></thead>
+                  <tbody>
+                    {rows.slice(0, 150).map((r) => (
+                      <tr key={r.sym}>
+                        <td><span className="sec">{r.sym}</span> <span className="faint" style={{ fontSize: 10 }}>{r.sec}</span></td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.ltp)}</td>
+                        <td style={{ textAlign: "right" }} className={(r.d1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.d1)}</td>
+                        <td style={{ textAlign: "right" }} className={(r.w1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.w1)}</td>
+                        <td style={{ textAlign: "right" }} className={(r.m1 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.m1)}</td>
+                        <td style={{ textAlign: "right" }} className={(r.m3 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.m3)}</td>
+                        <td style={{ textAlign: "right" }} className={(r.m6 ?? 0) >= 0 ? "pos" : "neg"}>{fmt(r.m6)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.rsi, 1)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.hv, 1)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.z, 2)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.sharpe, 2)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.sortino, 2)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(r.beta)}</td>
+                        <td style={{ textAlign: "right" }}><strong>{fmt(r.mom, 0)}</strong></td>
+                        <td style={{ textAlign: "right" }} className="faint">{r.sea ? fmt(r.sea.avg) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="faint" style={{ fontSize: 10.5 }}>
+                SHOWING {Math.min(rows.length, 150)} OF {rows.length} · CSV EXPORTS ALL {rows.length} WITH EVERY METRIC ·
+                {data.skipped?.count ? `${data.skipped.count} REQUESTED SYMS ARE NOT IN THIS TABLE AT ALL — SEE SKIPPED ABOVE · ` : ""}
+                EVERY — IS A GENUINE GAP, NOT A ZERO
+              </p>
+            </div>
+          )}
+          <AiBlock id="84" label="NSE Intelligence Terminal" context={`BOARD ${data.count}/${data.requested} SYMS COVERED GAIN ${data.gainers} LOSS ${data.losers} DTE ${data.daysToExpiry} BETA_TAPE ${data.betaTape ? "OK" : "OFF"} SKIPPED ${data.skipped?.count ?? 0} TOP-MOM ${top.slice(0, 5).map((r: any) => `${r.sym} RANK${r.mom} RSI${r.rsi} SIG${r.sig}`).join(" | ")} HOT-VOL ${hiv.slice(0, 3).map((r: any) => `${r.sym} STRADDLE${r.straddlePct}%`).join(" | ")} SEASONALITY_${data.seaName} TOP ${seas.slice(0, 3).map((r: any) => `${r.sym} ${r.sea.avg}%`).join(" | ")} OB ${ob.slice(0, 4).map((r: any) => r.sym).join(",") || "NONE"}`} />
         </>
       )}
     </div>
