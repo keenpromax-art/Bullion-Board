@@ -52,6 +52,8 @@ import { OPENING_TARGETS, STALE_SHARE_WARN } from "@/lib/opening";
 //     why the shipped weights are shrunk 30% toward the hand prior and why the
 //     gate is published as a sweep rather than a single number.
 
+const num = (v: unknown): number | null => (typeof v === "number" && isFinite(v) ? v : null);
+
 const BAR_S = 3600;
 // Warm-up before the first scored fold, in sessions. Long enough that every
 // fold fits the ridge AND both magnitude bands on a full year of data — an
@@ -63,6 +65,46 @@ const BLOCK = 60;
 interface HourBar { ts: number; close: number }
 
 interface Series2 { bars: Bar[]; rets: Map<string, number>; prior: PriorIndex }
+
+/**
+ * Yahoo stamps the newest daily bar with a NULL close for cash indices and
+ * back-fills the real close hours later — the 3y series lags the 1d series, and
+ * `?range=1d` is the only shape that carries it. The previous build skipped
+ * every null-close bar, which deleted the most recent session from the
+ * rebuild: the scorecard's last row was always yesterday, the headline
+ * denominators were one short, and nothing on the desk said why.
+ *
+ * `meta.regularMarketPrice` is that same session's close, but it is also the
+ * LIVE TICK while the session is still running, so it is admitted only when the
+ * session is provably OVER. The test is the current trading period: if it has
+ * already opened, the print belongs to the session now forming and is a live
+ * price, not a close — that bar stays dropped and today is left ungraded, which
+ * is the honest state at 11:00 IST. Once the period has rolled forward, the
+ * print is the settled close of the bar being repaired. The IST date must also
+ * match, or it is a different session and is refused.
+ */
+interface YahooMeta {
+  regularMarketPrice?: number | null;
+  regularMarketTime?: number | null;
+  regularMarketDayHigh?: number | null;
+  regularMarketDayLow?: number | null;
+  currentTradingPeriod?: { regular?: { start?: number | null; end?: number | null } } | null;
+}
+
+function settleLastBar(bars: Bar[], meta: YahooMeta | undefined | null): void {
+  const last = bars[bars.length - 1];
+  if (!last || last.close !== null) return;
+  const px = num(meta?.regularMarketPrice);
+  const at = num(meta?.regularMarketTime);
+  const periodStart = num(meta?.currentTradingPeriod?.regular?.start);
+  if (px === null || at === null) return;
+  // The session this print belongs to must have been superseded by a new one.
+  if (periodStart !== null && periodStart <= at) return;
+  if (istDateFromUnix(at) !== last.date) return;
+  last.close = px;
+  if (last.high === null || last.high === undefined) last.high = num(meta?.regularMarketDayHigh) ?? px;
+  if (last.low === null || last.low === undefined) last.low = num(meta?.regularMarketDayLow) ?? px;
+}
 
 async function dailySeries(symbol: string, years = 3): Promise<Series2 | null> {
   try {
@@ -76,16 +118,22 @@ async function dailySeries(symbol: string, years = 3): Promise<Series2 | null> {
     const q = res?.indicators?.quote?.[0] ?? {};
     const bars: Bar[] = [];
     for (let i = 0; i < ts.length; i++) {
-      const close = q.close?.[i];
-      if (close === null || close === undefined || !isFinite(close)) continue;
+      const close = num(q.close?.[i]);
+      // Keep a bar whose open survived even if its close has not been settled
+      // yet: the GAP (open vs prior close) is knowable from 09:15 and is what
+      // this desk grades. The day return simply renders "—" until the close
+      // lands, instead of the whole session vanishing from the log.
+      const open = num(q.open?.[i]);
+      if (close === null && open === null) continue;
       bars.push({
         date: istDateFromUnix(ts[i]),
         close,
-        open: q.open?.[i] ?? null,
-        high: q.high?.[i] ?? null,
-        low: q.low?.[i] ?? null,
+        open,
+        high: num(q.high?.[i]),
+        low: num(q.low?.[i]),
       });
     }
+    settleLastBar(bars, res?.meta);
     return buildSeries(bars);
   } catch {
     return null;
@@ -287,9 +335,12 @@ export async function GET(req: NextRequest) {
     // There is no prediction here, so there is nothing to grade. Saying so beats
     // manufacturing a scorecard for a call the desk never makes.
     if (target.mode === "TAPE_CHECK") {
-      const body = { days, band: 0, gapGraded: 0, sessions: 0, upGaps: 0, dnGaps: 0, flatGaps: 0, gapHitPct: 0, graded: false, target: identity, items: [] };
+      const body = skipBody(
+        `${target.label} IS A TAPE CHECK, NOT A CALL. THE ENGINE'S LEGS ARE READ AT 09:00 IST AND THIS INDEX OPENS AT ${target.openHHMM} ${target.venue === "NYSE" || target.venue === "NASDAQ" ? "ET" : "LOCAL"}, SO THE LIVE DESK PUBLISHES NO VERDICT, NO GAP FORECAST AND NO PROBABILITY FOR IT. THERE IS NO PREDICTION TO SCORE — GRADING THE ENGINE'S INTERNAL NUMBER ANYWAY WOULD BE EXACTLY THE "SCORING A MODEL NOBODY RAN" ERROR THIS PANEL EXISTS TO REFUSE.`,
+        days, identity,
+      );
       cacheSet(cacheKey, body);
-      return skip(`${target.label} IS A TAPE CHECK, NOT A CALL. THE ENGINE'S LEGS ARE READ AT 09:00 IST AND THIS INDEX OPENS AT ${target.openHHMM} ${target.venue === "NYSE" || target.venue === "NASDAQ" ? "ET" : "LOCAL"}, SO THE LIVE DESK PUBLISHES NO VERDICT, NO GAP FORECAST AND NO PROBABILITY FOR IT. THERE IS NO PREDICTION TO SCORE — GRADING THE ENGINE'S INTERNAL NUMBER ANYWAY WOULD BE EXACTLY THE "SCORING A MODEL NOBODY RAN" ERROR THIS PANEL EXISTS TO REFUSE.`, days, identity);
+      return NextResponse.json(body);
     }
     const [series, vix, legDaily, legHourly] = await Promise.all([
       dailySeries(target.symbol),
@@ -303,11 +354,12 @@ export async function GET(req: NextRequest) {
     // rather than as a missing measurement. So it is reported as one.
     if (!series || series.bars.length < 60) {
       const have = series?.bars.length ?? 0;
-      cacheSet(cacheKey, { graded: false });
-      return skip(
+      const body = skipBody(
         `NO REBUILDABLE HISTORY FOR ${target.label} (${target.symbol}). THE PRICE FEED RETURNS ${have} DAILY ${have === 1 ? "BAR" : "BARS"}, AND A WALK-FORWARD REBUILD NEEDS AT LEAST 60. THE LIVE DESK STILL QUOTES THIS INDEX — IT IS THE *SCORECARD* THAT CANNOT BE BUILT, NOT THE MARKET.`,
         days, identity,
       );
+      cacheSet(cacheKey, body);
+      return NextResponse.json(body);
     }
     const missing = PRE_OPEN_LEGS.filter((_, i) => !legDaily[i]).map((l) => l.short);
     const noHourly = PRE_OPEN_LEGS.filter((_, i) => !legHourly[i]).map((l) => l.short);
@@ -652,6 +704,10 @@ const gapGraded = rows.filter((r) => r.gapOutcome !== "NO_DATA");
       days: rows.length,
       band: FLAT_BAND_PCT,
       sessions: rows.length,
+      /** Newest session the rebuild could grade — printed on the desk. */
+      asOf: rows.length ? rows[rows.length - 1]!.date : null,
+      /** True when the newest session is still forming and is left ungraded. */
+      live: rows.length ? rows[rows.length - 1]!.gapPct === null : false,
       gapGraded: gapGraded.length,
       upGaps: gapGraded.filter((r) => (r.gapPct ?? 0) > FLAT_BAND_PCT).length,
       dnGaps: gapGraded.filter((r) => (r.gapPct ?? 0) < -FLAT_BAND_PCT).length,
@@ -702,7 +758,7 @@ const gapGraded = rows.filter((r) => r.gapOutcome !== "NO_DATA");
       },
       coverageAvg: avg(rows.map((r) => r.coverage)),
 
-      vixLast: vixLast ? round2(vixLast.close) : null,
+      vixLast: vixLast && vixLast.close !== null ? round2(vixLast.close) : null,
       vixDate: vixLast?.date ?? null,
       legCount: PRE_OPEN_LEGS.length,
       missingLegs: missing,
@@ -768,16 +824,24 @@ function block0(n: number): number {
  * measurement it cannot make, which is information, not a fault. The client
  * renders the reason in the panel so a missing scorecard never reads as a
  * missing market.
+ *
+ * Returns the BODY, not a response, because this is also what gets cached.
+ * The previous build cached a sibling object that had dropped `skipReason`, so
+ * the first visit explained itself and every visit inside the rebuild TTL
+ * rendered a bare "NOT AVAILABLE" with no reason at all — the one case where
+ * the desk had something to say and lost it.
  */
-function skip(reason: string, days: number, target: unknown) {
-  return NextResponse.json({
+function skipBody(reason: string, days: number, target: unknown) {
+  return {
     days, band: 0, gapGraded: 0, sessions: 0,
     upGaps: 0, dnGaps: 0, flatGaps: 0, gapHitPct: 0,
     graded: false,
+    asOf: null,
+    live: false,
     skipReason: reason,
     target,
     items: [],
-  });
+  };
 }
 
 

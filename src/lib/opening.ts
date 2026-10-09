@@ -1190,7 +1190,15 @@ export function isHit(o: Outcome): boolean {
 }
 
 // ---- Series helpers (shared by both routes) ------------------------------
-export interface Bar { date: string; close: number; open?: number | null; high?: number | null; low?: number | null }
+/**
+ * A daily bar. `close` is null while Yahoo has published the session's open
+ * but not its settled close — which it does for every cash index, on every
+ * session, for hours after the bell. Dropping those bars silently truncates
+ * the newest session off the end of every rebuilt series; keeping them lets
+ * the caller grade the part that IS knowable (the opening gap) and render "—"
+ * for the part that is not (the day return).
+ */
+export interface Bar { date: string; close: number | null; open?: number | null; high?: number | null; low?: number | null }
 
 export function pctChange(now: number | null, ref: number | null): number | null {
   if (now === null || ref === null || !isFinite(now) || !isFinite(ref) || ref === 0) return null;

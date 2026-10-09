@@ -159,6 +159,10 @@ export interface HistoryWire {
     transfer: string;
   };
   days: number; band: number; gapGraded: number; sessions: number;
+  /** Newest session the rebuild graded; null when nothing could be graded. */
+  asOf: string | null;
+  /** TRUE when the newest bar is a session still in progress. */
+  live: boolean;
   upGaps: number; dnGaps: number; flatGaps: number; gapHitPct: number;
   oos: HeadlineWire;
   inSample: HeadlineWire;

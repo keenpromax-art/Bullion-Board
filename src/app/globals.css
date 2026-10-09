@@ -415,7 +415,6 @@ a:hover { text-decoration: underline; }
 .panel { background: var(--panel); border: 1px solid var(--grid); border-radius: 3px; padding: 14px; box-shadow: var(--panel-lift); }
 .panel-glow { box-shadow: 0 0 24px color-mix(in srgb, var(--amber) 12%, transparent); border-color: var(--amber-line-hard); }
 .p-head { display: flex; align-items: center; gap: 8px; margin: 0 0 10px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--amber); }
-.p-head::before { content: "â–®"; }
 .grid { display: grid; gap: 10px; }
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1159,8 +1158,7 @@ button.tape-item:focus-visible { outline: 1px solid var(--amber); outline-offset
 .desk-head { margin-bottom: 4px; }
 
 /* in-panel typography: mh micro-headers, 12px right-aligned tables, stat cards */
-.term-panel-body .p-head { font-size: 11px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; color: var(--amber); border-bottom: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); padding-bottom: 4px; margin: 0 0 8px 0; display: block; }
-.term-panel-body .p-head::before { content: none; }
+.term-panel-body .p-head { font-size: 11px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.08em; color: var(--amber); border-bottom: 1px solid var(--grid); padding-bottom: 4px; margin: 0 0 8px 0; display: block; }
 .term-panel-body .p-head a { font-size: 10px; }
 .term-panel-body table.plain, .desk-fill table.plain { font-size: 12px; }
 .term-panel-body table.plain th, .desk-fill table.plain th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--amber); border-bottom: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); padding: 4px 6px; text-align: right; }

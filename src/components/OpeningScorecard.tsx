@@ -44,7 +44,8 @@ const edge = o.dirSignPct !== null && o.dirBasePct !== null ? o.dirSignPct - o.d
     <div className="panel panel-glow">
 <p className="p-head">
         Accuracy scorecard — out-of-sample rebuild of the live engine · {h.target?.label ?? "this index"} ·{" "}
-        {h.sessions} sessions
+        {h.sessions} sessions through {h.asOf ?? "—"}
+        {h.live && <span className="badge warn" style={{ marginLeft: 8 }}>NEWEST SESSION STILL FORMING</span>}
         {h.target && !h.target.fitted && (
           <span className="badge" style={{ marginLeft: 8 }}>FITTED ON NIFTY 50 — TRANSFERRED HERE</span>
         )}
