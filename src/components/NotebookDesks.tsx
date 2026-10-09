@@ -496,7 +496,7 @@ export function NbMoversDesk() {
   const qtn = quar && quar.count > 0 ? quar : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
-      <Head id="80" sub={`MOVERS RANK · ${isBoth ? "1W + 1M, ONE SCAN" : `${w} TOP/BOTTOM ${w === "1D" ? 10 : 5}`} — ALL ${data?.universe ?? "—"} F&O NAMES SCANNED — SPOT EQUITY (NB TITLES SAY OPTIONS, CODE IS SPOT)`} />
+      <Head id="80" sub={`MOVERS RANK · ${isBoth ? "1W + 1M, ONE SCAN" : `${w} TOP/BOTTOM 10`} — ALL ${data?.universe ?? "—"} F&O NAMES SCANNED — SPOT EQUITY (NB TITLES SAY OPTIONS, CODE IS SPOT)`} />
       <div className="toolbar">
         <Pills opts={["1D", "1W", "1M", "BOTH"]} val={w} set={setW} />
         <Pills opts={["FO", "ALL"]} val={u} set={setU} />
@@ -526,7 +526,7 @@ export function NbMoversDesk() {
       {!isBoth && top.length > 0 && (
         <div className="grid grid-2">
           <div className="panel">
-            <p className="p-head">Top 10 — {w} · {win0.ranked ?? top.length} ranked</p>
+            <p className="p-head">Top {top.length} — {w} · {win0.ranked ?? top.length} ranked</p>
             <table className="plain">
               <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>PREV→LAST</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
               <tbody>
@@ -537,7 +537,7 @@ export function NbMoversDesk() {
             </table>
           </div>
           <div className="panel">
-            <p className="p-head">Bottom 10 — {w}</p>
+            <p className="p-head">Bottom {bot.length} — {w}</p>
             <table className="plain">
               <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>PREV→LAST</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
               <tbody>
@@ -557,7 +557,7 @@ export function NbMoversDesk() {
           {windows.map((win: any) => (
             <div key={win.win} className="grid grid-2">
               <div className="panel">
-                <p className="p-head">Top 5 — {win.win} · median span {win.medianSpan}d</p>
+                <p className="p-head">Top {win.top.length} — {win.win} · median span {win.medianSpan}d</p>
                 <table className="plain">
                   <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
                   <tbody>
@@ -568,7 +568,7 @@ export function NbMoversDesk() {
                 </table>
               </div>
               <div className="panel">
-                <p className="p-head">Bottom 5 — {win.win} · median span {win.medianSpan}d</p>
+                <p className="p-head">Bottom {win.bottom.length} — {win.win} · median span {win.medianSpan}d</p>
                 <table className="plain">
                   <thead><tr><th>SEC</th><th style={{ textAlign: "right" }}>LAST ₹</th><th style={{ textAlign: "right" }}>CHG%</th><th style={{ textAlign: "right" }}>SPAN</th></tr></thead>
                   <tbody>

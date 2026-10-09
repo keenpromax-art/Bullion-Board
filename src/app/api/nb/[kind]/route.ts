@@ -554,15 +554,21 @@ async function kindMovers(sp: URLSearchParams) {
    * 1D IS THE NOTEBOOK'S CELL: top 10 and bottom 10 of `period="5d"` moves.
    *
    * The notebook's own universe is the same 209 and its window is exactly the
-   * last two closes on a 5d pull, so `lookback: 2, topN: 10` matches it. The 1W
-   * and 1M rows the desk also offers are NOT in this cell - they came from the
+   * last two closes on a 5d pull, so `lookback: 2` matches it. The 1W and 1M
+   * rows the desk also offers are NOT in this cell - they came from the
    * neighbouring windows cells - so they stay available but the 1D board is the
    * one that can be checked line for line against what the notebook prints.
+   *
+   * EVERY WINDOW PRINTS TEN. The notebook's week/month cells trim to 5, which
+   * left the desk with a "TOP 10" heading over five rows — the panel promised a
+   * depth the payload never delivered. Ten deep on both sides of every window is
+   * the desk's own contract, and the full ranking is already in `all` behind the
+   * CSV.
    */
   const WINDOWS = {
     "1D": { lookback: 2, topN: 10 },
-    "1W": { lookback: 6, topN: 5 },
-    "1M": { lookback: 22, topN: 5 },
+    "1W": { lookback: 6, topN: 10 },
+    "1M": { lookback: 22, topN: 10 },
   } as const;
   type Win = keyof typeof WINDOWS;
 

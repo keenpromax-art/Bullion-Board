@@ -89,7 +89,7 @@ export const MODULES: ModuleInfo[] = [
   m("77", "run_nb_sma_cross", "SMA Crossover Screener (NB)", "Screener", "Notebook port: 50/200 SMA at/post/approaching cross with 2% proximity rule."),
   m("78", "run_nb_correlation", "Correlation Scanner (NB)", "Statistical", "Notebook port: all-pairs negative Pearson filter + single-target inverse top-3."),
   m("79", "run_nb_safety_first", "Safety-First Optimizer (NB)", "Portfolio", "Notebook port: 4-factor rank to top-25, 10-stock bounded max-Sharpe with monetary legs."),
-  m("80", "run_nb_movers", "Movers Rank (NB)", "Screener", "Notebook port: top/bottom 10 (1D) + top/bottom 5 (1W/1M) over F&O or full NSE."),
+  m("80", "run_nb_movers", "Movers Rank (NB)", "Screener", "Notebook port: top/bottom 10 across 1D / 1W / 1M over F&O or full NSE."),
   m("81", "run_nb_vol_range", "Volatility Range Dashboard (NB)", "Risk", "Notebook port: single-ticker daily/weekly/monthly projected low-high from avg swings."),
   m("82", "run_nb_sector", "Sector Scanner (NB)", "Market", "Notebook port: 208-ticker 19-sector map, 1D/1W/1M means, board + leaders."),
   m("83", "run_nb_ipo", "IPO Listings (NB)", "Screener", "Notebook port: screener.in upcoming/recent/below-price boards via server proxy."),
