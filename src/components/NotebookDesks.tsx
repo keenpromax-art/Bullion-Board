@@ -494,6 +494,19 @@ export function NbMoversDesk() {
   const isBoth = w === "BOTH";
   const skips = skipped && skipped.count > 0 ? skipped : null;
   const qtn = quar && quar.count > 0 ? quar : null;
+  // A SKIPPED NAME IS JUST AS INVISIBLE AS A HELD-BACK ONE. The panel used to be
+  // gated on the quarantine alone, so a universe where every name failed the
+  // length gate - zero halted, zero stale - printed no panel at all and the skip
+  // breakdown that would have named the cause went with it. Merge the two so the
+  // desk always accounts for every symbol it was asked about.
+  const held = qtn || skips
+    ? {
+        count: (qtn?.count ?? 0) + (skips?.count ?? 0),
+        halted: qtn?.halted ?? 0,
+        stale: qtn?.stale ?? 0,
+        haltedSample: qtn?.haltedSample ?? [],
+      }
+    : null;
   return (
     <div className="grid" style={{ gap: 10 }}>
       <Head id="80" sub={`MOVERS RANK · ${isBoth ? "1W + 1M, ONE SCAN" : `${w} TOP/BOTTOM 10`} — ALL ${data?.universe ?? "—"} F&O NAMES SCANNED — SPOT EQUITY (NB TITLES SAY OPTIONS, CODE IS SPOT)`} />
@@ -522,7 +535,41 @@ export function NbMoversDesk() {
       </div>
       {loading && <p className="muted">RANKING {u === "FO" ? 209 : "FULL NSE"}…</p>}
       {err && <p className="neg">ERR: {err} <button className="ghost" onClick={reload}>RETRY</button></p>}
-      {!loading && !err && top.length === 0 && <p className="muted">NO MOVERS — RETRY.</p>}
+      {/* An empty board is a RESULT, not a glitch, and the payload always says
+          why. When every name was skipped the reasons are known — printing
+          "RETRY" instead is a desk that knows the answer and withholds it, and
+          the user is left re-clicking a button that cannot fix a length gate. */}
+      {!loading && !err && top.length === 0 && (
+        skips ? (
+          <div className="panel">
+            <p className="p-head neg">NO MOVERS — {skips.count} of {data?.universe ?? "—"} names produced no reading</p>
+            <div className="cells" style={{ marginBottom: 8 }}>
+              <div className="cell"><div className="lbl">RANKED</div><div className="val neg" style={{ fontSize: 16 }}>{data?.count ?? 0}</div><div className="sub">of {data?.universe ?? "—"} requested</div></div>
+              <div className="cell"><div className="lbl">SKIPPED</div><div className="val" style={{ fontSize: 16 }}>{skips.count}</div><div className="sub">no usable reading</div></div>
+              <div className="cell"><div className="lbl">HELD BACK</div><div className="val" style={{ fontSize: 16 }}>{quar?.count ?? 0}</div><div className="sub">halted or stale print</div></div>
+            </div>
+            <table className="plain">
+              <thead><tr><th>REASON</th><th style={{ textAlign: "right" }}>NAMES</th></tr></thead>
+              <tbody>
+                {Object.entries(skips.reasons).sort((a, b) => b[1] - a[1]).map(([reason, n]) => (
+                  <tr key={reason}><td>{reason}</td><td style={{ textAlign: "right" }}><strong>{n}</strong></td></tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="faint" style={{ fontSize: 10.5, lineHeight: 1.6, marginTop: 6 }}>
+              THE LENGTH GATE, NOT THE FEED. EACH NAME IS PULLED OVER {w === "1D" ? "5 CALENDAR DAYS" : "TWO CALENDAR MONTHS"} AND MUST
+              ANSWER WITH AT LEAST {w === "1D" ? "2" : "22"} TRADING BARS BEFORE IT CAN BE RANKED. A RETRY RE-ISSUES THE SAME
+              PULL AND WILL FAIL THE SAME WAY — SAMPLE OF THE REJECTED: {skips.sample.slice(0, 6).map((s) => s.sym).join(", ")}
+              {skips.count > 6 ? ` +${skips.count - 6} MORE` : ""}.
+            </p>
+          </div>
+        ) : (
+          <p className="muted">
+            NO MOVERS — {data?.count ?? 0} OF {data?.universe ?? "—"} NAMES ANSWERED AND NONE PRODUCED A READING.{" "}
+            <button className="ghost" onClick={reload}>RETRY</button>
+          </p>
+        )
+      )}
       {!isBoth && top.length > 0 && (
         <div className="grid grid-2">
           <div className="panel">
@@ -594,18 +641,18 @@ export function NbMoversDesk() {
           names are removed from the ranking AND shown, with the reason and the
           real elapsed span, so "why isn't this stock on this list" is answerable
           without leaving the desk. */}
-      {qtn && (
+      {held && (
         <div className="panel">
-          <p className="p-head">Held back from the ranking — {qtn.count} names whose print is not a real move</p>
+          <p className="p-head">Did not reach the board — {held.count} of {data?.universe ?? "—"} names</p>
           <div className="cells" style={{ marginBottom: 8 }}>
-            <div className="cell"><div className="lbl">HALTED</div><div className="val" style={{ fontSize: 16 }}>{qtn.halted}</div><div className="sub">zero volume on the last print</div></div>
-            <div className="cell"><div className="lbl">STALE</div><div className="val" style={{ fontSize: 16 }}>{qtn.stale}</div><div className="sub">span far longer than the median</div></div>
+            <div className="cell"><div className="lbl">HALTED</div><div className="val" style={{ fontSize: 16 }}>{held.halted}</div><div className="sub">zero volume on the last print</div></div>
+            <div className="cell"><div className="lbl">STALE</div><div className="val" style={{ fontSize: 16 }}>{held.stale}</div><div className="sub">span far longer than the median</div></div>
             <div className="cell"><div className="lbl">SKIPPED</div><div className="val" style={{ fontSize: 16 }}>{skips?.count ?? 0}</div><div className="sub">no usable reading at all</div></div>
           </div>
-          {qtn.halted > 0 && (
+          {held.halted > 0 && (
             <p className="faint" style={{ fontSize: 10.5 }}>
-              HALTED: {qtn.haltedSample.join(", ")}
-              {qtn.halted > qtn.haltedSample.length ? ` +${qtn.halted - qtn.haltedSample.length} MORE` : ""}
+              HALTED: {held.haltedSample.join(", ")}
+              {held.halted > held.haltedSample.length ? ` +${held.halted - held.haltedSample.length} MORE` : ""}
             </p>
           )}
           {staleRows.length > 0 && (
@@ -623,8 +670,8 @@ export function NbMoversDesk() {
               </tbody>
             </table>
           )}
-          {qtn.stale > staleRows.length && (
-            <p className="faint" style={{ fontSize: 10.5 }}>+{qtn.stale - staleRows.length} MORE STALE NOT LISTED</p>
+          {held.stale > staleRows.length && (
+            <p className="faint" style={{ fontSize: 10.5 }}>+{held.stale - staleRows.length} MORE STALE NOT LISTED</p>
           )}
           {skips && (
             <p className="faint" style={{ fontSize: 10.5 }}>
@@ -636,8 +683,11 @@ export function NbMoversDesk() {
       )}
       <p className="faint" style={{ fontSize: 10.5 }}>
         1D = LAST/SECOND-LAST CLOSE · 1W = ILOC[-6] · 1M = ILOC[-22] · COUNT {data?.count ?? "—"}/{data?.universe ?? "—"}
-        {qtn ? ` · ${qtn.count} HELD BACK, SEE ABOVE` : ""} · SPAN = REAL ELAPSED CALENDAR DAYS BEHIND THE NUMBER
+        {held ? ` · ${held.count} DID NOT REACH THE BOARD, SEE ABOVE` : ""} · SPAN = REAL ELAPSED CALENDAR DAYS BEHIND THE NUMBER
         {isBoth && " · BOTH WINDOWS SHARE ONE SCAN OF 2MO, NOT TWO SCANS"}
+        {" · "}THE REFERENCE BAR AND THE LENGTH FLOOR ARE SEPARATE THINGS: 1W READS BACK 6 BARS BUT
+        {w === "1D" ? " 1D" : " 1W AND 1M"} STILL REQUIRE {w === "1D" ? "2" : "22"} TRADING BARS OF TAPE TO ANSWER FOR
+        {w === "1D" ? " 5 CALENDAR DAYS" : " TWO CALENDAR MONTHS"} — THAT FLOOR IS THE NOTEBOOK'S, NOT THE DESK'S
       </p>
       {/* A PADDED LIST. "Top 10" is a rank, not a claim that ten things went up.
           When fewer than ten names rose, the table must pad with the least-bad

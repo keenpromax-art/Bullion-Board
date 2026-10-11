@@ -580,14 +580,19 @@ async function kindMovers(sp: URLSearchParams) {
   // window pill changed, so asking for both cost two full passes where one
   // serves.
   //
-  // Range is chosen in CALENDAR terms, not bar terms — and getting that wrong is
-  // silent. `range=5d` is five CALENDAR days, which yields roughly three trading
-  // bars, so keying it off `lookback > 6` gave a 6-bar window a 5-day window and
-  // every single name failed the length check. The desk came back empty and said
-  // nothing about why. Roughly six trading bars need a calendar month; roughly
-  // twenty-two need two.
-  const range = maxLookback <= 2 ? "5d" : maxLookback <= 6 ? "1mo" : "2mo";
-
+  // RANGE IS CHOSEN IN CALENDAR TERMS, NOT BAR TERMS, AND IT IS DERIVED FROM THE
+  // FLOOR BELOW RATHER THAN PICKED ALONGSIDE IT — the two were decided separately
+  // and disagreed, which is silent and total.
+  //
+  // `range=5d` is five CALENDAR days and yields about three trading bars, so the
+  // original `lookback > 6` test handed a 6-bar window a 5-day pull and every name
+  // failed the length check. Fixing that by giving 1W a `1mo` pull only moved the
+  // cliff: a calendar month is 20-23 trading bars (21 on the tape this was written
+  // against), and the week/month cell's floor is 22. So 1W asked for a month of
+  // bars and then demanded 22 of them, rejected all 209 names, and the board came
+  // back empty with no error. The two decisions have to be ONE decision: only 2
+  // bars are ever asked for, and only 5 calendar days carry 2 bars. Every other
+  // window inherits 22, and 22 bars only come from 2mo.
   /**
    * MINIMUM BARS FOLLOWS THE WINDOW, AND THE WINDOW CELLS SHARE ONE FLOOR.
    *
@@ -605,6 +610,7 @@ async function kindMovers(sp: URLSearchParams) {
    * above, in the opposite direction.
    */
   const minBars = maxLookback <= 2 ? 2 : 22;
+  const range = minBars <= 2 ? "5d" : "2mo";
 
   const skips: { sym: string; reason: string }[] = [];
   const halted: { sym: string; spanDays: number | null }[] = [];
