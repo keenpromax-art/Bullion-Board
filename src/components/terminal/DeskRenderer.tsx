@@ -14,9 +14,11 @@ import { SectorDesk } from "@/components/SectorDesks";
 import { StatementsTerminal } from "@/components/StatementsTerminal";
 import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk, LinkerDesk } from "@/components/FundaDesks";
-import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk, StockGreeksDesk } from "@/components/QuantDesks";
+import { VolTerm, MLDossier, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk, StockGreeksDesk } from "@/components/QuantDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
 import { FilingsDesk } from "@/components/FilingDesks";
+import { PoliDesk } from "@/components/PoliDesks";
+import { PairDesk } from "@/components/PairTerminal";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ANRDesk, CastDesk } from "@/components/CapitalDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
@@ -37,7 +39,7 @@ import { analyseChain, calcSuggestion, expiryToDays } from "@/lib/ochain";
 // Central desk dispatcher for Panel.tsx. Renders the SAME desk components
 // as /module/[id] but without page chrome (no CommandBar/StatusBar, no
 // 100vh assumptions). Wrapper fills its panel via .desk-fill (min-height 0,
-// internal scroll) â€” never owns the viewport.
+// internal scroll) — never owns the viewport.
 
 const NEWS_FEED: Record<string, string> = {
   "34": "company", "37": "company", "44": "finshots",
@@ -54,7 +56,7 @@ const MARKET_IDS = new Set(["53"]);
 
 // Desks where a ticker is meaningless: news wires, market/macro boards,
 // screeners, readers, portfolio-style tools. Panels and headers hide the
-// symbol chrome for these (data flow untouched â€” symbol stays in spec).
+// symbol chrome for these (data flow untouched — symbol stays in spec).
 export const SYMBOL_LESS = new Set([
   "38", "41", "44", "45", "46", "47", "49", "51", "53",
   "65", "67", "72", "73", "75",
@@ -62,12 +64,14 @@ export const SYMBOL_LESS = new Set([
   "114", "115", "SET", "116",
   // Notebook-port universe scans: ticker is meaningless (universe pill inside).
   "76", "77", "78", "79", "80", "82", "83", "84",
+  // 118 POLD — the subject is a person and a public register, not a security.
+  "118",
 ]);
 
 function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
   const mod = MODULE_MAP[funcId];
   if (!mod) return null;
-  // Symbol-less desks show no header block at all â€” the panel chrome
+  // Symbol-less desks show no header block at all — the panel chrome
   // already names the function.
   if (!symbol || SYMBOL_LESS.has(funcId)) return null;
   return (
@@ -77,7 +81,7 @@ function DeskHead({ funcId, symbol }: { funcId: string; symbol: string }) {
         <span className="suffix"> {symbol ? "<EQUITY> " : ""}{funcCode(funcId)} &lt;GO&gt;</span>
       </span>
       <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-        {mod.label.toUpperCase()} Â· {mod.pyFn} Â· {mod.category.toUpperCase()}
+        {mod.label.toUpperCase()} · {mod.pyFn} · {mod.category.toUpperCase()}
       </div>
     </div>
   );
@@ -96,8 +100,8 @@ function DirectoryMini({ symbol, onPickHere, onPickNew }: {
   });
   return (
     <div className="grid" style={{ gap: 8 }}>
-      <div className="toolbar"><input className="box" value={q} onChange={(e) => setQ(e.target.value.toUpperCase())} placeholder="FILTER: NAME, FNCâ€¦" />
-        <button className="ghost" onClick={() => onPickHere("SET")} title="Open settings â€” API key Â· model Â· FRED">âš™ SET</button>
+      <div className="toolbar"><input className="box" value={q} onChange={(e) => setQ(e.target.value.toUpperCase())} placeholder="FILTER: NAME, FNC…" />
+        <button className="ghost" onClick={() => onPickHere("SET")} title="Open settings — API key · model · FRED">⚙ SET</button>
       </div>
       <FunctionDirectory
         ticker={symbol || "RELIANCE.NS"} modules={mods} total={MODULES.filter((m) => !m.hidden).length}
@@ -154,16 +158,16 @@ function OChainMini({ symbol }: { symbol: string }) {
   return (
     <div className="grid" style={{ gap: 8 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <span className="faint" style={{ fontSize: 10.5 }}>{sym}{expiry ? ` Â· ${expiry}` : ""}</span>
-        <a href={`/ochain?symbol=${encodeURIComponent(sym)}`} style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}>FULL OPTION CHAIN â†’</a>
+        <span className="faint" style={{ fontSize: 10.5 }}>{sym}{expiry ? ` · ${expiry}` : ""}</span>
+        <a href={`/ochain?symbol=${encodeURIComponent(sym)}`} style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}>FULL OPTION CHAIN →</a>
       </div>
       <div className="cells">
-        <div className="cell"><div className="lbl">Spot</div><div className="val" style={{ fontSize: 16 }}>{spot ? spot.toLocaleString("en-IN") : "â€”"}</div><div className="sub">{sym} Â· {expiry || "NO EXPIRY"}</div></div>
-        <div className="cell"><div className="lbl">PCR</div><div className={`val ${(m?.a.pcr ?? 0) >= 1 ? "pos" : "neg"}`} style={{ fontSize: 16 }}>{m ? m.a.pcr : "â€”"}</div><div className="sub">{m ? m.a.sentiment : "OI"}</div></div>
-        <div className="cell"><div className="lbl">Max pain</div><div className="val" style={{ fontSize: 16 }}>{m ? Math.round(m.a.maxPain).toLocaleString("en-IN") : "â€”"}</div><div className="sub">ATM {m ? m.atm.toLocaleString("en-IN") : "â€”"}</div></div>
-        <div className="cell"><div className="lbl">Signal</div><div className="val" style={{ fontSize: 13 }}>{sug ? sug.action : "â€”"}</div><div className="sub">T-{expiry ? expiryToDays(expiry) : "?"}D</div></div>
+        <div className="cell"><div className="lbl">Spot</div><div className="val" style={{ fontSize: 16 }}>{spot ? spot.toLocaleString("en-IN") : "—"}</div><div className="sub">{sym} · {expiry || "NO EXPIRY"}</div></div>
+        <div className="cell"><div className="lbl">PCR</div><div className={`val ${(m?.a.pcr ?? 0) >= 1 ? "pos" : "neg"}`} style={{ fontSize: 16 }}>{m ? m.a.pcr : "—"}</div><div className="sub">{m ? m.a.sentiment : "OI"}</div></div>
+        <div className="cell"><div className="lbl">Max pain</div><div className="val" style={{ fontSize: 16 }}>{m ? Math.round(m.a.maxPain).toLocaleString("en-IN") : "—"}</div><div className="sub">ATM {m ? m.atm.toLocaleString("en-IN") : "—"}</div></div>
+        <div className="cell"><div className="lbl">Signal</div><div className="val" style={{ fontSize: 13 }}>{sug ? sug.action : "—"}</div><div className="sub">T-{expiry ? expiryToDays(expiry) : "?"}D</div></div>
       </div>
-      {loading && <p className="muted">PULLING CHAINâ€¦</p>}
+      {loading && <p className="muted">PULLING CHAIN…</p>}
       {err && <p className="neg">ERR: {err}</p>}
       {rows.length > 0 && (
         <div className="scrollx" style={{ maxHeight: 320, overflowY: "auto" }}>
@@ -188,7 +192,7 @@ function OChainMini({ symbol }: { symbol: string }) {
 }
 
 function MacroSpark({ data }: { data: number[] }) {
-  if (!data || data.length < 2) return <span className="faint">â€”</span>;
+  if (!data || data.length < 2) return <span className="faint">—</span>;
   const mn = Math.min(...data), mx = Math.max(...data);
   const up = data[data.length - 1] >= data[0];
   const pts = data.map((v, i) => `${((i / (data.length - 1)) * 96).toFixed(1)},${(24 - 2 - ((v - mn) / (mx - mn || 1)) * 20).toFixed(1)}`).join(" ");
@@ -231,7 +235,7 @@ function MacroMini() {
     }).catch((e) => { if (alive) setErr(e.message); })
       .finally(() => { if (alive) setLoading(false); });
     // Live global cross-asset tape (Yahoo): bullion, energy, US/EU/Asia
-    // indices + INR crosses â€” the intraday complement to monthly FRED.
+    // indices + INR crosses — the intraday complement to monthly FRED.
     fetch("/api/market").then((r) => r.json()).then((j) => {
       if (!alive) return;
       const want = ["GC=F", "SI=F", "CL=F", "^GSPC", "^FTSE", "^N225", "USDINR=X", "EURINR=X"];
@@ -245,12 +249,12 @@ function MacroMini() {
   return (
     <div className="grid" style={{ gap: 4 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <span className="faint" style={{ fontSize: 10.5 }}>{liveCount > 0 ? `${liveCount} LIVE Â· INDIA/GLOBAL` : "INDIA/GLOBAL"}</span>
-        <a href="/macro" style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}>FULL MACRO DESK â†’</a>
+        <span className="faint" style={{ fontSize: 10.5 }}>{liveCount > 0 ? `${liveCount} LIVE · INDIA/GLOBAL` : "INDIA/GLOBAL"}</span>
+        <a href="/macro" style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap" }}>FULL MACRO DESK →</a>
       </div>
-      {loading && rows.length === 0 && <p className="muted">PULLING MACROâ€¦</p>}
+      {loading && rows.length === 0 && <p className="muted">PULLING MACRO…</p>}
       {err && <p className="neg">ERR: {err}</p>}
-      {!loading && !err && rows.length === 0 && <p className="muted">NO MACRO ROWS â€” RETRY.</p>}
+      {!loading && !err && rows.length === 0 && <p className="muted">NO MACRO ROWS — RETRY.</p>}
       {rows.map((r: any) => {
         const showGroup = r.group !== lastGroup;
         lastGroup = r.group;
@@ -262,50 +266,50 @@ function MacroMini() {
               className="kv" role="button" tabIndex={0}
               onClick={() => setOpenId(open ? null : r.id)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenId(open ? null : r.id); } }}
-              title={`${r.label} â€” CLICK FOR AS-OF / YOY / TREND`}
+              title={`${r.label} — CLICK FOR AS-OF / YOY / TREND`}
               style={{ cursor: "pointer" }}
             >
               <span className="muted">{r.label} <span className="faint">{r.unit}</span></span>
               <strong>{r.latest} <span className={(r.chgSign ?? 0) >= 0 ? "pos" : "neg"}>{r.chg}</span></strong>
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", padding: "2px 0 4px 0" }}>
-              <span className="faint" style={{ fontSize: 10.5 }}>AS OF {r.date ?? "â€”"} Â· YOY <span className="muted">{r.yoy ?? "â€”"}</span></span>
+              <span className="faint" style={{ fontSize: 10.5 }}>AS OF {r.date ?? "—"} · YOY <span className="muted">{r.yoy ?? "—"}</span></span>
               <MacroSpark data={r.spark ?? []} />
             </div>
             {open && (
               <div className="panel" style={{ padding: "8px 10px", margin: "0 0 6px 0" }}>
-                <div className="kv"><span className="muted">PREV Î”</span><strong className={(r.chgSign ?? 0) >= 0 ? "pos" : "neg"}>{r.chg}</strong></div>
-                <div className="kv"><span className="muted">YOY</span><strong>{r.yoy ?? "â€”"} <span className="faint" style={{ fontWeight: 400 }}>{r.yoyDate ? `VS ${r.yoyDate}` : ""}</span></strong></div>
-                <div className="kv"><span className="muted">AS OF</span><strong>{r.date ?? "â€”"}</strong></div>
+                <div className="kv"><span className="muted">PREV Δ</span><strong className={(r.chgSign ?? 0) >= 0 ? "pos" : "neg"}>{r.chg}</strong></div>
+                <div className="kv"><span className="muted">YOY</span><strong>{r.yoy ?? "—"} <span className="faint" style={{ fontWeight: 400 }}>{r.yoyDate ? `VS ${r.yoyDate}` : ""}</span></strong></div>
+                <div className="kv"><span className="muted">AS OF</span><strong>{r.date ?? "—"}</strong></div>
                 {r.title && <div className="kv"><span className="muted">SERIES</span><strong style={{ fontSize: 11 }}>{r.title}</strong></div>}
-                {r.freq && <div className="kv"><span className="muted">FREQ</span><strong>{r.freq}{r.seasonal ? ` Â· ${r.seasonal}` : ""}</strong></div>}
-                <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>{r.group} Â· 24-OBS TREND Â· CLICK ROW TO COLLAPSE</p>
+                {r.freq && <div className="kv"><span className="muted">FREQ</span><strong>{r.freq}{r.seasonal ? ` · ${r.seasonal}` : ""}</strong></div>}
+                <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0 0" }}>{r.group} · 24-OBS TREND · CLICK ROW TO COLLAPSE</p>
               </div>
             )}
           </div>
         );
       })}
-      <p className="p-head" style={{ margin: "8px 0 2px 0" }}>GLOBAL MARKETS Â· LIVE</p>
-      {mkt.length === 0 && <p className="faint" style={{ fontSize: 10.5, margin: "0 0 4px 0" }}>PULLING LIVE TAPEâ€¦</p>}
+      <p className="p-head" style={{ margin: "8px 0 2px 0" }}>GLOBAL MARKETS · LIVE</p>
+      {mkt.length === 0 && <p className="faint" style={{ fontSize: 10.5, margin: "0 0 4px 0" }}>PULLING LIVE TAPE…</p>}
       {mkt.map((m: any) => {
         const up = (m.chgPct ?? 0) >= 0;
         const px = typeof m.price === "number" && isFinite(m.price)
           ? m.price.toLocaleString("en-IN", { maximumFractionDigits: m.price < 100 ? 2 : 0 })
-          : "â€”";
+          : "—";
         return (
           <div key={m.sym}>
             <div className="kv">
               <span className="muted">{m.label} <span className="faint">{m.sym.replace("=F", "").replace("^", "").replace("=X", "")}</span></span>
-              <strong>{px} <span className={up ? "pos" : "neg"}>{isFinite(m.chgPct) ? `${up ? "+" : ""}${m.chgPct.toFixed(2)}%` : "â€”"}</span></strong>
+              <strong>{px} <span className={up ? "pos" : "neg"}>{isFinite(m.chgPct) ? `${up ? "+" : ""}${m.chgPct.toFixed(2)}%` : "—"}</span></strong>
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", padding: "2px 0 4px 0" }}>
-              <span className="faint" style={{ fontSize: 10.5 }}>1D Â· YAHOO</span>
+              <span className="faint" style={{ fontSize: 10.5 }}>1D · YAHOO</span>
               <MacroSpark data={m.spark ?? []} />
             </div>
           </div>
         );
       })}
-      {asof && <span className="faint" style={{ fontSize: 10.5 }}>FRED AS OF {asof} Â· LIVE TAPE VIA YAHOO</span>}
+      {asof && <span className="faint" style={{ fontSize: 10.5 }}>FRED AS OF {asof} · LIVE TAPE VIA YAHOO</span>}
     </div>
   );
 }
@@ -327,7 +331,7 @@ function NexusDesk() {
     <div className="nexus-fill">
       <iframe
         src={NEXUS_CHAT_URL}
-        title="Nexus Chat â€” CFA study app"
+        title="Nexus Chat — CFA study app"
         allow="clipboard-read; clipboard-write; fullscreen"
         allowFullScreen
         loading="lazy"
@@ -476,19 +480,19 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
   return (
     <div className="grid" style={{ gap: 10 }}>
       {data?.resolvedFrom && <ResolutionNote from={data.resolvedFrom} to={data.symbol} />}
-      {loading && <p className="muted">LOADING {code} FOR {symbol}â€¦</p>}
+      {loading && <p className="muted">LOADING {code} FOR {symbol}…</p>}
       {err && <DeskError err={err} onRetry={() => setRetryN((n) => n + 1)} />}
       {data && (
         <div className="cells">
-          <div className="cell"><div className="lbl">Last</div><div className={`val ${liveUp ? "pos" : "neg"}`} style={{ fontSize: 15 }}>{livePx !== undefined ? fmtINR(livePx) : "â€”"}</div><div className="sub">{liveUp ? "â–²" : "â–¼"} {Math.abs(liveChg).toFixed(2)}%</div></div>
+          <div className="cell"><div className="lbl">Last</div><div className={`val ${liveUp ? "pos" : "neg"}`} style={{ fontSize: 15 }}>{livePx !== undefined ? fmtINR(livePx) : "—"}</div><div className="sub">{liveUp ? "▲" : "▼"} {Math.abs(liveChg).toFixed(2)}%</div></div>
           <div className="cell"><div className="lbl">RSI 14</div><div className="val" style={{ fontSize: 15 }}>{fmtNum(ind.rsi)}</div><div className="sub">WILDER</div></div>
           <div className="cell"><div className="lbl">ADX</div><div className="val" style={{ fontSize: 15 }}>{fmtNum(ind.adx)}</div><div className="sub">TREND</div></div>
           <div className="cell"><div className="lbl">Sharpe</div><div className="val" style={{ fontSize: 15 }}>{fmtNum(risk.sharpe)}</div><div className="sub">ANN</div></div>
           <div className="cell"><div className="lbl">Max DD</div><div className="val neg" style={{ fontSize: 15 }}>{fmtPct(risk?.maxDD?.pct, false)}</div><div className="sub">PEAK-TROUGH</div></div>
-          <div className="cell"><div className="lbl">Signal</div><div className="val" style={{ fontSize: 12 }}>{String(data?.extra?.signal ?? "â€”")}</div><div className="sub">DESK</div></div>
+          <div className="cell"><div className="lbl">Signal</div><div className="val" style={{ fontSize: 12 }}>{String(data?.extra?.signal ?? "—")}</div><div className="sub">DESK</div></div>
         </div>
       )}
-      {data && closes.length > 30 && <div><p className="p-head">Growth of â‚¹100 + underwater</p><EquityDrawdown closes={closes} /></div>}
+      {data && closes.length > 30 && <div><p className="p-head">Growth of ₹100 + underwater</p><EquityDrawdown closes={closes} /></div>}
       {id === "70" && data && closes.length > 30 && <OptionsStrategyDesk symbol={symbol} data={data} />}
       {id === "3" && <ReturnsDesk symbol={symbol} />}
       {data?.extra && id !== "70" && <DeskOutput extra={data.extra} />}
@@ -497,8 +501,8 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
         <div style={{ marginTop: 8 }}><p className="p-head">Daily return distribution</p><Histogram values={rets.map((r) => r * 100)} bins={24} height={100} /></div></div>
       )}
       <div>
-        <p className="p-head">AI analyst â€” {code}</p>
-        <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading || !data}>{aiLoading ? "RUNNINGâ€¦" : `RUN AI ON ${symbol}`}</button></div>
+        <p className="p-head">AI analyst — {code}</p>
+        <div className="toolbar"><button className="btn" onClick={askAI} disabled={aiLoading || !data}>{aiLoading ? "RUNNING…" : `RUN AI ON ${symbol}`}</button></div>
         {aiOut && <pre className="ai" style={{ marginTop: 8 }}>{aiOut}</pre>}
       </div>
     </div>
@@ -559,7 +563,7 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   if (SCREENER_KIND[id]) return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><ScreenerDesk kind={SCREENER_KIND[id]} /></div>;
   if (id === "40") return <DVDesk symbol={sym} />;
   if (id === "39") return <OwnDesk symbol={sym} />;
-  if (BACKTEST_CFG[id]) return <BacktestDesk symbol={sym} strat={BACKTEST_CFG[id].strat} title={`${BACKTEST_CFG[id].title} â€” ${funcCode(id)}`} />;
+  if (BACKTEST_CFG[id]) return <BacktestDesk symbol={sym} strat={BACKTEST_CFG[id].strat} title={`${BACKTEST_CFG[id].title} — ${funcCode(id)}`} />;
   if (id === "73") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><PolyDesk /></div>;
   if (id === "17") return <CompanyDesk symbol={sym} />;
   if (id === "18") return <DCFDesk symbol={sym} />;
@@ -581,9 +585,12 @@ export default function DeskRenderer({ funcId, symbol, task, onOpen, onExpand, o
   // 117 FIL — filings intelligence. Takes the ticker (that is the subject) and
   // hands onOpen through so an error state can route to the sibling desks.
   if (id === "117") return <FilingsDesk symbol={sym} onOpen={onOpen} />;
+  // 118 POLD — public-interest disclosure across four regimes. Symbol-less:
+  // the subject box is the politician's name, not a ticker.
+  if (id === "118") return <PoliDesk />;
   if (id === "66" || id === "71") return <AIDesk symbol={sym} mode={id === "71" ? "tasks" : "chat"} />;
   if (id === "2" || id === "4" || id === "5") return <ChartDesk symbol={sym} id={id} mode={id === "2" ? "suite" : id === "4" ? "compare" : "score"} title={mod.label.toUpperCase()} />;
-  if (id === "29" || id === "57") return <FrontierPanel symbols={id === "29" ? [sym, "^NSEI"] : [sym, "^NSEI", "GC=F"]} title={`${mod.label.toUpperCase()} â€” ${id === "29" ? "2-ASSET" : "3-ASSET"}`} />;
+  if (id === "29" || id === "57") return <FrontierPanel symbols={id === "29" ? [sym, "^NSEI"] : [sym, "^NSEI", "GC=F"]} title={`${mod.label.toUpperCase()} — ${id === "29" ? "2-ASSET" : "3-ASSET"}`} />;
   if (id === "60") return <NetPanel symbol={sym} />;
   if (id === "11") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><CompanyStrip symbol={sym} /><FundaMenu symbol={sym} /></div>;
   if (id === "13") return <div className="grid" style={{ gap: 10 }}><DeskHead funcId={id} symbol={sym} /><CompanyStrip symbol={sym} /><StmtChartsDesk symbol={sym} /></div>;

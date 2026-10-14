@@ -15,11 +15,13 @@ import { SectorDesk } from "@/components/SectorDesks";
 import { StatementsTerminal } from "@/components/StatementsTerminal";
 import { RiskTerminal } from "@/components/RiskTerminal";
 import { CompanyStrip, FundaTables, DCFDesk, LBODesk, FundaMenu, StmtChartsDesk, DupontDesk, ForensicDesk, AnalyzerDesk, HistoryDesk } from "@/components/FundaDesks";
-import { VolTerm, MLDossier, PairDesk, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk, StockGreeksDesk } from "@/components/QuantDesks";
+import { VolTerm, MLDossier, FactorDesk, DayDesk, MertonDesk, RollingRiskDesk, ForecastDesk, ArimaLstmDesk, VolFrameworkDesk, GarchDesk, AdvGreeksDesk, StockGreeksDesk } from "@/components/QuantDesks";
 import { BookReader } from "@/components/BookDesks";
 import { NbSeasonDesk, NbSmaDesk, NbCorrDesk, NbOptDesk, NbMoversDesk, NbVolDesk, NbSectorDesk, NbIpoDesk, NbTerminalDesk } from "@/components/NotebookDesks";
 import { WikiDesk, BibleDesk, LinkDesk, AIDesk } from "@/components/ReaderDesks";
 import { FilingsDesk } from "@/components/FilingDesks";
+import { PoliDesk } from "@/components/PoliDesks";
+import { PairDesk } from "@/components/PairTerminal";
 import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
 import { LineChart, BarChart, AreaChart, HBars, Histogram, Donut, EquityDrawdown, ChartPanel } from "@/components/charts";
@@ -120,6 +122,16 @@ function useFilingModeParam(): FilingMode {
   return (FILING_MODES as readonly string[]).includes(raw) ? (raw as FilingMode) : "INDEX";
 }
 
+const POLI_MODES = ["REGIME", "US", "UK", "INDIA"] as const;
+type PoliMode = (typeof POLI_MODES)[number];
+
+/** Lets a desk link straight into one register of the politician desk (118). */
+function usePoliModeParam(): PoliMode {
+  const sp = useSearchParams();
+  const raw = (sp.get("mode") ?? "").toUpperCase();
+  return (POLI_MODES as readonly string[]).includes(raw) ? (raw as PoliMode) : "REGIME";
+}
+
 export default function ModulePage({ params }: { params: { id: string } }) {
   return (
     <Suspense fallback={<main className="container"><p className="muted">LOADING DESK…</p></main>}>
@@ -134,6 +146,7 @@ function Inner({ id }: { id: string }) {
   const symParam = useSymParam();
   const task = useTaskParam();
   const modeParam = useFilingModeParam();
+  const poliModeParam = usePoliModeParam();
   const router = useRouter();
   const [symbol, setSymbol] = useState(symParam);
 
@@ -192,6 +205,14 @@ function Inner({ id }: { id: string }) {
     return (
       <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
         <FilingsDesk symbol={symbol} initialMode={modeParam} />
+      </Shell>
+    );
+  }
+
+  if (id === "118") {
+    return (
+      <Shell code={code} symbol={symbol} onTicker={setSymbol} status={status} task={task} funcId={id}>
+        <PoliDesk initialMode={poliModeParam} />
       </Shell>
     );
   }

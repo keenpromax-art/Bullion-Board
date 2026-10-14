@@ -120,6 +120,10 @@ export const TERMINAL_DESKS: ModuleInfo[] = [
   // Filed under Fundamental rather than Terminal: it is a fundamental desk, and
 // m() gives it the /module/117 route it needs for the deep-link surface.
 m("117", "run_filings_intel", "Filings Intelligence", "Fundamental", "SEC EDGAR and NSE regulatory filings: filing index, IS/BS/CFS extracted from filed XBRL, the statements exactly as printed, and the MD&A prose."),
+  // Symbol-less governance desk. Public-interest disclosure rather than equity
+  // research, so it keeps its own category; the four regimes it reads publish
+  // incomparable instruments, which the desk states before it shows anything.
+  m("118", "run_politician_portfolio", "Politician Portfolio Tracker", "Governance", "US STOCK Act (House PTR register + Senate eFD JSON), UK Register of Financial Interests, and India ECI affidavit declarations via ADR — with each regime's real cadence and its real gaps."),
 ];
 
 MODULES.push(...TERMINAL_DESKS);

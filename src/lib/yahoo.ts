@@ -6,7 +6,7 @@ import type { OHLCBar, Quote } from "./types";
 import { YF_INCOME_KEYS, YF_BALANCE_KEYS, YF_CASHFLOW_KEYS } from "./yfKeys";
 import { isIndianTicker, localeForTicker, tickerCurrency } from "./utils";
 
-const chartCache = new Map<string, { ts: number; data: OHLCBar[] }>();
+const chartCache = new Map<string, { ts: number; data: OHLCBar[]; tick: LiveTick | null }>();
 const quoteCache = new Map<string, { ts: number; data: Quote }>();
 
 const CHART_TTL = 10 * 60 * 1000;
@@ -68,10 +68,30 @@ export async function yahooFetch(path: string, init?: RequestInit, retries = 2):
   throw new Error(lastErr || "yahoo failed");
 }
 
-export async function fetchHistory(symbol: string, range = "6mo", interval = "1d"): Promise<OHLCBar[]> {
+/**
+ * Last print Yahoo knows about, pulled from the chart response's own `meta`.
+ *
+ * This is the only live-tick source that actually works on the free feed:
+ * `/v7/finance/quote` is now 401-locked for every symbol, batched or not. The
+ * chart endpoint carries `regularMarketPrice` and `regularMarketTime` alongside
+ * the bars, so a desk that needs today's print gets it from the request it was
+ * already making instead of paying for a second one.
+ */
+export interface LiveTick {
+  price: number;
+  /** Seconds since epoch of the most recent trade. */
+  epoch: number;
+}
+
+interface ChartPayload {
+  bars: OHLCBar[];
+  tick: LiveTick | null;
+}
+
+async function fetchChart(symbol: string, range: string, interval: string): Promise<ChartPayload> {
   const key = `${symbol}|${range}|${interval}`;
   const hit = chartCache.get(key);
-  if (hit && Date.now() - hit.ts < CHART_TTL) return hit.data;
+  if (hit && Date.now() - hit.ts < CHART_TTL) return { bars: hit.data, tick: hit.tick };
 
   const url = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%7Csplit`;
   let res: Response;
@@ -105,9 +125,27 @@ export async function fetchHistory(symbol: string, range = "6mo", interval = "1d
       adjClose: adj?.[i],
     });
   }
-  chartCache.set(key, { ts: Date.now(), data: bars });
+  const meta = result.meta ?? {};
+  const price = meta.regularMarketPrice;
+  const epoch = meta.regularMarketTime;
+  const tick =
+    typeof price === "number" && price > 0 && typeof epoch === "number" ? { price, epoch } : null;
+  chartCache.set(key, { ts: Date.now(), data: bars, tick });
   if (!bars.length) throw new UnknownSymbolError(symbol);
-  return bars;
+  return { bars, tick };
+}
+
+export async function fetchHistory(symbol: string, range = "6mo", interval = "1d"): Promise<OHLCBar[]> {
+  return (await fetchChart(symbol, range, interval)).bars;
+}
+
+/** Bars plus the exchange's last print, from the same single chart request. */
+export async function fetchHistoryTick(
+  symbol: string,
+  range = "6mo",
+  interval = "1d"
+): Promise<{ bars: OHLCBar[]; tick: LiveTick | null }> {
+  return fetchChart(symbol, range, interval);
 }
 
 // ---- Unknown-ticker handling ----
