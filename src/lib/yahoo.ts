@@ -204,33 +204,77 @@ export async function pickReplacement(symbol: string): Promise<{ resolved: strin
   return { resolved: top ? top.symbol : null, suggestions };
 }
 
+/**
+ * Build a Quote from a chart response's `meta`.
+ *
+ * Chart meta carries MORE of what a quote needs than the old v7 endpoint did in
+ * practice: day high/low, 52-week high/low, real change percent, volume, name
+ * and currency. What it genuinely does not carry is market cap, trailing/forward
+ * PE, dividend yield, bid and ask. Those are left null rather than guessed — the
+ * callers that want them already fall back to quoteSummary or derive them from
+ * history, and a fabricated number is worse than an honest gap.
+ */
+function quoteFromChartMeta(symbol: string, meta: any, prevClose: number | null): Quote {
+  const price = typeof meta.regularMarketPrice === "number" ? meta.regularMarketPrice : 0;
+  // `regularMarketChange` is not in meta, but the previous close is, and the
+  // chart's own bars give the settled close when it is not.
+  const change =
+    prevClose !== null && prevClose > 0 ? price - prevClose : (meta.fulldayChange ?? 0);
+  const pct =
+    typeof meta.regularMarketChangePercent === "number"
+      ? meta.regularMarketChangePercent
+      : prevClose && prevClose > 0
+        ? (change / prevClose) * 100
+        : 0;
+  return {
+    symbol: meta.symbol ?? symbol,
+    shortName: meta.shortName ?? meta.longName ?? symbol,
+    longName: meta.longName,
+    currency: meta.currency ?? tickerCurrency(symbol),
+    regularMarketPrice: price,
+    regularMarketChange: change,
+    regularMarketChangePercent: pct,
+    regularMarketVolume: meta.regularMarketVolume,
+    bid: null,
+    ask: null,
+    marketCap: null,
+    trailingPE: null,
+    forwardPE: null,
+    dividendYield: null,
+    fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ?? null,
+    fiftyTwoWeekLow: meta.fiftyTwoWeekLow ?? null,
+  };
+}
+
+/**
+ * Live quote for one symbol.
+ *
+ * Built on `/v8/finance/chart`, NOT `/v7/finance/quote`. The v7 endpoint is gone:
+ * it answers 401 for every symbol, batched or single, with or without the cookie
+ * jar. The old code still called it, and because `yahooFetch` retries a 401 three
+ * times with a cookie refresh and 1.2s/2.4s/3.6s of backoff, every cold load of a
+ * desk spent ~4s discovering that, then discarded the result via `.catch(() =>
+ * null)` and fell through to the history path below anyway.
+ *
+ * One chart call does it in ~90ms and returns strictly better data. Do not
+ * "restore" the v7 call - it is not flaky, it is closed.
+ */
 export async function fetchQuote(symbol: string): Promise<Quote> {
   const hit = quoteCache.get(symbol);
   if (hit && Date.now() - hit.ts < QUOTE_TTL) return hit.data;
-  const url = `/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+  const url =
+    `/v8/finance/chart/${encodeURIComponent(symbol)}` +
+    `?range=1y&interval=1d&includePrePost=true`;
   try {
     const res = await yahooFetch(url, { next: { revalidate: 60 } });
-    const j = await res.json();
-    const r = j?.quoteResponse?.result?.[0];
-    if (!r) throw new Error(`No quote for ${symbol}`);
-    const q: Quote = {
-      symbol: r.symbol ?? symbol,
-      shortName: r.shortName ?? r.longName ?? symbol,
-      longName: r.longName,
-      currency: r.currency ?? tickerCurrency(symbol),
-      regularMarketPrice: r.regularMarketPrice ?? 0,
-      regularMarketChange: r.regularMarketChange ?? 0,
-      regularMarketChangePercent: r.regularMarketChangePercent ?? 0,
-      regularMarketVolume: r.regularMarketVolume,
-      bid: typeof r.bid === "number" ? r.bid : null,
-      ask: typeof r.ask === "number" ? r.ask : null,
-      marketCap: r.marketCap ?? null,
-      trailingPE: r.trailingPE ?? null,
-      forwardPE: r.forwardPE ?? null,
-      dividendYield: r.dividendYield ?? null,
-      fiftyTwoWeekHigh: r.fiftyTwoWeekHigh ?? null,
-      fiftyTwoWeekLow: r.fiftyTwoWeekLow ?? null,
-    };
+    const result = (await res.json())?.chart?.result?.[0];
+    const meta = result?.meta;
+    if (!meta) throw new Error(`No chart meta for ${symbol}`);
+    const closes: number[] = (result?.indicators?.quote?.[0]?.close ?? []).filter(
+      (v: unknown): v is number => typeof v === "number"
+    );
+    const prevClose = meta.chartPreviousClose ?? (closes.length > 1 ? closes[closes.length - 2] : null);
+    const q = quoteFromChartMeta(symbol, meta, prevClose);
     quoteCache.set(symbol, { ts: Date.now(), data: q });
     return q;
   } catch {

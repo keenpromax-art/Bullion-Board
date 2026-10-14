@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchHistory, fetchQuote } from "@/lib/yahoo";
+import { fetchHistory } from "@/lib/yahoo";
 import { yahooHeaders } from "@/lib/yahoo";
-import type { Quote } from "@/lib/types";
 import { rsi, last } from "@/lib/indicators";
 
-// Running set: Nifty-50 core + leaders. Batch quote for yield/52w stats,
-// per-ticker history for momentum / RSI scans.
+// Running set: Nifty-50 core + leaders. Yield and 52-week stats are derived
+// from 1Y history per ticker rather than taken from a quote endpoint - see the
+// notes on the individual scans below for why.
 const UNIVERSE = [
   "RELIANCE.NS","HDFCBANK.NS","BHARTIARTL.NS","ICICIBANK.NS","INFY.NS","TCS.NS",
   "SBIN.NS","ITC.NS","HINDUNILVR.NS","LT.NS","BAJFINANCE.NS","HCLTECH.NS",
@@ -31,10 +31,12 @@ async function mapPool<T, R>(arr: T[], n: number, fn: (x: T) => Promise<R | null
   return out.filter((x): x is R => x !== null);
 }
 
-// Yahoo rejects batched v7 quotes (401) but serves single symbols — fan out.
-async function batchQuotes(): Promise<Quote[]> {
-  return mapPool(UNIVERSE, 10, (sym) => fetchQuote(sym));
-}
+// A `batchQuotes()` that fanned `fetchQuote` across the whole universe used to
+// live here. It was never called - the yield and 52-week figures it would have
+// supplied are derived from 1Y histories further down, with the reason written
+// beside them: Yahoo's quote yield fields are empty for NSE names. Removed so the
+// next reader does not wire it up and discover that fan-out costs 10 concurrent
+// requests for data this route already computes better.
 
 export async function GET(req: NextRequest) {
   const kind = (req.nextUrl.searchParams.get("kind") || "momentum").toLowerCase();
