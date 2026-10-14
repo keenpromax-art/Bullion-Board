@@ -28,6 +28,8 @@ import {
 import { Histogram, EquityDrawdown } from "@/components/charts";
 import { WatchPanel, StratMini, FundaMini, AIMini } from "./MiniDesks";
 import OptionsStrategyDesk from "@/components/OptionsStrategyDesk";
+import DeskPlanPanel from "@/components/DeskPlanPanel";
+import { buildDailyPlan } from "@/lib/deskplan";
 import { CalcDesks } from "@/components/CalcDesks";
 import { SeasonDesks } from "@/components/SeasonDesks";
 import { BookReader } from "@/components/BookDesks";
@@ -493,6 +495,23 @@ function GenericDeskContent({ id, symbol }: { id: string; symbol: string }) {
         </div>
       )}
       {data && closes.length > 30 && <div><p className="p-head">Growth of ₹100 + underwater</p><EquityDrawdown closes={closes} /></div>}
+      {/* The plan comes before the module's own extra output, because a trader
+          needs the read before the detail that produced it. Built from the
+          indicator block every module already carries, so it needs no API
+          change and no per-module branch. */}
+      {data && closes.length > 30 && (
+        <DeskPlanPanel
+          title="Trade plan"
+          symbol={symbol}
+          plan={buildDailyPlan({
+            price: livePx ?? closes[closes.length - 1],
+            bars: data.bars ?? [],
+            indicators: ind,
+            risk,
+            deskSignal: data?.extra?.signal ? String(data.extra.signal) : undefined,
+          })}
+        />
+      )}
       {id === "70" && data && closes.length > 30 && <OptionsStrategyDesk symbol={symbol} data={data} />}
       {id === "3" && <ReturnsDesk symbol={symbol} />}
       {data?.extra && id !== "70" && <DeskOutput extra={data.extra} />}

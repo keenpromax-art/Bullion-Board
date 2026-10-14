@@ -22,6 +22,8 @@
 // range are all prices the market traded. A "target" that no print made is a
 // guess wearing a decimal point.
 
+import type { DeskPlan, DeskPlanLevel } from "./deskplan";
+
 /** Everything the plan needs, all already computed by the desk. */
 export interface SessionRead {
   last: number;
@@ -68,14 +70,22 @@ export type Regime =
   | "REVERSION-DOWN"
   | "BALANCE";
 
-export interface PlanLevel {
+/** A price the plan wants to place a decision at, with its reason attached. */
+interface PlanLevel {
   px: number;
-  /** Reward:risk from the reference entry. Negative once past the stop. */
+  /** Reward:risk from the reference entry. */
   rr: number | null;
   note: string;
 }
 
-export interface TradePlan {
+/**
+ * The session's own detail, kept private to this module.
+ *
+ * Only the envelope is private: `buildPlan` returns the terminal-wide `DeskPlan`
+ * so the Order Flow desk and every other desk render through one panel. Keeping
+ * this shape around would be exactly the fork the shared type exists to prevent.
+ */
+interface IntradayPlan {
   regime: Regime;
   /** +1 long, -1 short, 0 no trade. */
   side: 0 | 1 | -1;
@@ -113,6 +123,36 @@ function rr(entry: number, level: number, stop: number, side: 1 | -1): number | 
   return round2(reward / risk);
 }
 
+/** Intraday caveat. Sits on the plan itself so it cannot be scrolled past. */
+const INTRADAY_CAVEAT =
+  "THIS IS A DECISION CHECKLIST, NOT A BACKTESTED SIGNAL. NO RULE ABOVE HAS BEEN SCORED ON HISTORY, AND IT COULD NOT BE: " +
+  "EVERY LEVEL IS COMPUTED FROM TODAY'S RANGE, SO IT MOVES AS THE DAY MOVES, AND THE DESK KEEPS NO RECORD OF WHAT IT " +
+  "WOULD HAVE SAID THIS MORNING. THE Δ IT READS IS A CLV PROXY DERIVED FROM 5-MINUTE OHLCV, NOT EXCHANGE " +
+  "AGGRESSOR-SIDE FLOW, SO ABSORPTION AND DIVERGENCE ARE SUGGESTIVE RATHER THAN PROOF. R:R IS SIMPLE DISTANCE FROM THE " +
+  "REFERENCE ENTRY TO THE STOP, NOT AN EXPECTED VALUE. INTRADAY ONLY — NOTHING HERE SURVIVES THE CLOSE.";
+
+/** Fold the session detail into the terminal-wide plan envelope. */
+function toDeskPlan(p: IntradayPlan): DeskPlan {
+  const levels: DeskPlanLevel[] = [];
+  if (p.entry) levels.push({ role: "ENTRY", px: p.entry.px, rr: p.entry.rr, note: p.entry.note });
+  for (const t of p.targets) levels.push({ role: "TARGET", px: t.px, rr: t.rr, note: t.note });
+  if (p.stop) levels.push({ role: "STOP", px: p.stop.px, rr: p.stop.rr, note: p.stop.note });
+  return {
+    stance: p.side === 1 ? "LONG" : p.side === -1 ? "SHORT" : "FLAT",
+    stanceTone: p.side === 1 ? "pos" : p.side === -1 ? "neg" : "",
+    badge: p.regime,
+    flags: p.flowDivergence ? ["FLOW DIVERGENCE"] : [],
+    headline: p.headline,
+    entryText: p.entryText,
+    levels,
+    profitRules: p.profitRules,
+    invalidation: p.invalidation,
+    confluence: p.confluence,
+    against: p.against,
+    caveat: INTRADAY_CAVEAT,
+  };
+}
+
 /**
  * Classify the session and build the plan.
  *
@@ -120,7 +160,7 @@ function rr(entry: number, level: number, stop: number, side: 1 | -1): number | 
  * stretched beyond the stop is not a trend to join, whatever the flow says, so
  * EXTENDED outranks TREND.
  */
-export function buildPlan(r: SessionRead): TradePlan {
+function intradayPlan(r: SessionRead): IntradayPlan {
   const { last, vwap, sigma, atrPrint } = r;
   const upVwap = last >= vwap;
   const devSd = sigma > 0 ? (last - vwap) / sigma : 0;
@@ -341,4 +381,12 @@ function profitRules(side: 1 | -1, what: string, firstTarget: number, r: Session
     "TIME STOP: IF IT HAS NOT MOVED 0.5 ATR IN YOUR DIRECTION WITHIN 12 PRINTS (ONE HOUR), CLOSE IT. UNEXPLAINED NON-MOVEMENT IS THE TAPE TELLING YOU THE LEVEL IS WRONG.",
     "FLATTEN BEFORE 15:20 IST. THE CLOSING AUCTION IS A DIFFERENT MARKET WITH ITS OWN PRICING, AND NO INTRADAY EDGE SURVIVES IT.",
   ];
+}
+
+/**
+ * Public entry point: read an Order Flow session into the terminal-wide plan
+ * shape, so this desk and every other desk render through one panel.
+ */
+export function buildPlan(r: SessionRead): DeskPlan {
+  return toDeskPlan(intradayPlan(r));
 }

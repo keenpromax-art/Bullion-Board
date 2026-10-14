@@ -26,6 +26,8 @@ import { DVDesk, OwnDesk } from "@/components/DivOwnDesks";
 import { ChartDesk, FrontierPanel, NetPanel, ChartPanels, ReturnsDesk } from "@/components/ChartDesks";
 import { LineChart, BarChart, AreaChart, HBars, Histogram, Donut, EquityDrawdown, ChartPanel } from "@/components/charts";
 import OptionsStrategyDesk from "@/components/OptionsStrategyDesk";
+import DeskPlanPanel from "@/components/DeskPlanPanel";
+import { buildDailyPlan } from "@/lib/deskplan";
 
 const NEWS_FEED: Record<string, string> = {
   "34": "company", "37": "company", "44": "finshots",
@@ -763,6 +765,22 @@ function GenericDesk({ id, code, symbol, setSymbol, status, task }: {
           <p className="p-head">Growth of ₹100 + underwater</p>
           <EquityDrawdown closes={closes} />
         </div>
+      )}
+
+      {/* Mirrors the workspace surface (DeskRenderer.GenericDeskContent) so the
+          deep link and the panel cannot disagree about the read. */}
+      {data && closes.length > 30 && cat !== "Options" && (
+        <DeskPlanPanel
+          title="Trade plan"
+          symbol={symbol}
+          plan={buildDailyPlan({
+            price: data?.quote?.regularMarketPrice ?? data?.price ?? closes[closes.length - 1],
+            bars: data.bars ?? [],
+            indicators: ind,
+            risk,
+            deskSignal: data?.extra?.signal ? String(data.extra.signal) : undefined,
+          })}
+        />
       )}
 
       {id === "70" && data && closes.length > 30 && (

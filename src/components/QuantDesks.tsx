@@ -10,7 +10,8 @@ import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { BarChart, LineChart, HBars, Histogram, AreaChart, EquityDrawdown } from "./charts";
 import { mulberry32 } from "@/lib/utils";
-import { buildPlan, type SessionRead, type TradePlan } from "@/lib/orderflow";
+import { buildPlan, type SessionRead } from "@/lib/orderflow";
+import DeskPlanPanel from "@/components/DeskPlanPanel";
 import { useDeskFetch } from "@/lib/useDeskFetch";
 import { DeskError, ResolutionNote } from "./DeskOutput";
 
@@ -657,152 +658,6 @@ export function MertonDesk({ symbol }: { symbol: string }) {
 
 /* ---------------- intraday day desk ---------------- */
 
-/**
- * What to trade, and when to bank it.
- *
- * Rendered above the tape deliberately: a desk that shows you fourteen numbers
- * before it tells you what they add up to is a dashboard, not a terminal. This
- * panel states the read, the levels, the conditions that take profit, and the
- * condition that proves it wrong — in that order, because that is the order you
- * need them in.
- *
- * The caveat is part of the panel, not a footnote someone can skip. These levels
- * are derived from TODAY's range, so they move as the day moves, and the flow is
- * a CLV proxy rather than exchange aggressor data. Anyone treating this as a
- * backtested signal system is reading more into it than it can carry.
- */
-function TradePlanPanel({ plan, symbol }: { plan: TradePlan; symbol: string }) {
-  const noTrade = plan.side === 0;
-  const sideWord = plan.side === 1 ? "LONG" : plan.side === -1 ? "SHORT" : "FLAT";
-  const sideCls = plan.side === 1 ? "pos" : plan.side === -1 ? "neg" : "";
-  const tone = plan.regime === "EXTENDED" ? "panel panel-glow" : "panel";
-
-  return (
-    <div className={tone} style={{ marginTop: 0 }}>
-      <p className="p-head">Trade plan — {symbol} · what to trade and when to take profit</p>
-
-      {/* Verdict first, in the largest type on the panel. */}
-      <div
-        style={{
-          borderLeft: `3px solid ${plan.side === 1 ? "var(--green)" : plan.side === -1 ? "var(--red)" : "var(--grid)"}`,
-          padding: "2px 0 2px 12px",
-          marginBottom: 10,
-        }}
-      >
-        <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
-          <strong style={{ fontSize: 17, letterSpacing: "0.04em", color: plan.side === 1 ? "var(--green)" : plan.side === -1 ? "var(--red)" : "var(--sub)" }}>
-            {sideWord}
-          </strong>
-          <span className="badge fnc" style={{ fontSize: 10 }}>{plan.regime}</span>
-          {plan.flowDivergence && (
-            <span className="badge bad" style={{ fontSize: 10 }}>
-              <span className="dot" /> FLOW DIVERGENCE
-            </span>
-          )}
-        </div>
-        <p style={{ margin: "5px 0 0", fontSize: 13, lineHeight: 1.45 }}>{plan.headline}</p>
-        <p className="muted" style={{ margin: "5px 0 0", fontSize: 11.5, lineHeight: 1.5 }}>{plan.entryText}</p>
-      </div>
-
-      {/* The levels. A target the tape never printed is a guess, so every row
-          says which price it is anchored to. */}
-      <div className="grid grid-2" style={{ gap: 12 }}>
-        <div>
-          <p className="p-head" style={{ fontSize: 11 }}>Levels</p>
-          <table className="plain">
-            <thead>
-              <tr>
-                <th>Role</th>
-                <th style={{ textAlign: "right" }}>Price</th>
-                <th style={{ textAlign: "right" }}>R:R</th>
-                <th>Anchor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plan.entry && (
-                <tr>
-                  <td className="pos">ENTRY</td>
-                  <td style={{ textAlign: "right" }}><strong>{plan.entry.px}</strong></td>
-                  <td style={{ textAlign: "right" }} className="faint">—</td>
-                  <td className="faint" style={{ fontSize: 10.5 }}>{plan.entry.note}</td>
-                </tr>
-              )}
-              {plan.targets.map((t) => (
-                <tr key={`${t.px}-${t.note}`}>
-                  <td className={noTrade ? "faint" : "pos"}>TARGET</td>
-                  <td style={{ textAlign: "right" }}>{t.px}</td>
-                  <td style={{ textAlign: "right" }} className={t.rr === null ? "faint" : t.rr >= 2 ? "pos" : ""}>
-                    {t.rr === null ? "—" : `${t.rr}R`}
-                  </td>
-                  <td className="faint" style={{ fontSize: 10.5 }}>{t.note}</td>
-                </tr>
-              ))}
-              {plan.stop && (
-                <tr>
-                  <td className="neg">STOP</td>
-                  <td style={{ textAlign: "right" }} className="neg"><strong>{plan.stop.px}</strong></td>
-                  <td style={{ textAlign: "right" }} className="faint">—</td>
-                  <td className="faint" style={{ fontSize: 10.5 }}>{plan.stop.note}</td>
-                </tr>
-              )}
-              {!plan.stop && !plan.entry && (
-                <tr>
-                  <td colSpan={4} className="faint">NO POSITION, SO NO ENTRY AND NO STOP TO PRINT.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div>
-          <p className="p-head" style={{ fontSize: 11 }}>When to take profit</p>
-          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 11.5, lineHeight: 1.55 }}>
-            {plan.profitRules.map((r, i) => (
-              <li key={i} style={{ marginBottom: 3 }}>{r}</li>
-            ))}
-          </ol>
-        </div>
-      </div>
-
-      {/* Why, and what argues the other way. Showing the case against is what
-          stops this reading as a signal generator. */}
-      {(plan.confluence.length > 0 || plan.against.length > 0) && (
-        <div className="grid grid-2" style={{ gap: 12, marginTop: 10 }}>
-          {plan.confluence.length > 0 && (
-            <div>
-              <p className="p-head" style={{ fontSize: 11, color: "var(--green)" }}>On the tape for this</p>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, lineHeight: 1.5 }}>
-                {plan.confluence.map((c, i) => <li key={i} style={{ marginBottom: 2 }}>{c}</li>)}
-              </ul>
-            </div>
-          )}
-          {plan.against.length > 0 && (
-            <div>
-              <p className="p-head" style={{ fontSize: 11, color: "var(--red)" }}>Against it</p>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, lineHeight: 1.5 }}>
-                {plan.against.map((c, i) => <li key={i} style={{ marginBottom: 2 }}>{c}</li>)}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      <p className="warn" style={{ fontSize: 11.5, margin: "10px 0 0", lineHeight: 1.5 }}>
-        <strong>INVALIDATION —</strong> {plan.invalidation}
-      </p>
-
-      <p className="faint" style={{ fontSize: 10.5, margin: "10px 0 0", lineHeight: 1.6 }}>
-        THIS IS A DECISION CHECKLIST, NOT A BACKTESTED SIGNAL. NO RULE ABOVE HAS BEEN SCORED ON HISTORY, AND IT COULD
-        NOT BE: EVERY LEVEL IS COMPUTED FROM TODAY&apos;S RANGE, SO IT MOVES AS THE DAY MOVES, AND THE DESK KEEPS NO
-        RECORD OF WHAT IT WOULD HAVE SAID THIS MORNING. THE Δ IT READS IS A CLV PROXY DERIVED FROM 5-MINUTE OHLCV, NOT
-        EXCHANGE AGGRESSOR-SIDE FLOW, SO ABSORPTION AND DIVERGENCE ARE SUGGESTIVE RATHER THAN PROOF. R:R IS SIMPLE
-        DISTANCE FROM THE REFERENCE ENTRY TO THE STOP, NOT AN EXPECTED VALUE. INTRADAY ONLY — NOTHING HERE SURVIVES THE
-        CLOSE.
-      </p>
-    </div>
-  );
-}
-
 export function DayDesk({ symbol }: { symbol: string }) {
   // Shared fetch leg, so an unreachable route, an HTML error page and a genuinely
   // empty tape stop all reading as "MKT CLOSED OR FEED GAP". That one message was
@@ -1093,7 +948,7 @@ export function DayDesk({ symbol }: { symbol: string }) {
         </div>
 
         <div style={{ marginTop: 10 }}>
-          <TradePlanPanel plan={plan} symbol={symbol} />
+          <DeskPlanPanel plan={plan} symbol={symbol} />
         </div>
 
         <div style={{ marginTop: 10 }}>
