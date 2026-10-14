@@ -1,5 +1,6 @@
 "use client";
 
+import { ReadNoteGate } from "@/components/DeskPlanGate";
 import { useEffect, useState } from "react";
 import { LineChart, BarChart, Donut, HBars } from "./charts";
 import { LegInput } from "./QuantDesks";
@@ -191,6 +192,7 @@ export function ANRDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="filings" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Analyst ratings — {symbol} · {data.nAnalysts} analysts · as of {asOf}</p>
         <div className="cells">
@@ -523,6 +525,7 @@ export function CastDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="filings" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Capital stack — {symbol} · equity ₹{Math.round(eqVal).toLocaleString("en-IN")} Cr{eqSrc === "BOOK" ? " (BOOK PROXY)" : ""} vs debt ₹{Math.round(debt).toLocaleString("en-IN")} Cr</p>
         <div className="cells">

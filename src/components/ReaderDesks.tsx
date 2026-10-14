@@ -1,5 +1,6 @@
 "use client";
 
+import { ReadNoteGate } from "@/components/DeskPlanGate";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chatComplete, streamChat, aiSystem } from "@/lib/ai";
 import { store } from "@/lib/store";
@@ -56,6 +57,7 @@ export function WikiDesk() {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="reader" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Wikipedia — live search</p>
         <div className="toolbar">
@@ -175,6 +177,7 @@ export function BibleDesk() {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="reader" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Scripture — {trans} · bolls.life feed</p>
         <div className="toolbar">
@@ -255,6 +258,7 @@ export function ReaderDesk() {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="reader" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Reader — device-local .txt / .md {title ? `· ${title}` : ""}</p>
         <div className="toolbar">

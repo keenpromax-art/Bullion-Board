@@ -16,6 +16,7 @@
 // A line the filing does not carry is "—", never 0, and the coverage panel
 // names how many lines that is.
 
+import { ReadNoteGate } from "@/components/DeskPlanGate";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AsFiledTable, FilingRecord, StatementSet, XbrlCoverage } from "@/lib/types";
 import { funcCode } from "@/lib/terminal";
@@ -718,6 +719,7 @@ export function FilingsDesk({ symbol, initialMode, onOpen }: FilingsDeskProps) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <ReadNoteGate family="filings" title="How to use this desk" />
       <Head
         right={`${region} · ${isIndia ? "NSE" : "SEC EDGAR"}`}
         sub={`REGULATORY FILINGS, ANNUAL AND QUARTERLY · ${idx.data?.entity ?? entity} · ${

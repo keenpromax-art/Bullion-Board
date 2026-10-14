@@ -1,5 +1,6 @@
 "use client";
 
+import DeskPlanGate from "@/components/DeskPlanGate";
 import { useMemo, useState } from "react";
 import { logReturns } from "@/lib/indicators";
 import { historicalVol, volRegime, trendBias } from "@/lib/options";
@@ -159,6 +160,7 @@ export default function OptionsStrategyDesk({ symbol, data }: { symbol: string; 
 
   return (
     <>
+      <DeskPlanGate symbol={symbol} />
       {/* controls */}
       <div className="panel panel-glow">
         <p className="p-head">Strategy creator — {symbol} · spot {fmtINR(spot)} · regime engine</p>

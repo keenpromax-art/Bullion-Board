@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ReadNoteGate } from "@/components/DeskPlanGate";
 import { LineChart, BarChart, Donut } from "./charts";
 import { ScreenerDesk } from "./ModuleDesks";
 
@@ -35,6 +36,7 @@ export function DVDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="filings" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">
           Dividend/Split summary — {symbol} · {data.currency} · {data.count} payouts
@@ -175,6 +177,7 @@ export function OwnDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="filings" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Ownership — {symbol} · latest {data.periods[data.periods.length - 1] ?? ""} · QoQ Δpp</p>
         <div className="cells">

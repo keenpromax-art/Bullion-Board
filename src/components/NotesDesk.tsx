@@ -4,6 +4,7 @@
 // panel. Single implementation, both surfaces stay in sync. Device-local
 // (localStorage via store); nothing leaves the browser.
 
+import { ReadNoteGate } from "@/components/DeskPlanGate";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { store } from "@/lib/store";
 import type { Note } from "@/lib/types";
@@ -128,6 +129,7 @@ export function NotesDesk({ symbol }: { symbol?: string }) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <ReadNoteGate family="reader" title="How to use this desk" />
       <div className="cells">
         <div className="cell"><div className="lbl">Records</div><div className="val" style={{ fontSize: 16 }}>{notes.length}</div><div className="sub">device-local</div></div>
         <div className="cell"><div className="lbl">Pinned</div><div className="val" style={{ fontSize: 16 }}>{pinned}</div><div className="sub">top of list</div></div>

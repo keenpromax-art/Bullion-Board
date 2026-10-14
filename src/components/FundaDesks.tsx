@@ -1,5 +1,6 @@
 "use client";
 
+import { ReadNoteGate } from "@/components/DeskPlanGate";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MODULE_MAP } from "@/lib/modules";
@@ -541,6 +542,7 @@ export function FundaTables({ symbol, full }: { symbol: string; full?: boolean }
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">{data.name} — ledger · {data.unit}</p>
         <div className="grid grid-2">
@@ -1049,6 +1051,7 @@ export function DupontDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">{st.name} — DuPont 5-factor · FY {P[li]} · ₹ Cr</p>
         <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
@@ -1362,6 +1365,7 @@ export function AnalyzerDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">{st.name} — financial health · FY {P[li]}</p>
         <div className="cells" style={{ marginTop: 8 }}>
@@ -1636,6 +1640,7 @@ export function HistoryDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">{st.name} — 4-year story · {P[0]} → {P[P.length - 1]}</p>
         <div className="cells" style={{ marginBottom: 10 }}>
@@ -1920,6 +1925,7 @@ export function ForensicDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">{st.name} — forensic verdict · FY {P[n - 1]} · real ledger</p>
         <div className="cells" style={{ marginTop: 8 }}>
@@ -2107,6 +2113,7 @@ export function StmtChartsDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <ComparePanel
         symbol={symbol}
         periods={P}
@@ -2374,6 +2381,7 @@ export function FundaMenu({ symbol }: { symbol: string }) {
   let n = 0;
   return (
     <div className="panel panel-glow">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <p className="p-head">Main menu of terminal functions › Fundamental › Analyze {symbol}</p>
       <div className="grid grid-2">
         {FUNDA_SECTIONS.map((s) => (
@@ -2550,6 +2558,7 @@ export function DCFDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Institutional DCF — {symbol} · sales ₹{sales !== null ? Math.round(sales).toLocaleString("en-IN") : "—"} Cr · live</p>
         <p className="p-head">Operating drivers</p>
@@ -2814,6 +2823,7 @@ export function LBODesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Institutional LBO — {symbol} · EV {cr(ev)} Cr · SALES {sales !== null ? `${cr(sales)} Cr` : "—"} · live</p>
         <div className="grid grid-4">
@@ -3132,6 +3142,7 @@ export function LinkerDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">{data.name} — linker · FY {per} · ₹ Cr</p>
         <div className="cells">

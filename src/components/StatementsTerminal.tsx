@@ -10,6 +10,7 @@
 // is either satisfied or replaced by a statement of exactly what the filing
 // does not carry.
 
+import { ReadNoteGate } from "@/components/DeskPlanGate";
 import { useEffect, useMemo, useState } from "react";
 import { useStatements, useCompany, RatiosTables } from "./FundaDesks";
 import type { STable } from "./FundaDesks";
@@ -547,6 +548,7 @@ export function StatementsTerminal({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow stmt-toolbar">
         <div className="toolbar">
           {(["annual", "quarterly", "ttm"] as const).map((b) => (

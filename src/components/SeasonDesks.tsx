@@ -1,5 +1,6 @@
 "use client";
 
+import DeskPlanGate from "@/components/DeskPlanGate";
 import { useEffect, useState } from "react";
 import { normalizeTicker } from "@/lib/utils";
 import { BarChart } from "./charts";
@@ -63,6 +64,7 @@ export function SeasonDesks({ symbol, showInput = false }: { symbol: string; sho
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <DeskPlanGate symbol={symbol} />
       {showInput && (
         <div className="toolbar">
           <LegInput value={input} onChange={setInput} onRun={() => run(input)} label="TICKER… (TYPE A COMPANY)" />

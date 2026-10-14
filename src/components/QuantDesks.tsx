@@ -1,5 +1,6 @@
 "use client";
 
+import DeskPlanGate from "@/components/DeskPlanGate";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { sma, ema, rsi, last, logReturns, hurst, halfLife, pctReturns, atr } from "@/lib/indicators";
 import { suggestSymbols } from "@/lib/terminal/commandParser";
@@ -263,6 +264,7 @@ export function FactorDesk({ symbol }: { symbol: string }) {
   if (data.error) return <div className="panel"><p className="neg">FACTOR FIT FAILED.</p></div>;
   return (
     <div className="panel panel-glow">
+      <DeskPlanGate symbol={symbol} bare />
       <p className="p-head">Market model — {symbol} vs NIFTY 50 · N={data.n}D</p>
       <div className="cells">
         <div className="cell"><div className="lbl">Beta</div><div className="val">{data.beta.toFixed(2)}</div><div className="sub">mkt sensitivity</div></div>
@@ -515,6 +517,7 @@ export function MertonDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <DeskPlanGate symbol={symbol} />
       <div className="panel panel-glow">
         <p className="p-head">
           Merton calibration — {symbol} · {model.nJumps} jumps ({model.upJ}↑/{model.dnJ}↓) · {thresh}σ
@@ -918,6 +921,7 @@ export function DayDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <DeskPlanGate symbol={symbol} />
       <div className="panel panel-glow">
         <p className="p-head">Tape — {symbol} · 5M · {n} prints · {last >= vwap ? "ABOVE VWAP" : "BELOW VWAP"}</p>
         <div className="cells">
@@ -1346,6 +1350,7 @@ export function ForecastDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <DeskPlanGate symbol={symbol} />
       <div className="toolbar">
         <div className="pills">
           {FC_HORIZONS.map((h) => (
@@ -1737,6 +1742,7 @@ export function ArimaLstmDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <DeskPlanGate symbol={symbol} />
       <div className="toolbar">
         <div className="pills">
           {AM_HORIZONS.map((h) => (
@@ -1981,6 +1987,7 @@ export function VolFrameworkDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <DeskPlanGate symbol={symbol} />
       <div className="cells">
         <div className="cell"><div className="lbl">HV30</div><div className="val">{eng.h30.toFixed(1)}%</div><div className="sub">{eng.regime}</div></div>
         <div className="cell"><div className="lbl">Vol %ile 1Y</div><div className={`val ${eng.pctile < 30 ? "pos" : eng.pctile > 70 ? "neg" : ""}`}>{eng.pctile.toFixed(0)}</div><div className="sub">{eng.pctile < 30 ? "CHEAP" : eng.pctile > 70 ? "RICH" : "MID"}</div></div>
@@ -2238,6 +2245,7 @@ export function GarchDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <DeskPlanGate symbol={symbol} />
       <div className="cells">
         <div className="cell"><div className="lbl">Cond vol now</div><div className="val">{eng.condNow.toFixed(1)}%</div><div className="sub">{eng.regime} vs {eng.uncond.toFixed(1)}</div></div>
         <div className="cell"><div className="lbl">α / β</div><div className="val" style={{ fontSize: 15 }}>{eng.alpha.toFixed(3)}/{eng.beta.toFixed(3)}</div><div className="sub">persist {eng.pers.toFixed(3)}</div></div>
@@ -2416,6 +2424,7 @@ export function AdvGreeksDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <DeskPlanGate symbol={symbol} />
       <div className="toolbar">
         <div className="pills">
           {(["CALL", "PUT"] as const).map((s) => (
@@ -2646,6 +2655,7 @@ export function StockGreeksDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <DeskPlanGate symbol={symbol} />
       {resolvedSym && <ResolutionNote from={symbol} to={resolvedSym} />}
       <div className="toolbar">
         <div className="pills">
@@ -2917,6 +2927,7 @@ export function RollingRiskDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <DeskPlanGate symbol={symbol} />
       <div className="panel panel-glow">
         <p className="p-head">{symbol} — rolling risk verdict · 63D window · 3Y tape</p>
         <div className="cells" style={{ marginTop: 8 }}>

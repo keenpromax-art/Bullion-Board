@@ -1,5 +1,6 @@
 "use client";
 
+import DeskPlanGate from "@/components/DeskPlanGate";
 import { useEffect, useState } from "react";
 import { useHoverIndex, HoverTip } from "./charts";
 import { LineChart, BarChart, Histogram } from "./charts";
@@ -623,6 +624,7 @@ export function ChartDesk({ symbol, id, mode, title }: { symbol: string; id: str
   );
   return (
     <div className="grid">
+      <DeskPlanGate symbol={symbol} />
       {mode === "score" && <Scorecard ind={data.indicators ?? {}} price={data.price} sma50={data.indicators?.sma50 ?? null} />}
       {mode === "compare" && <CmpOverlay series={data.series} dates={(data.bars ?? []).map((b: any) => b.date)} />}
       <ChartPanels bars={data.bars ?? []} series={data.series} />
@@ -764,6 +766,7 @@ export function ReturnsDesk({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <DeskPlanGate symbol={symbol} />
       <div className="panel panel-glow">
         <p className="p-head">Historical returns — trailing windows · {dates[0]} → {dates[dates.length - 1]}</p>
         <div className="cells" style={{ marginBottom: 10 }}>
@@ -1100,6 +1103,7 @@ export function NetPanel({ symbol }: { symbol: string }) {
   }
   return (
     <div className="grid grid-2">
+      <DeskPlanGate symbol={symbol} />
       <div className="panel panel-glow">
         <p className="p-head">Dependency graph — |ρ| ≥ 0.25 · 1Y</p>
         <svg viewBox="0 0 320 300" style={{ width: "100%", height: 300 }}>

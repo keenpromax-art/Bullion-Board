@@ -1,5 +1,6 @@
 "use client";
 
+import DeskPlanGate from "@/components/DeskPlanGate";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { funcCode } from "@/lib/terminal";
 import { store } from "@/lib/store";
@@ -822,6 +823,7 @@ export function NbVolDesk({ symbol }: { symbol: string }) {
   );
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <DeskPlanGate symbol={symbol} />
       <Head id="81" sub={`VOL RANGE DASHBOARD · ${symbol} · LTP ₹${isFinite(ltp) ? ltp.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"} · 5Y DAILY`} />
       {loading && <p className="muted">LOADING 5Y TAPE FOR {symbol}…</p>}
       {err && <p className="neg">ERR: {err} <button className="ghost" onClick={load}>RETRY</button></p>}

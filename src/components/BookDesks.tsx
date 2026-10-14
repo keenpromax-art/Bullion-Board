@@ -1,5 +1,6 @@
 "use client";
 
+import { ReadNoteGate } from "@/components/DeskPlanGate";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // Book Reader — PDF library with per-book page memory. Binaries live in
@@ -309,6 +310,7 @@ export function BookReader() {
 
   return (
     <div className="grid" style={{ gap: 10 }} onKeyDown={onKey} tabIndex={0} aria-label="Book reader">
+      <ReadNoteGate family="reader" title="How to use this desk" />
       <div className="toolbar">
         <select
           className="box" value={active.id} onChange={(e) => setActiveId(e.target.value)}

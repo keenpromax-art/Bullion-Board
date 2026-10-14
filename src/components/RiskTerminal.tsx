@@ -5,6 +5,7 @@
 // statements. Anything Yahoo lacks is an explicit NEEDS panel.
 
 import { useEffect, useState } from "react";
+import DeskPlanGate from "@/components/DeskPlanGate";
 import { rsi, macd, adx, ema, sma, atr, hurst, pctReturns } from "@/lib/indicators";
 import { blackScholes } from "@/lib/options";
 import { calcAltmanZ } from "@/lib/fundamentals";
@@ -639,6 +640,7 @@ export function RiskTerminal({ symbol }: { symbol: string }) {
 
   return (
     <div className="grid">
+      <DeskPlanGate symbol={symbol} />
       {resolvedSym && <div className="panel"><ResolutionNote from={symbol} to={resolvedSym} /></div>}
       <div className="panel panel-glow stmt-toolbar">
         <div className="pills">

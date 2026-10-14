@@ -76,18 +76,25 @@ export function DeskPlanPanel({
   symbol,
   /** For desks with no trade to give: how to actually use what you are looking at. */
   readNote,
+  /**
+   * Render without the panel box, for desks whose root element is already a
+   * panel. Nesting a bordered box inside a bordered box reads as a mistake;
+   * a rule and some air does not.
+   */
+  bare = false,
 }: {
   plan: DeskPlan;
   title?: string;
   symbol?: string;
   readNote?: string;
+  bare?: boolean;
 }) {
   const accent =
     plan.stanceTone === "pos" ? "var(--green)" : plan.stanceTone === "neg" ? "var(--red)" : "var(--grid)";
   const hasLevels = plan.levels.length > 0;
 
   return (
-    <div className="panel">
+    <div className={bare ? undefined : "panel"} style={bare ? { borderTop: "1px solid var(--grid)", paddingTop: 12, marginBottom: 10 } : undefined}>
       <p className="p-head">
         {title}
         {symbol ? ` — ${symbol}` : ""}

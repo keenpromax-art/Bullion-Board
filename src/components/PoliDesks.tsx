@@ -14,6 +14,7 @@
 // No number on this desk is inferred, mid-pointed or carried between
 // jurisdictions.
 
+import { ReadNoteGate } from "@/components/DeskPlanGate";
 import { useEffect, useMemo, useState } from "react";
 import { useDeskFetch } from "@/lib/useDeskFetch";
 import { BarChart, HBars, LineChart } from "@/components/charts";
@@ -1109,6 +1110,7 @@ export function PoliDesk({ initialMode = "REGIME" }: PoliDeskProps) {
 
   return (
     <div className="grid" style={{ gap: 10 }}>
+      <ReadNoteGate family="people" title="How to use this desk" />
       <Head />
       <div className="toolbar">
         <Pills opts={POLI_MODES} val={mode} set={setMode} />

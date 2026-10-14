@@ -1,5 +1,7 @@
 "use client";
 
+import { ReadNoteGate } from "@/components/DeskPlanGate";
+import DeskPlanGate from "@/components/DeskPlanGate";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chatComplete, aiSystem } from "@/lib/ai";
 import { store } from "@/lib/store";
@@ -351,6 +353,7 @@ export function NewsDesk({ symbol, feed, title, initialQ }: { symbol: string; fe
 
   return (
     <div className="top">
+      <ReadNoteGate family="news" title="How to use this desk" />
       <div className="top-tabs">
         {tabs.map((t) => (
           <button key={t.id} className={`top-tab${tab === t.id ? " active" : ""}`} onClick={() => { setTab(t.id); setShown(15); setTopOnly(false); }}>
@@ -638,6 +641,7 @@ export function MarketDesk() {
 
   return (
     <div className="grid">
+      <ReadNoteGate family="market" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Risk barometer — equities/crypto/crude vs gold/silver</p>
         {loading && <p className="muted">SNAPPING BOARD…</p>}
@@ -810,6 +814,7 @@ export function ScreenerDesk({ kind }: { kind: string }) {
 
   return (
     <div className="panel">
+      <ReadNoteGate family="market" title="How to use this desk" />
       <p className="p-head">
         {isAll ? `SIGNAL BOARDS — NIFTY-50 · ${data?.universe ?? 50} SEC` : `${KIND_TITLES[kind] ?? kind} — NIFTY-50 UNIVERSE`}
       </p>
@@ -973,6 +978,7 @@ export function BacktestDesk({ symbol, strat, title }: { symbol: string; strat: 
   const m = data?.metrics;
   return (
     <div className="grid">
+      <DeskPlanGate symbol={symbol} />
       <div className="panel panel-glow">
         <p className="p-head">{title} — {symbol} · {data ? `${data.bars} BARS · ${data.numTrades ?? m?.numTrades} TRADES` : "LOADING"}</p>
         {loading && <p className="muted">RUNNING BACKTEST…</p>}
@@ -1034,6 +1040,7 @@ export function PolyDesk() {
   const { data, err, loading } = useJson<{ rows: Array<{ title: string; volume: number; markets: Array<{ question: string; yesPct: number | null; volume: number }> }> }>(`/api/poly`);
   return (
     <div className="grid">
+      <ReadNoteGate family="news" title="How to use this desk" />
       {loading && <div className="panel"><p className="muted">LOADING POLYMARKET BOOK…</p></div>}
       {err && <div className="panel"><p className="neg">ERR: {err}</p></div>}
       {(data?.rows ?? []).slice(0, 12).map((e, i) => (
@@ -1218,6 +1225,7 @@ export function CompanyDesk({ symbol }: { symbol: string }) {
   const DESC_CUT = 420;
   return (
     <div className="grid">
+      <ReadNoteGate family="fundamentals" title="How to use this desk" />
       <div className="panel panel-glow">
         <p className="p-head">Profile — {symbol}{p?.exchange ? ` · ${p.exchange}` : ""}{p?.sector ? ` · ${String(p.sector).toUpperCase()}` : ""}</p>
         {loading && <p className="muted">PULLING PROFILE…</p>}

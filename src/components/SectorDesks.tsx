@@ -1,5 +1,6 @@
 "use client";
 
+import DeskPlanGate from "@/components/DeskPlanGate";
 import { useEffect, useMemo, useState } from "react";
 import { SECTORS, sectorOf } from "@/lib/sectors";
 import { HBars, HoverTip, useHoverIndex } from "./charts";
@@ -152,6 +153,7 @@ export function SectorDesk({ symbol, onOpen }: { symbol: string; onOpen?: (funcI
 
   return (
     <div className="grid">
+      <DeskPlanGate symbol={symbol} />
       <div className="panel panel-glow">
         <p className="p-head">Sector rotation — {data ? data.sectorName.toUpperCase() : "…"} · {data?.periodLabel.toUpperCase() ?? ""}{symbol ? ` · FOR ${short(symbol)}` : ""}</p>
         <div className="toolbar">
