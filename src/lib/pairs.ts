@@ -45,6 +45,13 @@ export const P = {
   FORMATION_FRAC: 0.5,
   /** Trailing bars used to (re)optimise parameters. */
   TRAIN_WINDOW: 252,
+  /**
+   * Window for the rolling-OLS hedge shown beside the Kalman one. Deliberately
+   * not the train window: this is the "what a plain trailing regression does"
+   * comparison, and a 60-bar fit is what a hand-rolled pair script actually
+   * does, so it is the honest thing to compare the filter against.
+   */
+  ROLLING_OLS_WIN: 60,
   /** Re-optimise every ~quarter. */
   TEST_STEP: 63,
   DEFAULT_LB: 60,
@@ -59,6 +66,13 @@ export const P = {
   COOLDOWN_BARS: 3,
   /** Do not enter when the stop is closer than this many sigma. */
   MIN_STOP_ROOM: 0.5,
+  /**
+   * A close-to-close move at or beyond this percentage is flagged as a probable
+   * corporate action rather than a trading day. 30% clears every real intraday
+   * and multi-day NSE move while still catching a demerger the adjusted-close
+   * series did not heal.
+   */
+  JUMP_PCT: 30,
   /** On-deck band starts at this fraction of the entry threshold. */
   ON_DECK_FRAC: 0.625,
   FDR_ALPHA: 0.1,
@@ -494,6 +508,62 @@ export function bhQvalues(p: (number | null)[]): number[] {
     q[i] = min;
   }
   return q;
+}
+
+// ------------------------------------------------------- data-integrity scan
+
+/**
+ * One close-to-close move too large to be a trading day.
+ *
+ * A split, bonus issue or demerger rewrites the price level without changing the
+ * business, and a pair spread built across one is not a spread — it is a step
+ * function. That produces the worst kind of false positive: a "cointegrated"
+ * pair whose entire z-score history is one discontinuity, mean-reverting to
+ * nothing.
+ *
+ * The series this desk trades on is Yahoo's *adjusted* close, so ordinary splits
+ * are already handled. Demergers often are not, which is exactly the case this
+ * catches, so the scan runs anyway and reports rather than silently trusting the
+ * adjustment.
+ *
+ * `pct` is the simple return over one bar, so a 2-for-1 split reads ~-50% and a
+ * 1-for-10 consolidation ~+900%.
+ */
+export interface PriceJump {
+  /** Index of the bar that CLOSED at the new level. */
+  index: number;
+  /** Simple return over one bar, in percent. */
+  pct: number;
+}
+
+export function findJumps(closes: number[], thresholdPct = P.JUMP_PCT): PriceJump[] {
+  const out: PriceJump[] = [];
+  for (let i = 1; i < closes.length; i++) {
+    const prev = closes[i - 1];
+    const cur = closes[i];
+    if (!(prev > 0) || !(cur > 0)) continue;
+    const pct = ((cur - prev) / prev) * 100;
+    if (Math.abs(pct) >= thresholdPct) out.push({ index: i, pct });
+  }
+  return out;
+}
+
+/**
+ * One-day moves at or beyond the jump threshold, with the date attached.
+ *
+ * `dates` must be the same length as `closes`; a mismatch is reported as a jump
+ * on every bar rather than being papered over, because a length disagreement
+ * means the series are not what the caller thinks they are.
+ */
+export function findDatedJumps(
+  dates: string[],
+  closes: number[],
+  thresholdPct = P.JUMP_PCT
+): Array<PriceJump & { date: string }> {
+  if (dates.length !== closes.length) {
+    return [{ index: 0, pct: Number.NaN, date: "SERIES-LENGTH-MISMATCH" }];
+  }
+  return findJumps(closes, thresholdPct).map((j) => ({ ...j, date: dates[j.index] }));
 }
 
 // --------------------------------------------------------- mean reversion

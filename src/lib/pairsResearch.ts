@@ -18,6 +18,7 @@ import {
   halfLife,
   hurstExp,
   kalmanHedge,
+  olsHedge,
   P,
   pairKey,
   perfStats,
@@ -38,6 +39,8 @@ export interface PairRow {
   qForm: number;
   /** The same test re-run on the most recent COINT_WINDOW bars. */
   pLive: number;
+  /** BH q on those live-window p-values — a second family, corrected separately. */
+  qLive: number;
   /** Unit-root p-values per leg on the formation window. */
   levelA: number;
   levelB: number;
@@ -150,6 +153,10 @@ export interface PairDetail {
   staticZTail: (number | null)[];
   spreadTail: (number | null)[];
   betaTail: (number | null)[];
+  /** Rolling-OLS beta over `ROLLING_OLS_WIN`, for the hedge comparison chart. */
+  rollingBetaTail: (number | null)[];
+  /** One coefficient fitted over the whole sample — the "fit it once" model. */
+  staticBeta: number | null;
   equityAdaptive: number[];
   equityStatic: number[];
   equityDates: string[];
@@ -294,13 +301,34 @@ export function screenUniverse(series: Map<string, PriceBars>, pairs: Array<[str
   });
 
   const q = bhQvalues(probes.map((r) => (Number.isFinite(r.pForm) ? r.pForm : null)));
+  // The live window is a second family of raw tests, so it gets its own FDR pass.
+  // Testing it raw and correcting only the formation window would report the
+  // live p-values as if they were single hypotheses, which is exactly the
+  // multiple-testing error BH exists to prevent.
+  const qLive = bhQvalues(probes.map((r) => (Number.isFinite(r.pLive) ? r.pLive : null)));
   const rows: PairRow[] = probes.map((r, i) => {
     const nonStationaryLegs = !(r.levelA < 0.05) && !(r.levelB < 0.05);
     const qOk = Number.isFinite(q[i]) && q[i] <= P.FDR_ALPHA;
     const pOk = Number.isFinite(r.pForm) && r.pForm <= P.FDR_ALPHA;
     const passes = pOk && qOk && nonStationaryLegs;
-    const confirmed =
-      passes && Number.isFinite(r.pLive) && r.pLive <= P.FDR_STRONG;
+    // The live window is judged on its FDR-corrected q, not the raw p.
+    //
+    // It used to test the raw `pLive`, which meant a pair could read CONFIRMED on
+    // p=0.039 while the corrected q beside it said 0.135 — a contradiction on the
+    // face of the desk, and the multiple-testing error BH exists to prevent.
+    //
+    // The live threshold is FDR_ALPHA, not FDR_STRONG, and that is arithmetic
+    // rather than preference: BH's smallest reachable q is p_min * n, so with ~88
+    // pairs no q<=0.05 can exist unless some pLive is under 5.7e-4. Gating on 0.05
+    // would make CONFIRMED permanently unreachable and the desk would report "no
+    // pair is good enough" forever.
+    //
+    // So the tiers are: CONFIRMED = passed formation and still cointegrating out
+    // of sample; PROBABLE = passed formation but the relation has decayed; NONE =
+    // never passed. Reading PROBABLE as "selectable but check it" is only true of
+    // the first, and the verdict string says which happened.
+    const liveHolds = Number.isFinite(qLive[i]) && qLive[i] <= P.FDR_ALPHA;
+    const confirmed = passes && liveHolds;
     const hlOk = Number.isFinite(r.hlForm) && r.hlForm >= P.HL_MIN && r.hlForm <= P.HL_MAX;
     const reason = !Number.isFinite(r.pForm)
       ? "COINTEGRATION TEST DID NOT CONVERGE"
@@ -310,13 +338,16 @@ export function screenUniverse(series: Map<string, PriceBars>, pairs: Array<[str
           ? `HALF-LIFE ${Number.isFinite(r.hlForm) ? r.hlForm.toFixed(1) : "?"}d OUTSIDE ${P.HL_MIN}-${P.HL_MAX}d`
           : !qOk
             ? `FDR q ${Number.isFinite(q[i]) ? q[i].toFixed(3) : "?"} ABOVE ${P.FDR_ALPHA}`
-            : "PASSES";
+            : confirmed
+              ? "PASSES AND STILL COINTEGRATES OUT OF SAMPLE"
+              : `PASSED SELECTION BUT THE RELATION HAS DECAYED — LIVE FDR q ${Number.isFinite(qLive[i]) ? qLive[i].toFixed(3) : "?"} ABOVE ${P.FDR_ALPHA}`;
     return {
       a: r.j.a,
       b: r.j.b,
       pForm: r.pForm,
       qForm: q[i],
       pLive: r.pLive,
+      qLive: qLive[i],
       levelA: r.levelA,
       levelB: r.levelB,
       nonStationaryLegs,
@@ -326,7 +357,7 @@ export function screenUniverse(series: Map<string, PriceBars>, pairs: Array<[str
       changeAc1Live: r.ac1Live,
       cointegratingSlope: r.slope,
       status: confirmed ? "CONFIRMED" : passes ? "PROBABLE" : "NONE",
-      stable: passes && Number.isFinite(r.pLive) && r.pLive <= P.FDR_ALPHA,
+      stable: liveHolds,
       inPortfolio: false,
       oos: null,
       reason,
@@ -384,6 +415,18 @@ export function analysePair(series: Map<string, PriceBars>, a: string, b: string
   const stTradesFull = extractTrades(st.pos, st.ret, j.dates, P.SIGNAL_DELAY, 0);
   const stTradesOos = extractTrades(st.pos, st.ret, j.dates, P.SIGNAL_DELAY, start);
 
+  // Hedge-ratio history for the comparison chart. All three are built on the SAME
+  // joined series so the lines are directly comparable: the Kalman filter the
+  // desk actually trades on, a plain rolling OLS, and the single full-sample
+  // coefficient a "just fit it once" model would have used throughout. The point
+  // of the chart is the gap between them — the rolling fit chatters on noise
+  // while the static line never adapts at all, and the Kalman line sits between.
+  const la = logOf(j.pa);
+  const lb = logOf(j.pb);
+  const rollingBetaTail = olsHedge(la, lb, P.ROLLING_OLS_WIN).beta.slice(-300);
+  const staticBetaAll = olsHedge(la, lb, la.length).beta;
+  const staticBeta = staticBetaAll[staticBetaAll.length - 1] ?? null;
+
   let eqA = 1;
   let eqB = 1;
   const equityAdaptive: number[] = [];
@@ -410,6 +453,8 @@ export function analysePair(series: Map<string, PriceBars>, a: string, b: string
     staticZTail: st.z.slice(-300),
     spreadTail: walk.spreadTail,
     betaTail: walk.betaTail,
+    rollingBetaTail,
+    staticBeta,
     equityAdaptive,
     equityStatic,
     equityDates: j.dates.slice(start),

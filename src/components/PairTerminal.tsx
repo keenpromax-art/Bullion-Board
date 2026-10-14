@@ -15,6 +15,7 @@
 // "is the adaptive machinery worth it" is the actual question a trader asks.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { BarChart, LineChart } from "@/components/charts";
 import { funcCode } from "@/lib/terminal";
 import { store } from "@/lib/store";
@@ -22,7 +23,7 @@ import { useDeskFetch } from "@/lib/useDeskFetch";
 import { LegInput } from "@/components/QuantDesks";
 import { chatComplete, aiSystem, NO_INVENT } from "@/lib/ai";
 import { downloadCSV } from "@/components/ModuleDesks";
-import type { PairDetail, SignalRow } from "@/lib/pairsResearch";
+import type { PairDetail, PairRow, SignalRow } from "@/lib/pairsResearch";
 import type { PerfStats } from "@/lib/pairs";
 
 const ID = "27";
@@ -82,6 +83,10 @@ const SECTOR_FALLBACK = ["Banks", "IT", "Auto", "Pharma", "FMCG", "Metals", "Ene
 // so the drawn threshold and the stated threshold can never drift apart.
 const ENTRY_Z = 2;
 const STOP_Z = 3.2;
+/** Mirrors P.JUMP_PCT — a one-bar move at or beyond this is flagged, not traded. */
+const P_JUMP_PCT = 30;
+/** Mirrors P.ROLLING_OLS_WIN — the window the rolling hedge comparison uses. */
+const P_ROLLING_WIN = 60;
 
 // -------------------------------------------------------------------- hooks
 
@@ -248,17 +253,31 @@ interface RadarPayload {
   pairsTested: number;
   symbolsRequested: number;
   symbolsRead: number;
-  rows: Array<{
-    a: string; b: string; pForm: number; qForm: number; pLive: number;
-    levelA: number; levelB: number; nonStationaryLegs: boolean;
-    halfLifeForm: number; halfLifeLive: number; hurstLive: number; changeAc1Live: number;
-    cointegratingSlope: number;
-    status: "CONFIRMED" | "PROBABLE" | "NONE";
-    stable: boolean; inPortfolio: boolean; reason: string;
-  }>;
+  rows: PairRow[];
   signals: SignalRow[];
   actionable: SignalRow[];
   onDeck: SignalRow[];
+  /**
+   * The same signals partitioned by DECISION rather than by data shape.
+   * `rejected` is the bucket that matters: pairs past the entry threshold that a
+   * filter still refused — the trades a z-score-only model would have taken.
+   */
+  board: {
+    passed: SignalRow[];
+    rejected: SignalRow[];
+    onDeck: SignalRow[];
+    stretched: SignalRow[];
+  };
+  /** Data-integrity scan: what could not be read, and what looked wrong. */
+  quality: {
+    symbolsRequested: number;
+    symbolsRead: number;
+    failedSymbols: Array<{ symbol: string; why: string }>;
+    droppedPairs: Array<{ pair: string; why: string }>;
+    jumps: Array<{ symbol: string; date: string; pct: number; pairs: string[] }>;
+    lastBar: string | null;
+    barRange: [number, number] | null;
+  };
   overlaps: Array<{ symbol: string; signals: number }>;
   portfolio: {
     dates: string[];
@@ -338,11 +357,17 @@ function RadarPanel() {
 
       {data && (
         <>
+          {/* Data integrity goes first, above every statistic below it. A spread
+              built across an unhealed split or demerger looks superbly
+              cointegrated, so this is the panel that decides how much of the rest
+              of the screen to believe. */}
+          <QualityPanel q={data.quality} />
+
           <Cells
             items={[
               { l: "Screened", v: String(data.rows.length), s: "PAIRS" },
-              { l: "Confirmed", v: String(confirmed), s: "Q<=0.05 LIVE+FORM", c: confirmed ? "pos" : "" },
-              { l: "Probable", v: String(probable), s: "Q<=0.10", c: probable ? "" : "" },
+              { l: "Confirmed", v: String(confirmed), s: "Q<=0.10 IN BOTH WINDOWS", c: confirmed ? "pos" : "" },
+              { l: "Decayed", v: String(probable), s: "PASSED, RELATION WEAKENED", c: probable ? "neg" : "" },
               { l: "In basket", v: String(data.selected.length), s: data.relaxed ? "RELAXED FALLBACK" : "PASSED ALL GATES", c: data.relaxed ? "neg" : "pos" },
               { l: "Actionable", v: String(data.actionable.length), s: "PASS EVERY GATE", c: data.actionable.length ? "pos" : "" },
               { l: "On deck", v: String(data.onDeck.length), s: `${(p?.ON_DECK_FRAC ?? 0) * 100}% OF ENTRY` },
@@ -378,6 +403,11 @@ function RadarPanel() {
               {data.live.note}
             </p>
           </div>
+
+          {/* Partitioned decisions replace the flat signal dump as the primary
+              surface: the actionable list alone cannot answer "what did the
+              filters refuse?", which is the question that matters. */}
+          <DecisionBoard board={data.board} p={p} />
 
           {!!data.actionable.length && (
             <div className="panel">
@@ -433,6 +463,7 @@ function RadarPanel() {
           </div>
 
           {data.portfolio && <PortfolioPanel pf={data.portfolio} dates={data.portfolio.dates} />}
+          <OosRankingPanel data={data} />
           <SelectionPanel data={data} />
 
           <div className="panel">
@@ -802,6 +833,389 @@ function PortfolioPanel({ pf, dates }: { pf: NonNullable<RadarPayload["portfolio
   );
 }
 
+/**
+ * Data integrity, before any statistic is derived from it.
+ *
+ * The jump scan earns its place because its failure mode flatters: a pair whose
+ * spread straddles an unhealed demerger looks superbly cointegrated, so the
+ * scanner would otherwise hand back a confident pair built on a price step.
+ */
+function QualityPanel({ q }: { q: RadarPayload["quality"] }) {
+  const clean = !q.jumps.length && !q.failedSymbols.length;
+  return (
+    <div className={q.jumps.length ? "panel panel-glow" : "panel"}>
+      <p className="p-head">Data integrity — read before trusting any number below</p>
+      <Cells
+        items={[
+          { l: "Symbols read", v: `${q.symbolsRead}/${q.symbolsRequested}`, s: "UNIVERSE" },
+          { l: "Last bar", v: q.lastBar ?? DASH, s: q.lastBar ? "NEWEST ACROSS UNIVERSE" : "NO DATA" },
+          {
+            l: "Bar depth",
+            v: q.barRange ? `${q.barRange[0]}-${q.barRange[1]}` : DASH,
+            s: "SHORTEST-LONGEST",
+          },
+          {
+            l: "Failed loads",
+            v: String(q.failedSymbols.length),
+            s: q.failedSymbols.length ? "SEE BELOW" : "NONE",
+            c: q.failedSymbols.length ? "neg" : "pos",
+          },
+          {
+            l: "Pairs dropped",
+            v: String(q.droppedPairs.length),
+            s: q.droppedPairs.length ? "SHORT HISTORY" : "NONE",
+          },
+          {
+            l: "Price jumps",
+            v: String(q.jumps.length),
+            s: q.jumps.length ? "CORPORATE ACTION?" : "NONE",
+            c: q.jumps.length ? "neg" : "pos",
+          },
+        ]}
+      />
+
+      {!!q.jumps.length && (
+        <>
+          <p className="warn" style={{ fontSize: 11.5, margin: "10px 0 6px" }}>
+            ONE-BAR MOVES AT OR BEYOND {P_JUMP_PCT}% — SPLIT, BONUS ISSUE OR DEMERGER, NOT A TRADING DAY. THE DESK
+            TRADES ADJUSTED CLOSE, WHICH HEALS ORDINARY SPLITS BUT USUALLY NOT DEMERGERS. EVERY PAIR NAMED BELOW
+            HAS A SPREAD BUILT ACROSS A PRICE LEVEL THAT IS NOT COMPARABLE WITH ITSELF. READ THEIR STATISTICS AS
+            UNRELIABLE UNTIL THE JUMP IS CONFIRMED AS A GENUINE MOVE.
+          </p>
+          <div className="scrollx" style={{ maxHeight: 220, overflowY: "auto" }}>
+            <table className="plain">
+              <thead>
+                <tr>
+                  <th>Symbol</th><th>Date</th>
+                  <th style={{ textAlign: "right" }}>1-bar move</th>
+                  <th>Pairs affected</th>
+                </tr>
+              </thead>
+              <tbody>
+                {q.jumps.map((j) => (
+                  <tr key={`${j.symbol}|${j.date}`}>
+                    <td>{j.symbol}</td>
+                    <td>{j.date}</td>
+                    <td style={{ textAlign: "right" }} className="neg">
+                      {j.pct >= 0 ? "+" : ""}
+                      {j.pct.toFixed(1)}%
+                    </td>
+                    <td className="faint">{j.pairs.length ? j.pairs.join(", ") : DASH}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {!!q.failedSymbols.length && (
+        <p className="faint" style={{ fontSize: 11, margin: "10px 0 0" }}>
+          <strong style={{ color: "var(--red)" }}>FAILED TO LOAD:</strong>{" "}
+          {q.failedSymbols.map((f) => `${f.symbol} (${f.why})`).join(", ")}
+        </p>
+      )}
+      {!!q.droppedPairs.length && (
+        <p className="faint" style={{ fontSize: 11, margin: "4px 0 0" }}>
+          <strong>DROPPED FOR SHORT HISTORY:</strong>{" "}
+          {q.droppedPairs.map((d) => `${d.pair} — ${d.why}`).join(" · ")}
+        </p>
+      )}
+      {clean && (
+        <Foot>
+          NO CORPORATE-ACTION JUMPS AT OR BEYOND {P_JUMP_PCT}%, AND EVERY SYMBOL LOADED. SERIES ARE ADJUSTED CLOSE,
+          SO SPLITS AND BONUS ISSUES ARE ALREADY NORMALISED AWAY.
+        </Foot>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The four decisions, partitioned. *
+ * A single wide table of every pair answers "what does the engine think" but not
+ * "what should I do". This splits the radar by what a trader can act on, and the
+ * second bucket is the one that earns the panel: pairs that cleared the entry
+ * threshold and were refused anyway. Those are precisely the trades a z-score-only
+ * model takes, so naming them is the difference between a filter and a decoration.
+ */
+function DecisionBoard({ board, p }: { board: RadarPayload["board"]; p: RadarPayload["params"] | undefined }) {
+  const total = board.passed.length + board.rejected.length + board.onDeck.length + board.stretched.length;
+  if (!total) return null;
+
+  // A tier below the amber panel head, so the four buckets read as sub-sections
+  // of one panel rather than competing with its title.
+  const SUBHEAD: CSSProperties = {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    color: "var(--sub)",
+    margin: "14px 0 6px",
+  };
+
+  const Flag = ({ s }: { s: SignalRow }) => {
+    const all = [...s.hard, ...s.soft];
+    return all.length ? (
+      <span className="faint" style={{ fontSize: 11 }}>
+        {all.join(", ")}
+      </span>
+    ) : (
+      <span className="pos">CLEAN</span>
+    );
+  };
+
+  return (
+    <div className="panel">
+      <p className="p-head">Decision board — what to do, in four buckets</p>
+
+      {/* 1. Trade these. */}
+      <h4 style={{ ...SUBHEAD, marginTop: 2 }}>
+        1 · PASSES EVERY GATE — TRADE THESE ({board.passed.length})
+      </h4>
+      {board.passed.length ? (
+        <div className="scrollx">
+          <table className="plain">
+            <thead>
+              <tr>
+                <th>Pair</th><th>Action</th>
+                <th style={{ textAlign: "right" }}>Z</th>
+                <th style={{ textAlign: "right" }}>HL</th>
+                <th style={{ textAlign: "right" }}>OOS Sharpe</th>
+                <th style={{ textAlign: "right" }}>Conv</th>
+                <th style={{ textAlign: "right" }}>A px</th>
+                <th style={{ textAlign: "right" }}>Trig A</th>
+                <th style={{ textAlign: "right" }}>B px</th>
+                <th style={{ textAlign: "right" }}>Trig B</th>
+              </tr>
+            </thead>
+            <tbody>
+              {board.passed.map((s) => (
+                <tr key={s.pair}>
+                  <td>{s.pair}</td>
+                  <td className="pos">{s.action}</td>
+                  <td style={{ textAlign: "right" }} className={Math.abs(s.z) > ENTRY_Z ? "neg" : ""}>
+                    {s.z >= 0 ? "+" : ""}{s.z.toFixed(2)}
+                  </td>
+                  <td style={{ textAlign: "right" }}>{hl(s.halfLife)}</td>
+                  <td style={{ textAlign: "right" }} className={tone(s.oosSharpe)}>{num(s.oosSharpe)}</td>
+                  <td style={{ textAlign: "right" }}><strong>{s.conviction}</strong></td>
+                  <td style={{ textAlign: "right" }}>{s.priceA.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }}>{s.trigA.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }}>{s.priceB.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }}>{s.trigB.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="muted" style={{ fontSize: 12, margin: "0 0 4px" }}>
+          NOTHING. NO PAIR IS PAST THE ENTRY THRESHOLD <em>AND</em> CLEAR OF EVERY GATE AT ONCE. THAT IS THE EXPECTED
+          STATE, NOT A FAULT — SEE BUCKET 2 FOR WHAT WAS REFUSED.
+        </p>
+      )}
+
+      {/* 2. The false positives. */}
+      <h4 style={SUBHEAD}>
+        2 · PAST ENTRY BUT REFUSED BY A GATE — THE TRADES A Z-SCORE-ONLY MODEL WOULD TAKE ({board.rejected.length})
+      </h4>
+      {board.rejected.length ? (
+        <>
+          <div className="scrollx">
+            <table className="plain">
+              <thead>
+                <tr>
+                  <th>Pair</th>
+                  <th style={{ textAlign: "right" }}>Z</th>
+                  <th style={{ textAlign: "right" }}>HL</th>
+                  <th style={{ textAlign: "right" }}>Hurst</th>
+                  <th>What refused it</th>
+                </tr>
+              </thead>
+              <tbody>
+                {board.rejected.map((s) => (
+                  <tr key={s.pair}>
+                    <td>{s.pair}</td>
+                    <td style={{ textAlign: "right" }} className="neg">{s.z >= 0 ? "+" : ""}{s.z.toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }}>{hl(s.halfLife)}</td>
+                    <td style={{ textAlign: "right" }}>{num(s.hurst)}</td>
+                    <td><Flag s={s} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0" }}>
+            THESE ARE PAST ±{(p?.ENTRY_Z ?? ENTRY_Z).toFixed(2)} RIGHT NOW AND WERE REFUSED ANYWAY. A MODEL THAT
+            SIZED ON |Z| ALONE IS LONG THESE. THE FIRST FLAG IS THE ONE THAT REFUSED IT.
+          </p>
+        </>
+      ) : (
+        <p className="muted" style={{ fontSize: 12, margin: "0 0 4px" }}>NONE — NOTHING PAST ENTRY WAS REFUSED.</p>
+      )}
+
+      {/* 3. Watch list with the exact price that would fire it. */}
+      <h4 style={SUBHEAD}>3 · ON DECK — APPROACHING ENTRY, NOT YET IN IT ({board.onDeck.length})</h4>
+      {board.onDeck.length ? (
+        <div className="scrollx">
+          <table className="plain">
+            <thead>
+              <tr>
+                <th>Pair</th><th>Momentum</th>
+                <th style={{ textAlign: "right" }}>Z</th>
+                <th style={{ textAlign: "right" }}>A px</th>
+                <th style={{ textAlign: "right" }}>Trig A</th>
+                <th style={{ textAlign: "right" }}>Move A</th>
+                <th style={{ textAlign: "right" }}>B px</th>
+                <th style={{ textAlign: "right" }}>Trig B</th>
+                <th style={{ textAlign: "right" }}>Move B</th>
+                <th style={{ textAlign: "right" }}>Conv</th>
+              </tr>
+            </thead>
+            <tbody>
+              {board.onDeck.map((s) => (
+                <tr key={s.pair}>
+                  <td>{s.pair}</td>
+                  <td className={s.momentum === "APPROACHING" ? "" : "faint"}>{s.momentum}</td>
+                  <td style={{ textAlign: "right" }}>{s.z >= 0 ? "+" : ""}{s.z.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }}>{s.priceA.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }} className="pos">{s.trigA.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }}>{pct(s.moveAPct)}</td>
+                  <td style={{ textAlign: "right" }}>{s.priceB.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }} className="pos">{s.trigB.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }}>{pct(s.moveBPct)}</td>
+                  <td style={{ textAlign: "right" }}><strong>{s.conviction}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="muted" style={{ fontSize: 12, margin: "0 0 4px" }}>
+          NO FILTERED PAIR IN THE ON-DECK BAND (|Z| BETWEEN {(p?.ON_DECK_FRAC ?? 0.625) * (p?.ENTRY_Z ?? ENTRY_Z)} AND{" "}
+          {(p?.ENTRY_Z ?? ENTRY_Z).toFixed(2)} WITH EVERY GATE CLEAR).
+        </p>
+      )}
+
+      {/* 4. Do not chase. */}
+      <h4 style={SUBHEAD}>
+        4 · STRETCHED PAST THE STOP — DO NOT CHASE, THE RELATIONSHIP MAY BE BREAKING ({board.stretched.length})
+      </h4>
+      {board.stretched.length ? (
+        <>
+          <div className="scrollx">
+            <table className="plain">
+              <thead>
+                <tr>
+                  <th>Pair</th><th>Would-be action</th>
+                  <th style={{ textAlign: "right" }}>Z</th>
+                  <th style={{ textAlign: "right" }}>Room to stop</th>
+                  <th>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {board.stretched.map((s) => (
+                  <tr key={s.pair}>
+                    <td>{s.pair}</td>
+                    <td className="faint">{s.action}</td>
+                    <td style={{ textAlign: "right" }} className="neg">{s.z >= 0 ? "+" : ""}{s.z.toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }} className="neg">
+                      {(s.stop - Math.abs(s.z)).toFixed(2)}σ
+                    </td>
+                    <td><Flag s={s} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="faint" style={{ fontSize: 10.5, margin: "6px 0 0" }}>
+            THE ACTION COLUMN IS WHAT THE ENGINE WOULD PRINT IF YOU ENTERED HERE. IT IS SHOWN TO BE SUPPRESSED, NOT
+            TAKEN: A SPREAD THIS FAR FROM ITS MEAN IS EITHER ABOUT TO REVERT HARD OR IS NO LONGER MEAN-REVERTING, AND
+            THE DISTRIBUTION CANNOT TELL YOU WHICH. ROOM TO STOP IS THE GAP BETWEEN HERE AND ±{(p?.STOP_Z ?? STOP_Z)};
+            AT OR BELOW ZERO THE STOP IS ALREADY THROUGH YOU.
+          </p>
+        </>
+      ) : (
+        <p className="muted" style={{ fontSize: 12, margin: 0 }}>NONE STRETCHED.</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pairs ranked by realised out-of-sample Sharpe.
+ *
+ * Shown because it is the answer to "what would have worked", and hidden behind a
+ * warning because it is also the most overfittable number on the desk: ranking
+ * N pairs by their own backtest and then trading the top of that list is
+ * selection on the test set. The basket above avoids it by choosing on the
+ * formation window only, and this table exists to be compared against that
+ * basket — not to be traded from.
+ */
+function OosRankingPanel({ data }: { data: RadarPayload }) {
+  const ranked = useMemo(
+    () =>
+      data.rows
+        .filter((r) => isNum(r.oos?.Sharpe))
+        .sort((a, b) => (b.oos!.Sharpe ?? 0) - (a.oos!.Sharpe ?? 0))
+        .slice(0, 10),
+    [data.rows]
+  );
+  if (!ranked.length) return null;
+  // How many of the best-performing pairs the formation-window selection actually
+  // caught. This is the number worth arguing about: a formation-only rule that
+  // ignores the leaders is not necessarily broken, because the leaders are
+  // partly luck — but a rule that catches none of them is not selecting.
+  const caught = ranked.filter((r) => r.inPortfolio).length;
+  return (
+    <div className="panel">
+      <p className="p-head">Top pairs by out-of-sample Sharpe — research only, do not trade this list</p>
+      <div className="scrollx">
+        <table className="plain">
+          <thead>
+            <tr>
+              <th>#</th><th>Pair</th><th>Status</th>
+              <th style={{ textAlign: "right" }}>q live</th>
+              <th style={{ textAlign: "right" }}>OOS Sharpe</th>
+              <th style={{ textAlign: "right" }}>OOS return</th>
+              <th style={{ textAlign: "right" }}>OOS trades</th>
+              <th>In basket</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranked.map((r, i) => (
+              <tr key={`${r.a}|${r.b}`}>
+                <td className="faint">{i + 1}</td>
+                <td>{r.a} vs {r.b}</td>
+                <td className={r.status === "CONFIRMED" ? "pos" : r.status === "PROBABLE" ? "" : "faint"}>
+                  {r.status}
+                </td>
+                <td style={{ textAlign: "right" }}>{isNum(r.qLive) ? r.qLive.toFixed(3) : DASH}</td>
+                <td style={{ textAlign: "right" }} className={tone(r.oos?.Sharpe)}>
+                  {num(r.oos?.Sharpe)}
+                </td>
+                <td style={{ textAlign: "right" }}>{pct(r.oos?.ReturnPct)}</td>
+                <td style={{ textAlign: "right" }}>{r.oos?.Trades ?? DASH}</td>
+                <td className={r.inPortfolio ? "pos" : "faint"}>{r.inPortfolio ? "YES" : DASH}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="warn" style={{ fontSize: 11.5, margin: "8px 0 0" }}>
+        RANKED ACROSS ALL {data.rows.length} PAIRS, NOT ONLY THE BASKET — SO THIS LIST CAN SHOW WHAT THE SELECTION
+        MISSED, WHICH IS THE ONLY REASON IT IS WORTH READING. SELECTION BIAS IS THE POINT OF THE WARNING: RANKING
+        PAIRS BY THEIR OWN BACKTEST AND THEN TRADING THE WINNERS PUTS THE TEST SET BACK INTO THE SELECTION. WITH{" "}
+        {data.rows.length} PAIRS TESTED AT p&lt;0.05, ~{Math.round(data.rows.length * 0.05)} PASS BY CHANCE ALONE, SO
+        THE HEAD OF THIS LIST IS EXPECTED TO LOOK GOOD REGARDLESS OF SKILL. THE FORMATION-WINDOW BASKET ABOVE CAUGHT{" "}
+        {caught} OF THESE {ranked.length} WITHOUT EVER LOOKING AT THIS RANKING — THAT MISS RATE IS THE HONEST PRICE OF
+        NOT CHEATING, AND IT IS WHAT THE BASKET'S OWN SHARPE IS BEING PAID FOR.
+      </p>
+    </div>
+  );
+}
+
 function SelectionPanel({ data }: { data: RadarPayload }) {
   return (
     <div className="panel">
@@ -814,6 +1228,7 @@ function SelectionPanel({ data }: { data: RadarPayload }) {
               <th style={{ textAlign: "right" }}>p form</th><th style={{ textAlign: "right" }}>q FDR</th><th style={{ textAlign: "right" }}>p live</th>
               <th style={{ textAlign: "right" }}>Leg A p</th><th style={{ textAlign: "right" }}>Leg B p</th>
               <th style={{ textAlign: "right" }}>HL form</th><th style={{ textAlign: "right" }}>HL live</th>
+              <th style={{ textAlign: "right" }}>q live</th>
               <th style={{ textAlign: "right" }}>β coin</th><th>Verdict</th>
             </tr>
           </thead>
@@ -830,6 +1245,9 @@ function SelectionPanel({ data }: { data: RadarPayload }) {
                 <td style={{ textAlign: "right" }} className={r.levelB < 0.05 ? "neg" : ""}>{isNum(r.levelB) ? r.levelB.toFixed(2) : DASH}</td>
                 <td style={{ textAlign: "right" }}>{hl(r.halfLifeForm)}</td>
                 <td style={{ textAlign: "right" }}>{hl(r.halfLifeLive)}</td>
+                <td style={{ textAlign: "right" }} className={isNum(r.qLive) && r.qLive <= 0.1 ? "pos" : ""}>
+                  {isNum(r.qLive) ? r.qLive.toFixed(3) : DASH}
+                </td>
                 <td style={{ textAlign: "right" }}>{num(r.cointegratingSlope)}</td>
                 <td style={{ textAlign: "left" }} className="faint">{r.reason}</td>
               </tr>
@@ -947,9 +1365,23 @@ function DeepDivePanel({ a, b, onClose }: { a: string; b: string; onClose: () =>
           </div>
           <div className="grid grid-2" style={{ marginTop: 10 }}>
             <div className="panel">
-              <p className="p-head">Hedge ratio — Kalman, causal</p>
-              <Area values={d.betaTail} color="var(--sec)" fmt={(v) => v.toFixed(2)} label="β" />
-              <Foot>ONE BAR LAGGED BEFORE IT IS USED, SO THE SPREAD AT BAR t DEPENDS ONLY ON INFORMATION AVAILABLE AT t-1.</Foot>
+              <p className="p-head">Hedge ratio — Kalman vs rolling OLS vs fit-once</p>
+              <Area
+                series={[
+                  { label: "KALMAN (TRADED)", color: "var(--sec)", values: d.betaTail },
+                  { label: `ROLLING OLS-${P_ROLLING_WIN}`, color: "var(--amber)", values: d.rollingBetaTail },
+                  ...(d.staticBeta === null
+                    ? []
+                    : [{ label: "FIT ONCE", color: "var(--sub)", values: d.staticBeta === null ? [] : new Array(d.rollingBetaTail.length).fill(d.staticBeta) }]),
+                ]}
+                fmt={(v) => v.toFixed(2)}
+              />
+              <Foot>
+                THREE WAYS TO ESTIMATE THE SAME RATIO. THE FIT-ONCE LINE IS WHAT A MODEL THAT REGRESSES ONCE AND STOPS
+                WOULD USE THROUGHOUT; ROLLING OLS-{P_ROLLING_WIN} IS WHAT A HAND-ROLLED PAIR SCRIPT USES AND IT CHATTERS
+                ON NOISE; KALMAN IS THE ONE THIS DESK TRADES, ONE BAR LAGGED SO THE SPREAD AT BAR t DEPENDS ONLY ON
+                INFORMATION AVAILABLE AT t-1. THE VALUE OF ADAPTATION IS THE GAP BETWEEN THE AMBER AND GREY LINES.
+              </Foot>
             </div>
             <div className="panel">
               <p className="p-head">Spread (log residual)</p>

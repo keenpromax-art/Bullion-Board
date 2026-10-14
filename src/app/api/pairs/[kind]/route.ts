@@ -22,6 +22,7 @@ import {
   bare,
   buildUniverse,
   CURATED_PAIRS,
+  findDatedJumps,
   istDate,
   PAIR_SECTORS,
   P,
@@ -272,6 +273,105 @@ function canonicalSector(raw: string | null): string | null {
   return SECTOR_KEYS.find((k) => k.toUpperCase() === v) ?? null;
 }
 
+// ------------------------------------------------------- data-integrity scan
+
+export interface DataQualityReport {
+  /** Symbols requested, read, and dropped for want of history. */
+  symbolsRequested: number;
+  symbolsRead: number;
+  /** Symbols Yahoo refused, with the reason. */
+  failedSymbols: Array<{ symbol: string; why: string }>;
+  /** Pairs with too few shared bars to split into formation and out-of-sample. */
+  droppedPairs: Array<{ pair: string; why: string }>;
+  /**
+   * One-bar moves at or beyond `P.JUMP_PCT`. Each is a probable split, bonus
+   * issue or demerger rather than a trading day, and any pair whose spread spans
+   * one has a z-score history made of a single step.
+   */
+  jumps: Array<{ symbol: string; date: string; pct: number; pairs: string[] }>;
+  /** Newest bar date across every symbol that returned data. */
+  lastBar: string | null;
+  /** Shortest and longest series in the universe. */
+  barRange: [number, number] | null;
+}
+
+/**
+ * Scan the universe for data that would quietly poison the statistics.
+ *
+ * A split or demerger rewrites the price level without changing the business, and
+ * a spread built across one is not a spread — it is a step function. The failure
+ * mode is nasty because it flatters: a pair straddling an unhealed jump looks
+ * superbly cointegrated, mean-reverting to nothing. Yahoo's adjusted close heals
+ * ordinary splits but usually not demergers, which is exactly why this scan runs
+ * rather than trusting the adjustment.
+ *
+ * Jumps are reported, not silently dropped. Hiding them would make the universe
+ * look clean while quietly making it smaller than the desk claims.
+ */
+function scanQuality(
+  bars: Map<string, PriceBars>,
+  pairs: Array<[string, string]>,
+  failed: Array<{ symbol: string; why: string }>,
+  symbolsRequested: number,
+  droppedPairs: Array<{ pair: string; why: string }>
+): DataQualityReport {
+  const byJump = new Map<string, Array<{ date: string; pct: number }>>();
+  let lastBar: string | null = null;
+  let shortest = Infinity;
+  let longest = 0;
+
+  for (const [sym, series] of bars) {
+    const closes = series.map((b) => b.close);
+    shortest = Math.min(shortest, closes.length);
+    longest = Math.max(longest, closes.length);
+    const tail = series[series.length - 1];
+    if (tail && (!lastBar || tail.date > lastBar)) lastBar = tail.date;
+    for (const j of findDatedJumps(
+      series.map((b) => b.date),
+      closes
+    )) {
+      if (!Number.isFinite(j.pct)) continue;             // length mismatch, not a jump
+      const list = byJump.get(sym);
+      if (list) list.push({ date: j.date, pct: j.pct });
+      else byJump.set(sym, [{ date: j.date, pct: j.pct }]);
+    }
+  }
+
+  // Name the pairs each jumped symbol actually contaminates, so the warning is
+  // actionable rather than decorative.
+  const pairsBySymbol = new Map<string, string[]>();
+  for (const [a, b] of pairs) {
+    for (const s of [a, b]) {
+      if (!byJump.has(s)) continue;
+      const list = pairsBySymbol.get(s);
+      const label = `${bare(a)}/${bare(b)}`;
+      if (list) list.push(label);
+      else pairsBySymbol.set(s, [label]);
+    }
+  }
+
+  const jumps = [...byJump.entries()]
+    .flatMap(([symbol, list]) =>
+      list.map((j) => ({
+        symbol: bare(symbol),
+        date: j.date,
+        pct: j.pct,
+        pairs: pairsBySymbol.get(symbol) ?? [],
+      }))
+    )
+    .sort((x, y) => Math.abs(y.pct) - Math.abs(x.pct));
+
+  return {
+    symbolsRequested,
+    symbolsRead: bars.size,
+    failedSymbols: failed.slice(0, 20),
+    droppedPairs: droppedPairs.slice(0, 20),
+    jumps: jumps.slice(0, 40),
+    lastBar,
+    barRange: Number.isFinite(shortest) ? [shortest, longest] : null,
+  };
+}
+
 export async function GET(req: NextRequest, ctx: { params: { kind: string } }) {
   const kind = (ctx.params.kind || "").toLowerCase();
   const sp = req.nextUrl.searchParams;
@@ -330,18 +430,36 @@ export async function GET(req: NextRequest, ctx: { params: { kind: string } }) {
 
     // Walk-forward is the expensive part; it runs only on pairs that survived
     // selection, never on the whole universe.
-    const byKey = new Map(research.rows.map((r) => [`${r.a}|${r.b}`, r]));
+    // Walk-forward runs across the WHOLE universe, not just the basket.
+    //
+    // This used to run only on selected pairs, on the assumption it was the
+    // expensive part. Measured, it is ~41ms per pair — about 3.7s for all 88,
+    // which fits the budget comfortably. Restricting it left the out-of-sample
+    // ranking panel able to show only pairs already chosen into the basket, so
+    // the one table meant to reveal what a z-score screen missed was structurally
+    // incapable of showing a miss.
+    const basketKeys = new Set(research.selected.map(([a, b]) => `${a}|${b}`));
     const walked: Array<{ key: [string, string]; walk: WFResult; detail: PairDetail }> = [];
-    for (const [a, b] of research.selected) {
-      const row = byKey.get(`${a}|${b}`);
-      if (!row) continue;
-      const detail = analysePair(bars, a, b);
+    const detailByKey = new Map<string, PairDetail>();
+    for (const row of research.rows) {
+      const key = `${row.a}|${row.b}`;
+      const detail = analysePair(bars, row.a, row.b);
       if (!detail) continue;
       row.oos = detail.adaptiveOos;
-      walked.push({ key: [a, b], walk: detail.walk, detail });
+      detailByKey.set(key, detail);
+      if (basketKeys.has(key)) walked.push({ key: [row.a, row.b], walk: detail.walk, detail });
     }
 
-    const detailByKey = new Map(walked.map((w) => [`${w.key[0]}|${w.key[1]}`, w.detail]));
+    // Data-integrity scan runs on the raw bars, before any statistic is derived
+    // from them, so a corporate action is reported rather than quietly baked
+    // into a spread.
+    const quality = scanQuality(
+      bars,
+      pairs,
+      failed,
+      symbols.length,
+      research.dropped.map((d) => ({ pair: d.pair, why: d.bars ? `${d.bars} SHARED BARS < ${P.MIN_OBS}` : "NO DATA" }))
+    );
 
     // Live radar over every pair that produced a usable model — including the
     // ones that failed selection, so the desk can show the near misses.
@@ -358,6 +476,21 @@ export async function GET(req: NextRequest, ctx: { params: { kind: string } }) {
 
     const portfolio = buildPortfolio(walked);
 
+    // Partition by DECISION, not by data shape. The four buckets are the ones a
+    // trader acts on, and the second one is the important one: pairs that tripped
+    // the entry threshold and were still refused. Listing those is the difference
+    // between a desk and a screen — they are precisely the trades a z-score-only
+    // model would have taken.
+    const triggered = signals.filter((s) => s.stage === "TRIGGERED");
+    const board = {
+      passed: triggered.filter((s) => s.actionable),
+      rejected: triggered.filter((s) => !s.actionable),
+      onDeck: signals.filter((s) => s.onDeck).sort((a, b) => Math.abs(b.z) - Math.abs(a.z)),
+      stretched: signals
+        .filter((s) => s.stage === "BEYOND STOP" || s.hard.includes("NO-ROOM-TO-STOP") || s.hard.includes("BEYOND-STOP"))
+        .sort((a, b) => Math.abs(b.z) - Math.abs(a.z)),
+    };
+
     // Shared legs across actionable signals: two pairs on one stock are partly
     // the same bet and must be sized as one.
     const legCount = new Map<string, number>();
@@ -373,6 +506,7 @@ export async function GET(req: NextRequest, ctx: { params: { kind: string } }) {
       cached: false,
       sector,
       live,
+      quality,
       sectors: SECTOR_KEYS,
       params: P,
       formationDate: research.formationDate,
@@ -388,8 +522,9 @@ export async function GET(req: NextRequest, ctx: { params: { kind: string } }) {
         .map((r) => ({ ...r, a: bare(r.a), b: bare(r.b) }))
         .sort((x, y) => (y.qForm || 1) - (x.qForm || 1)),
       signals,
-      actionable: signals.filter((s) => s.actionable),
-      onDeck: signals.filter((s) => s.onDeck),
+      actionable: board.passed,
+      onDeck: board.onDeck,
+      board,
       overlaps,
       portfolio: portfolio
         ? {
