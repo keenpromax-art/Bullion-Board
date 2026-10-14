@@ -16,6 +16,7 @@ import { SYMBOL_LESS } from "@/components/terminal/DeskRenderer";
 import { store } from "@/lib/store";
 import { droidStore } from "../lib/droidStore";
 import { useApi, useMounted } from "../lib/quotes";
+import { localSymbols } from "../lib/search";
 import { ErrorState, Note, Skeleton } from "../ui/Pills";
 import Sheet, { ActionList } from "../ui/Sheet";
 
@@ -53,6 +54,46 @@ export default function DeskBridge({ funcId, initialSymbol }: { funcId: string; 
     `/api/lookup?q=${encodeURIComponent(q.trim())}`,
     pick && q.trim().length >= 2
   );
+
+  /**
+   * What GO and Enter would actually load.
+   *
+   * Resolution is deliberately permissive and local: the local index first (it
+   * knows NIFTY, GOLD, and every watchlist name), then the suffix the user typed,
+   * then a plain `.NS` guess. It deliberately does NOT require a lookup hit -
+   * refusing to apply a valid ticker because the search index has not heard of it
+   * is the wrong failure, and the desk downstream already says when a price is
+   * missing.
+   */
+  const typed = useMemo(() => {
+    const raw = q.trim().toUpperCase();
+    if (!raw) return null;
+    const hit = localSymbols(raw, 1)[0];
+    if (hit) return hit.symbol;
+    if (/[.=^]/.test(raw)) return raw;                    // IDEA.NS, GC=F, ^NSEI
+    return `${raw}.NS`;
+  }, [q]);
+
+  /**
+   * Suggestions, with the NSE line first when one is available.
+   *
+   * `/api/lookup` returns US and NSE matches interleaved, so typing IDEA put
+   * "IDEA (INVENT VENTURES, INC.)" above Vodafone Idea — tapping the top row
+   * silently loaded a different company. This is a whole board, so the home
+   * exchange wins ties, and an exact match on the typed text always floats.
+   */
+  const ordered = useMemo(() => {
+    const rows = lookup.data?.rows ?? [];
+    const raw = q.trim().toUpperCase();
+    const score = (r: { symbol: string }) => {
+      let s = 0;
+      if (r.symbol.toUpperCase() === raw || r.symbol.toUpperCase() === typed) s += 1000;
+      if (r.symbol.endsWith(".NS")) s += 100;            // this is an NSE board
+      if (r.symbol.startsWith("^") || r.symbol.includes("=")) s += 80;
+      return s;
+    };
+    return [...rows].sort((a, b) => score(b) - score(a));
+  }, [lookup.data, q, typed]);
 
   const commit = useCallback((s: string) => {
     setSymbol(s);
@@ -175,13 +216,46 @@ export default function DeskBridge({ funcId, initialSymbol }: { funcId: string; 
           <input
             value={q}
             onChange={(e) => setQ(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              // Enter commits. On a phone keyboard the GO key is often missing or
+              // off-screen, and before this the ONLY way to apply what you typed
+              // was to tap a suggestion row - which does not exist while the
+              // lookup is still in flight. The field was a dead end.
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (typed) commit(typed);
+              }
+            }}
             placeholder="TYPE A SYMBOL"
             aria-label="Symbol"
             autoFocus
           />
+          {typed && (
+            <button
+              className="dx-btn"
+              style={{ minHeight: 32, padding: "0 12px", fontSize: 11.5 }}
+              onClick={() => commit(typed)}
+            >
+              GO
+            </button>
+          )}
         </div>
+
+        {typed && (
+          <div className="dx-note" style={{ marginTop: 8 }}>
+            ENTER OR GO LOADS {typed}
+            {typed !== q.trim().toUpperCase() ? ` — YOU TYPED ${q.trim().toUpperCase()}` : ""}
+          </div>
+        )}
+
         <div className="dx-list" style={{ marginTop: 10 }}>
-          {(lookup.data?.rows ?? []).map((r) => (
+          {lookup.loading && q.trim().length >= 2 && <div className="dx-note">SEARCHING…</div>}
+          {!lookup.loading && lookup.error && q.trim().length >= 2 && (
+            <div className="dx-note">
+              LOOKUP FAILED ({lookup.error}) — ENTER OR GO STILL APPLIES WHAT YOU TYPED.
+            </div>
+          )}
+          {ordered.map((r) => (
             <button key={r.symbol} className="dx-row" onClick={() => commit(r.symbol)}>
               <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
                 <span className="dx-sym">{r.symbol}</span>
@@ -190,6 +264,12 @@ export default function DeskBridge({ funcId, initialSymbol }: { funcId: string; 
               <span className="dx-right dx-faint" style={{ fontSize: 10 }}>{r.exch}</span>
             </button>
           ))}
+          {!lookup.loading && q.trim().length >= 2 && !ordered.length && (
+            <div className="dx-note">
+              NO MATCH IN THE INDEX. IF THE TICKER IS CORRECT, ENTER OR GO LOADS IT ANYWAY — THE DESK WILL SAY SO IF
+              YAHOO HAS NO PRICE FOR IT.
+            </div>
+          )}
           {!q.trim() ? (
             <>
               <div className="dx-note">RECENT</div>
